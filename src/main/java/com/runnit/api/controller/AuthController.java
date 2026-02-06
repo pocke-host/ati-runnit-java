@@ -6,7 +6,7 @@ import com.runnit.api.dto.RegisterRequest;
 import com.runnit.api.dto.UserResponse;
 import com.runnit.api.model.User;
 import com.runnit.api.service.AuthService;
-import com.runnit.api.service.FollowService;
+// import com.runnit.api.service.FollowService;
 import com.runnit.api.repository.FollowRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

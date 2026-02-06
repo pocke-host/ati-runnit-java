@@ -1,4 +1,3 @@
-// ========== JwtUtil.java ==========
 package com.runnit.api.security;
 
 import io.jsonwebtoken.*;

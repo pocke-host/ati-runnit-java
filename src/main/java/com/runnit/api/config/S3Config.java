@@ -1,4 +1,3 @@
-// ========== S3Config.java ==========
 package com.runnit.api.config;
 
 import org.springframework.beans.factory.annotation.Value;

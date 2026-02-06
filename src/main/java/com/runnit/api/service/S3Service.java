@@ -1,4 +1,3 @@
-// ========== S3Service.java ==========
 package com.runnit.api.service;
 
 import lombok.RequiredArgsConstructor;

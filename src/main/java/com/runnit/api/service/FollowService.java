@@ -1,9 +1,7 @@
-// ========== FollowService.java ==========
 package com.runnit.api.service;
 
 import com.runnit.api.dto.UserResponse;
 import com.runnit.api.model.Follow;
-import com.runnit.api.model.FollowId;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.UserRepository;
@@ -45,8 +43,9 @@ public class FollowService {
     
     @Transactional
     public void unfollowUser(Long followerId, Long followingId) {
-        followRepository.findById(new FollowId(followerId, followingId))
-                .ifPresent(followRepository::delete);
+        followRepository.findByFollowerUserId(followerId).stream()
+                .filter(f -> f.getFollowingUserId().equals(followingId))
+                .forEach(followRepository::delete);
     }
     
     public List<UserResponse> getFollowers(Long userId) {

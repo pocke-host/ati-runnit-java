@@ -1,4 +1,3 @@
-// ========== SecurityConfig.java ==========
 package com.runnit.api.config;
 
 import com.runnit.api.security.JwtAuthenticationFilter;
@@ -48,8 +47,8 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
             "http://127.0.0.1:5173",
             "http://localhost:5173",
-            "capacitor://localhost", // Capacitor iOS
-            "http://localhost" // Capacitor Android
+            "capacitor://localhost",
+            "http://localhost"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

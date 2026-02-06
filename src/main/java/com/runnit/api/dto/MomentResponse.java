@@ -1,4 +1,3 @@
-// ========== MomentResponse.java ==========
 package com.runnit.api.dto;
 
 import com.runnit.api.model.Reaction;
@@ -7,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 
 @Data
@@ -28,9 +26,5 @@ public class MomentResponse {
     private Instant createdAt;
     private Long reactionCount;
     private Map<Reaction.ReactionType, Long> reactionsByType;
-    private Reaction.ReactionType currentUserReaction; // null if no reaction
+    private Reaction.ReactionType currentUserReaction;
 }
-
-
-
-

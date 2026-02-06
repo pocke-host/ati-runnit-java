@@ -1,4 +1,3 @@
-// ========== ActivityService.java ==========
 package com.runnit.api.service;
 
 import com.runnit.api.dto.ActivityRequest;
