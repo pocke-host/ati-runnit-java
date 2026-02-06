@@ -10,4 +10,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     Optional<User> findByAuthProviderAndProviderId(User.AuthProvider provider, String providerId);
     boolean existsByEmail(String email);
+
+    Optional<User> findByGarminAccessToken(String garminAccessToken);
+    Optional<User> findByStravaAthleteId(Long stravaAthleteId); 
 }

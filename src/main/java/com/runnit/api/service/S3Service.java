@@ -55,4 +55,26 @@ public class S3Service {
     public String getPublicUrl(String key) {
         return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, key);
     }
+
+    public String uploadFile(byte[] fileBytes, String key, String contentType) {
+        try {
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentLength(fileBytes.length);
+            metadata.setContentType(contentType);
+    
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+    
+            s3Client.putObject(putObjectRequest, 
+                RequestBody.fromBytes(fileBytes));
+    
+            return String.format("https://%s.s3.%s.amazonaws.com/%s", 
+                bucketName, region, key);
+                
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to upload file to S3", e);
+        }
+    }
 }
