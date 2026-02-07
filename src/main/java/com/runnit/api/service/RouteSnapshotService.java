@@ -1,7 +1,7 @@
 // ========== RouteSnapshotService.java ==========
-package com.runnit.service;
+package com.runnit.api.service;
 
-import com.runnit.util.PolylineDecoder;
+import com.runnit.api.util.PolylineDecoder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

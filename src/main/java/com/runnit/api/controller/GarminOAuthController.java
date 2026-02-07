@@ -1,7 +1,7 @@
 // ========== GarminOAuthController.java ==========
-package com.runnit.controller;
+package com.runnit.api.controller;
 
-import com.runnit.service.GarminOAuthService;
+import com.runnit.api.service.GarminOAuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

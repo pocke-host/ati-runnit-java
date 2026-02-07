@@ -1,8 +1,8 @@
 // ========== GarminOAuthService.java ==========
-package com.runnit.service;
+package com.runnit.api.service;
 
-import com.runnit.entity.User;
-import com.runnit.repository.UserRepository;
+import com.runnit.api.model.User;
+import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import oauth.signpost.OAuthConsumer;
@@ -22,6 +22,7 @@ import java.util.Map;
 public class GarminOAuthService {
 
     private final UserRepository userRepository;
+    private final User user;
     
     @Value("${garmin.oauth.consumer-key}")
     private String consumerKey;

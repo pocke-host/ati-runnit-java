@@ -1,9 +1,9 @@
 // ========== StravaOAuthService.java ==========
-package com.runnit.service;
+package com.runnit.api.service;
 
-import com.runnit.dto.StravaTokenResponseDTO;
-import com.runnit.entity.User;
-import com.runnit.repository.UserRepository;
+import com.runnit.api.dto.StravaTokenResponseDTO;
+import com.runnit.api.model.User;
+import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

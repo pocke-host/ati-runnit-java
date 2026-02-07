@@ -1,5 +1,5 @@
 // ========== PolylineDecoder.java ==========
-package com.runnit.util;
+package com.runnit.api.util;
 
 import lombok.Data;
 

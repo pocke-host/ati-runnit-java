@@ -1,8 +1,8 @@
 // ========== PlaceholderImageService.java ==========
-package com.runnit.service;
+package com.runnit.api.service;
 
-import com.runnit.entity.Activity;
-import com.runnit.entity.enums.SportType;
+import com.runnit.api.model.Activity;
+import com.runnit.api.model.Activity.SportType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

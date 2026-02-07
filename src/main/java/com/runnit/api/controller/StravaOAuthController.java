@@ -1,7 +1,7 @@
 // ========== StravaOAuthController.java ==========
-package com.runnit.controller;
+package com.runnit.api.controller;
 
-import com.runnit.service.StravaOAuthService;
+import com.runnit.api.service.StravaOAuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

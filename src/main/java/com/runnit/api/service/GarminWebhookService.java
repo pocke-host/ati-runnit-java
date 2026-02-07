@@ -1,12 +1,13 @@
 // ========== GarminWebhookService.java ==========
-package com.runnit.service;
+package com.runnit.api.service;
 
-import com.runnit.dto.GarminActivityDTO;
-import com.runnit.entity.Activity;
-import com.runnit.entity.User;
-import com.runnit.entity.enums.SportType;
-import com.runnit.repository.ActivityRepository;
-import com.runnit.repository.UserRepository;
+import com.runnit.api.dto.GarminActivityDTO;
+import com.runnit.api.model.Activity;
+import com.runnit.api.model.User;
+// import com.runnit.api.model.Activity.enums.SportType; 
+// Assuming SportType is an enum inside Activity
+import com.runnit.api.repository.ActivityRepository;
+import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

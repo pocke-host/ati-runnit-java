@@ -1,10 +1,10 @@
 // ========== AutoMomentService.java ==========
-package com.runnit.service;
+package com.runnit.api.service;
 
-import com.runnit.entity.Activity;
-import com.runnit.entity.Moment;
-import com.runnit.entity.User;
-import com.runnit.repository.MomentRepository;
+import com.runnit.api.model.Activity;
+import com.runnit.api.model.Moment;
+import com.runnit.api.model.User;
+import com.runnit.api.repository.MomentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

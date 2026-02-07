@@ -1,8 +1,8 @@
 // ========== GarminWebhookController.java ==========
-package com.runnit.controller;
+package com.runnit.api.controller;
 
-import com.runnit.dto.GarminActivityDTO;
-import com.runnit.service.GarminWebhookService;
+import com.runnit.api.dto.GarminActivityDTO;
+import com.runnit.api.service.GarminWebhookService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

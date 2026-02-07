@@ -1,10 +1,10 @@
 // ========== GarminActivityDTO.java ==========
-package com.runnit.dto;
+package com.runnit.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+// import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
