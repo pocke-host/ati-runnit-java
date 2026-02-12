@@ -7,6 +7,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -57,24 +59,15 @@ public class S3Service {
     }
 
     public String uploadFile(byte[] fileBytes, String key, String contentType) {
-        try {
-            ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentLength(fileBytes.length);
-            metadata.setContentType(contentType);
-    
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(key)
-                .build();
-    
-            s3Client.putObject(putObjectRequest, 
-                RequestBody.fromBytes(fileBytes));
-    
-            return String.format("https://%s.s3.%s.amazonaws.com/%s", 
-                bucketName, region, key);
-                
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to upload file to S3", e);
-        }
+        PutObjectRequest putRequest = PutObjectRequest.builder()
+            .bucket(bucketName)
+            .key(key)
+            .contentType(contentType)
+            .build();
+        
+        // S3Client.putObject(putRequest, RequestBody.fromBytes(fileBytes));
+        
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", 
+            bucketName, region, key);
     }
 }

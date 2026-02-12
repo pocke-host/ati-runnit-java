@@ -1,6 +1,7 @@
 // ========== AutoMomentService.java ==========
 package com.runnit.api.service;
 
+import com.runnit.api.dto.SongDTO;
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.Moment;
 import com.runnit.api.model.User;
@@ -24,15 +25,15 @@ public class AutoMomentService {
     private final PlaceholderImageService placeholderImageService;
 
     // Default workout songs for auto-generation
-    private static final List<SongSuggestion> DEFAULT_SONGS = List.of(
-        new SongSuggestion("Eye of the Tiger", "Survivor", "https://open.spotify.com/track/2KH16WveTQWT6KOG9Rg6e2"),
-        new SongSuggestion("Lose Yourself", "Eminem", "https://open.spotify.com/track/5Z01UMMf7V1o0MzF86s6WJ"),
-        new SongSuggestion("Stronger", "Kanye West", "https://open.spotify.com/track/4fzsfWzRhPawzqhX8Qt9F3"),
-        new SongSuggestion("Till I Collapse", "Eminem", "https://open.spotify.com/track/4xkOaSrkexMciUUogZKVTS"),
-        new SongSuggestion("Can't Hold Us", "Macklemore", "https://open.spotify.com/track/3XVBdLihbNbxUwZosxcGuJ"),
-        new SongSuggestion("Remember the Name", "Fort Minor", "https://open.spotify.com/track/1lgN0A2Vki2FTON5PYq42P"),
-        new SongSuggestion("POWER", "Kanye West", "https://open.spotify.com/track/2mxHmbKHbKnKdT8iRzo0AW"),
-        new SongSuggestion("Thunderstruck", "AC/DC", "https://open.spotify.com/track/57bgtoPSgt236HzfBOd8kj")
+    private static final List<SongDTO> DEFAULT_SONGS = List.of(
+        new SongDTO("Eye of the Tiger", "Survivor", "https://open.spotify.com/track/2KH16WveTQWT6KOG9Rg6e2"),
+        new SongDTO("Lose Yourself", "Eminem", "https://open.spotify.com/track/5Z01UMMf7V1o0MzF86s6WJ"),
+        new SongDTO("Stronger", "Kanye West", "https://open.spotify.com/track/4fzsfWzRhPawzqhX8Qt9F3"),
+        new SongDTO("Till I Collapse", "Eminem", "https://open.spotify.com/track/4xkOaSrkexMciUUogZKVTS"),
+        new SongDTO("Can't Hold Us", "Macklemore", "https://open.spotify.com/track/3XVBdLihbNbxUwZosxcGuJ"),
+        new SongDTO("Remember the Name", "Fort Minor", "https://open.spotify.com/track/1lgN0A2Vki2FTON5PYq42P"),
+        new SongDTO("POWER", "Kanye West", "https://open.spotify.com/track/2mxHmbKHbKnKdT8iRzo0AW"),
+        new SongDTO("Thunderstruck", "AC/DC", "https://open.spotify.com/track/57bgtoPSgt236HzfBOd8kj")
     );
 
     @Transactional
@@ -48,7 +49,7 @@ public class AutoMomentService {
         }
         
         Moment moment = new Moment();
-        moment.setUser(user);
+        // moment.setUser(user);
         moment.setActivity(activity);
         
         // Generate or use placeholder photo
@@ -62,10 +63,10 @@ public class AutoMomentService {
         }
         
         // Get song - try Spotify first, fallback to default
-        SongSuggestion song = getSongForActivity(activity, user);
-        moment.setSongTitle(song.getTitle());
-        moment.setSongArtist(song.getArtist());
-        moment.setSongLink(song.getLink());
+        SongDTO song = getSongForActivity(activity, user);
+        moment.setSongTitle(song.title());
+        moment.setSongArtist(song.artist());
+        moment.setSongLink(song.link());
         
         Moment savedMoment = momentRepository.save(moment);
         log.info("Auto-generated moment {} for activity {}", savedMoment.getId(), activity.getId());
@@ -85,11 +86,11 @@ public class AutoMomentService {
         return placeholderImageService.generateActivityPlaceholder(activity);
     }
     
-    private SongSuggestion getSongForActivity(Activity activity, User user) {
+    private SongDTO getSongForActivity(Activity activity, User user) {
         // Try to get user's recently played Spotify track during workout time
         try {
             if (user.getSpotifyAccessToken() != null) {
-                SongSuggestion spotifySong = spotifyService.getRecentTrackDuringActivity(user, activity);
+                SongDTO spotifySong = spotifyService.getRecentTrackDuringActivity(user, activity);
                 if (spotifySong != null) {
                     return spotifySong;
                 }
@@ -102,6 +103,4 @@ public class AutoMomentService {
         Random random = new Random();
         return DEFAULT_SONGS.get(random.nextInt(DEFAULT_SONGS.size()));
     }
-    
-    public record SongSuggestion(String title, String artist, String link) {}
 }

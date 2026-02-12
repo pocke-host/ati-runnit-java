@@ -2,7 +2,9 @@ package com.runnit.api.service;
 
 import com.runnit.api.dto.ActivityRequest;
 import com.runnit.api.model.Activity;
+import com.runnit.api.model.User;
 import com.runnit.api.repository.ActivityRepository;
+import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -14,11 +16,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class ActivityService {
     
     private final ActivityRepository activityRepository;
+    private final UserRepository userRepository;
     
     @Transactional
     public Activity createActivity(Long userId, ActivityRequest request) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
         Activity activity = Activity.builder()
-                .userId(userId)
+                .user(user)  // Use User object, not userId
                 .sportType(request.getSportType())
                 .durationSeconds(request.getDurationSeconds())
                 .distanceMeters(request.getDistanceMeters())
@@ -29,7 +35,9 @@ public class ActivityService {
     }
     
     public Page<Activity> getUserActivities(Long userId, int page, int size) {
-        return activityRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+            return activityRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(page, size));
     }
     
     public Activity getActivityById(Long id) {

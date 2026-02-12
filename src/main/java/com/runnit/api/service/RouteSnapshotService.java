@@ -11,9 +11,6 @@ import org.springframework.web.client.RestTemplate;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,6 +32,9 @@ public class RouteSnapshotService {
     private static final int MAP_HEIGHT = 400;
     private static final String ROUTE_COLOR = "0000ff"; // Blue
     private static final int ROUTE_WEIGHT = 3;
+    
+    // Record definition - ONLY ONCE at the top
+    private record BoundingBox(double minLat, double maxLat, double minLng, double maxLng) {}
 
     /**
      * Generate a static map image from an encoded polyline
@@ -77,9 +77,6 @@ public class RouteSnapshotService {
         // Get bounding box for auto-zoom
         BoundingBox bbox = calculateBoundingBox(coordinates);
         
-        // Build Mapbox Static Images API URL
-        // Format: https://api.mapbox.com/styles/v1/{username}/{style_id}/static/{overlay}/{lon},{lat},{zoom},{bearing},{pitch}/{width}x{height}{@2x}
-        
         // Simplify path if too many points (Mapbox has URL length limits)
         List<PolylineDecoder.LatLng> simplifiedPath = simplifyPath(coordinates, 100);
         
@@ -96,8 +93,8 @@ public class RouteSnapshotService {
         pathOverlay.append(")");
         
         // Calculate center and zoom
-        double centerLng = (bbox.getMinLng() + bbox.getMaxLng()) / 2;
-        double centerLat = (bbox.getMinLat() + bbox.getMaxLat()) / 2;
+        double centerLng = (bbox.minLng() + bbox.maxLng()) / 2;
+        double centerLat = (bbox.minLat() + bbox.maxLat()) / 2;
         int zoom = calculateZoomLevel(bbox);
         
         String mapboxUrl = String.format(
@@ -159,8 +156,8 @@ public class RouteSnapshotService {
     
     private int calculateZoomLevel(BoundingBox bbox) {
         // Calculate appropriate zoom level based on bounding box size
-        double latDiff = bbox.getMaxLat() - bbox.getMinLat();
-        double lngDiff = bbox.getMaxLng() - bbox.getMinLng();
+        double latDiff = bbox.maxLat() - bbox.minLat();
+        double lngDiff = bbox.maxLng() - bbox.minLng();
         double maxDiff = Math.max(latDiff, lngDiff);
         
         // Rough zoom calculation
@@ -184,6 +181,4 @@ public class RouteSnapshotService {
             .filter(coord -> path.indexOf(coord) % step == 0)
             .toList();
     }
-    
-    private record BoundingBox(double minLat, double maxLat, double minLng, double maxLng) {}
 }

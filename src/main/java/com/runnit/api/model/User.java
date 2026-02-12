@@ -2,6 +2,8 @@ package com.runnit.api.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
@@ -21,6 +23,9 @@ public class User {
 
     @Column(unique = true)
     private String email;
+
+    @Column(name = "user", nullable = false)
+    private String user;
 
     @Column(name = "display_name", nullable = false)
     private String displayName;
@@ -75,5 +80,15 @@ public class User {
 
     public enum AuthProvider {
         GOOGLE, APPLE, EMAIL
+    }
+
+    // Getter method
+    public String getUser() {
+        return this.user;
+    }
+
+    // Setter method
+    public void setUser(String user) {
+        this.user = user;
     }
 }

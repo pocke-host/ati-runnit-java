@@ -1,6 +1,9 @@
 // ========== GarminOAuthService.java ==========
 package com.runnit.api.service;
 
+import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -86,7 +89,7 @@ public class GarminOAuthService {
             
             // Exchange for access token
             OAuthConsumer consumer = new DefaultOAuthConsumer(consumerKey, consumerSecret);
-            consumer.setTokenWithSecret(tokenData.getToken(), tokenData.getTokenSecret());
+            consumer.setTokenWithSecret(tokenData.token(), tokenData.tokenSecret()); // line 92
             
             OAuthProvider provider = new DefaultOAuthProvider(
                 REQUEST_TOKEN_URL,
@@ -97,7 +100,7 @@ public class GarminOAuthService {
             provider.retrieveAccessToken(consumer, oauthVerifier);
             
             // Save access token to user
-            User user = userRepository.findByEmail(tokenData.getUserEmail())
+            User user = userRepository.findByEmail(tokenData.userEmail()) // line 103
                 .orElseThrow(() -> new RuntimeException("User not found"));
             
             user.setGarminAccessToken(consumer.getToken());

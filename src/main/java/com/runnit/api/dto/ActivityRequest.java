@@ -7,7 +7,7 @@ import lombok.Data;
 
 @Data
 public class ActivityRequest {
-    
+
     @NotNull(message = "Sport type is required")
     private Activity.SportType sportType;
     

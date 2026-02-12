@@ -1,6 +1,7 @@
 // ========== SpotifyService.java ==========
 package com.runnit.api.service;
 
+import com.runnit.api.dto.SongDTO;
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.User;
 import lombok.RequiredArgsConstructor;
@@ -12,8 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.Instant;
 import java.util.Map;
 
 @Slf4j
@@ -28,7 +28,7 @@ public class SpotifyService {
     /**
      * Get a track that was played during the activity time window
      */
-    public AutoMomentService.SongSuggestion getRecentTrackDuringActivity(User user, Activity activity) {
+    public SongDTO getRecentTrackDuringActivity(User user, Activity activity) {
         log.info("Fetching Spotify track for activity time: {}", activity.getCreatedAt());
         
         try {
@@ -52,8 +52,8 @@ public class SpotifyService {
             }
             
             // Find track played during activity time
-            LocalDateTime activityStart = activity.getCreatedAt();
-            LocalDateTime activityEnd = activityStart.plusSeconds(activity.getDurationSeconds());
+            // Instant activityStart = activity.getCreatedAt();
+            // Instant activityEnd = activityStart.plusSeconds(activity.getDurationSeconds());
             
             // TODO: Parse Spotify response and find matching track
             // For now, return null to use fallback

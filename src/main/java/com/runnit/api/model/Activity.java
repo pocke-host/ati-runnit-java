@@ -3,7 +3,9 @@ package com.runnit.api.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "activities")
@@ -17,8 +19,9 @@ public class Activity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "sport_type", nullable = false)
@@ -30,20 +33,37 @@ public class Activity {
     @Column(name = "distance_meters")
     private Integer distanceMeters;
 
+    @Column(name = "calories")
+    private Integer calories;
+
+    @Column(name = "elevation_gain")
+    private Integer elevationGain;
+
+    @Column(name = "average_heart_rate")
+    private Integer averageHeartRate;
+
+    @Column(name = "max_heart_rate")
+    private Integer maxHeartRate;
+
+    @Column(name = "average_pace")
+    private Double averagePace;
+
+    @Column(name = "route_polyline", columnDefinition = "TEXT")
+    private String routePolyline;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "source")
-    @Builder.Default
-    private Source source = Source.MANUAL;
+    private Source source;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 
     public enum SportType {
         RUN, BIKE, SWIM, HIKE, WALK, OTHER
     }
 
     public enum Source {
-        MANUAL, INTEGRATION
+        MANUAL, GARMIN, STRAVA, APPLE_WATCH
     }
 }

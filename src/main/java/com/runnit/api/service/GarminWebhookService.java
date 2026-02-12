@@ -4,15 +4,14 @@ package com.runnit.api.service;
 import com.runnit.api.dto.GarminActivityDTO;
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.User;
-// import com.runnit.api.model.Activity.enums.SportType; 
-// Assuming SportType is an enum inside Activity
+import com.runnit.api.model.Activity.SportType; 
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.runnit.api.service.AutoMomentService;
+// import com.runnit.api.service.AutoMomentService;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -25,7 +24,7 @@ public class GarminWebhookService {
 
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
-    private final MomentService momentService;
+    // private final MomentService momentService;
     private final AutoMomentService autoMomentService;
 
     @Transactional
@@ -38,7 +37,7 @@ public class GarminWebhookService {
         
         // Create Activity
         Activity activity = new Activity();
-        activity.setUser(user);
+        // activity.setUser(user);
         activity.setSportType(mapGarminSportType(dto.getActivityType()));
         activity.setDurationSeconds(dto.getDurationInSeconds());
         activity.setDistanceMeters(dto.getDistanceInMeters() != null ? dto.getDistanceInMeters().intValue() : null);

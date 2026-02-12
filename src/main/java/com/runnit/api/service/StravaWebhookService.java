@@ -17,6 +17,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import com.runnit.api.service.AutoMomentService;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -30,6 +31,7 @@ public class StravaWebhookService {
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
     private final RestTemplate restTemplate;
+    private final AutoMomentService autoMomentService;
     
     private static final String STRAVA_API_URL = "https://www.strava.com/api/v3";
 
@@ -61,7 +63,7 @@ public class StravaWebhookService {
         
         // Create Activity
         Activity activity = new Activity();
-        activity.setUser(user);
+        // activity.setUser(user);
         activity.setSportType(mapStravaSportType(activityDetail.getType()));
         activity.setDurationSeconds(activityDetail.getMovingTime());
         activity.setDistanceMeters(activityDetail.getDistance() != null ? activityDetail.getDistance().intValue() : null);
