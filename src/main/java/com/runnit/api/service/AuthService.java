@@ -28,7 +28,7 @@ public class AuthService {
         User user = User.builder()
                 .email(email)
                 .displayName(displayName)
-                .authProvider(User.AuthProvider.EMAIL)
+                // .authProvider(User.AuthProvider.EMAIL)
                 .passwordHash(passwordEncoder.encode(password))
                 .build();
         
@@ -45,9 +45,9 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
         
-        if (user.getAuthProvider() != User.AuthProvider.EMAIL) {
-            throw new RuntimeException("Please use " + user.getAuthProvider() + " to sign in");
-        }
+        // if (user.getAuthProvider() != User.AuthProvider.EMAIL) {
+        //     throw new RuntimeException("Please use " + user.getAuthProvider() + " to sign in");
+        // }
         
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new RuntimeException("Invalid credentials");
@@ -69,9 +69,9 @@ public class AuthService {
                     User newUser = User.builder()
                             .email(email)
                             .displayName(displayName)
-                            .avatarUrl(avatarUrl)
-                            .authProvider(provider)
-                            .providerId(providerId)
+                            // .avatarUrl(avatarUrl)
+                            // .authProvider(provider)
+                            // .providerId(providerId)
                             .build();
                     return userRepository.save(newUser);
                 });

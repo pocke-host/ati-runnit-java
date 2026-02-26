@@ -1,140 +1,140 @@
-// ========== GarminOAuthService.java ==========
-package com.runnit.api.service;
+// // ========== GarminOAuthService.java ==========
+// package com.runnit.api.service;
 
-import lombok.*;
-import lombok.Getter;
-import lombok.Setter;
-import com.runnit.api.model.User;
-import com.runnit.api.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import oauth.signpost.OAuthConsumer;
-import oauth.signpost.OAuthProvider;
-import oauth.signpost.basic.DefaultOAuthConsumer;
-import oauth.signpost.basic.DefaultOAuthProvider;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+// import lombok.*;
+// import lombok.Getter;
+// import lombok.Setter;
+// import com.runnit.api.model.User;
+// import com.runnit.api.repository.UserRepository;
+// import lombok.RequiredArgsConstructor;
+// import lombok.extern.slf4j.Slf4j;
+// import oauth.signpost.OAuthConsumer;
+// import oauth.signpost.OAuthProvider;
+// import oauth.signpost.basic.DefaultOAuthConsumer;
+// import oauth.signpost.basic.DefaultOAuthProvider;
+// import org.springframework.beans.factory.annotation.Value;
+// import org.springframework.stereotype.Service;
+// import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.Map;
+// import java.util.HashMap;
+// import java.util.Map;
 
-@Slf4j
-@Service
-@RequiredArgsConstructor
-public class GarminOAuthService {
+// @Slf4j
+// @Service
+// @RequiredArgsConstructor
+// public class GarminOAuthService {
 
-    private final UserRepository userRepository;
-    private final User user;
+//     private final UserRepository userRepository;
+//     private final User user;
     
-    @Value("${garmin.oauth.consumer-key}")
-    private String consumerKey;
+//     @Value("${garmin.oauth.consumer-key}")
+//     private String consumerKey;
     
-    @Value("${garmin.oauth.consumer-secret}")
-    private String consumerSecret;
+//     @Value("${garmin.oauth.consumer-secret}")
+//     private String consumerSecret;
     
-    @Value("${garmin.oauth.callback-url}")
-    private String callbackUrl;
+//     @Value("${garmin.oauth.callback-url}")
+//     private String callbackUrl;
     
-    private static final String REQUEST_TOKEN_URL = "https://connectapi.garmin.com/oauth-service/oauth/request_token";
-    private static final String AUTHORIZE_URL = "https://connect.garmin.com/oauthConfirm";
-    private static final String ACCESS_TOKEN_URL = "https://connectapi.garmin.com/oauth-service/oauth/access_token";
+//     private static final String REQUEST_TOKEN_URL = "https://connectapi.garmin.com/oauth-service/oauth/request_token";
+//     private static final String AUTHORIZE_URL = "https://connect.garmin.com/oauthConfirm";
+//     private static final String ACCESS_TOKEN_URL = "https://connectapi.garmin.com/oauth-service/oauth/access_token";
     
-    // Temporary storage for OAuth tokens during flow (use Redis in production)
-    private final Map<String, OAuthTokenData> pendingTokens = new HashMap<>();
+//     // Temporary storage for OAuth tokens during flow (use Redis in production)
+//     private final Map<String, OAuthTokenData> pendingTokens = new HashMap<>();
 
-    /**
-     * Step 1: Get authorization URL
-     */
-    public String getAuthorizationUrl(String userEmail) {
-        try {
-            OAuthConsumer consumer = new DefaultOAuthConsumer(consumerKey, consumerSecret);
-            OAuthProvider provider = new DefaultOAuthProvider(
-                REQUEST_TOKEN_URL,
-                ACCESS_TOKEN_URL,
-                AUTHORIZE_URL
-            );
+//     /**
+//      * Step 1: Get authorization URL
+//      */
+//     public String getAuthorizationUrl(String userEmail) {
+//         try {
+//             OAuthConsumer consumer = new DefaultOAuthConsumer(consumerKey, consumerSecret);
+//             OAuthProvider provider = new DefaultOAuthProvider(
+//                 REQUEST_TOKEN_URL,
+//                 ACCESS_TOKEN_URL,
+//                 AUTHORIZE_URL
+//             );
             
-            // Get request token
-            String authUrl = provider.retrieveRequestToken(consumer, callbackUrl);
+//             // Get request token
+//             String authUrl = provider.retrieveRequestToken(consumer, callbackUrl);
             
-            // Store token data temporarily (keyed by request token)
-            String requestToken = consumer.getToken();
-            pendingTokens.put(requestToken, new OAuthTokenData(
-                userEmail,
-                consumer.getToken(),
-                consumer.getTokenSecret()
-            ));
+//             // Store token data temporarily (keyed by request token)
+//             String requestToken = consumer.getToken();
+//             pendingTokens.put(requestToken, new OAuthTokenData(
+//                 userEmail,
+//                 consumer.getToken(),
+//                 consumer.getTokenSecret()
+//             ));
             
-            log.info("Generated Garmin auth URL for user: {}", userEmail);
-            return authUrl;
+//             log.info("Generated Garmin auth URL for user: {}", userEmail);
+//             return authUrl;
             
-        } catch (Exception e) {
-            log.error("Failed to generate Garmin auth URL", e);
-            throw new RuntimeException("Failed to initiate Garmin OAuth", e);
-        }
-    }
+//         } catch (Exception e) {
+//             log.error("Failed to generate Garmin auth URL", e);
+//             throw new RuntimeException("Failed to initiate Garmin OAuth", e);
+//         }
+//     }
 
-    /**
-     * Step 2: Handle OAuth callback and exchange for access token
-     */
-    @Transactional
-    public void handleCallback(String oauthToken, String oauthVerifier) {
-        try {
-            // Retrieve pending token data
-            OAuthTokenData tokenData = pendingTokens.get(oauthToken);
-            if (tokenData == null) {
-                throw new RuntimeException("Invalid or expired OAuth token");
-            }
+//     /**
+//      * Step 2: Handle OAuth callback and exchange for access token
+//      */
+//     @Transactional
+//     public void handleCallback(String oauthToken, String oauthVerifier) {
+//         try {
+//             // Retrieve pending token data
+//             OAuthTokenData tokenData = pendingTokens.get(oauthToken);
+//             if (tokenData == null) {
+//                 throw new RuntimeException("Invalid or expired OAuth token");
+//             }
             
-            // Exchange for access token
-            OAuthConsumer consumer = new DefaultOAuthConsumer(consumerKey, consumerSecret);
-            consumer.setTokenWithSecret(tokenData.token(), tokenData.tokenSecret()); // line 92
+//             // Exchange for access token
+//             OAuthConsumer consumer = new DefaultOAuthConsumer(consumerKey, consumerSecret);
+//             consumer.setTokenWithSecret(tokenData.token(), tokenData.tokenSecret()); // line 92
             
-            OAuthProvider provider = new DefaultOAuthProvider(
-                REQUEST_TOKEN_URL,
-                ACCESS_TOKEN_URL,
-                AUTHORIZE_URL
-            );
+//             OAuthProvider provider = new DefaultOAuthProvider(
+//                 REQUEST_TOKEN_URL,
+//                 ACCESS_TOKEN_URL,
+//                 AUTHORIZE_URL
+//             );
             
-            provider.retrieveAccessToken(consumer, oauthVerifier);
+//             provider.retrieveAccessToken(consumer, oauthVerifier);
             
-            // Save access token to user
-            User user = userRepository.findByEmail(tokenData.userEmail()) // line 103
-                .orElseThrow(() -> new RuntimeException("User not found"));
+//             // Save access token to user
+//             User user = userRepository.findByEmail(tokenData.userEmail()) // line 103
+//                 .orElseThrow(() -> new RuntimeException("User not found"));
             
-            user.setGarminAccessToken(consumer.getToken());
-            user.setGarminTokenSecret(consumer.getTokenSecret());
-            userRepository.save(user);
+//             user.setGarminAccessToken(consumer.getToken());
+//             // user.setGarminTokenSecret(consumer.getTokenSecret());
+//             userRepository.save(user);
             
-            // Clean up pending token
-            pendingTokens.remove(oauthToken);
+//             // Clean up pending token
+//             pendingTokens.remove(oauthToken);
             
-            log.info("Successfully connected Garmin for user: {}", user.getEmail());
+//             log.info("Successfully connected Garmin for user: {}", user.getEmail());
             
-        } catch (Exception e) {
-            log.error("Failed to handle Garmin callback", e);
-            throw new RuntimeException("Failed to complete Garmin OAuth", e);
-        }
-    }
+//         } catch (Exception e) {
+//             log.error("Failed to handle Garmin callback", e);
+//             throw new RuntimeException("Failed to complete Garmin OAuth", e);
+//         }
+//     }
 
-    public boolean isConnected(String userEmail) {
-        return userRepository.findByEmail(userEmail)
-            .map(user -> user.getGarminAccessToken() != null)
-            .orElse(false);
-    }
+//     public boolean isConnected(String userEmail) {
+//         return userRepository.findByEmail(userEmail)
+//             .map(user -> user.getGarminAccessToken() != null)
+//             .orElse(false);
+//     }
 
-    @Transactional
-    public void disconnect(String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+//     @Transactional
+//     public void disconnect(String userEmail) {
+//         User user = userRepository.findByEmail(userEmail)
+//             .orElseThrow(() -> new RuntimeException("User not found"));
         
-        user.setGarminAccessToken(null);
-        user.setGarminTokenSecret(null);
-        userRepository.save(user);
+//         user.setGarminAccessToken(null);
+//         // user.setGarminTokenSecret(null);
+//         userRepository.save(user);
         
-        log.info("Disconnected Garmin for user: {}", userEmail);
-    }
+//         log.info("Disconnected Garmin for user: {}", userEmail);
+//     }
     
-    private record OAuthTokenData(String userEmail, String token, String tokenSecret) {}
-}
+//     private record OAuthTokenData(String userEmail, String token, String tokenSecret) {}
+// }

@@ -3,9 +3,11 @@ package com.runnit.api.service;
 
 import com.runnit.api.dto.MomentRequest;
 import com.runnit.api.dto.MomentResponse;
+import com.runnit.api.model.Activity;
 import com.runnit.api.model.Moment;
 import com.runnit.api.model.Reaction;
 import com.runnit.api.model.User;
+import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.MomentRepository;
 import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.ReactionRepository;
@@ -30,20 +32,32 @@ public class MomentService {
     private final FollowRepository followRepository;
     private final ReactionRepository reactionRepository;
     private final UserRepository userRepository;
+    private final ActivityRepository activityRepository;
     
     @Transactional
     public Moment createMoment(Long userId, MomentRequest request) {
         LocalDate today = LocalDate.now(ZoneId.of("UTC"));
         
+        // Get User object
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
         // Check if already posted today
-        momentRepository.findByUserIdAndDayKey(userId, today)
+        momentRepository.findByUserAndDayKey(user, today)
                 .ifPresent(m -> {
                     throw new RuntimeException("You've already posted a moment today");
                 });
         
+        // Get Activity object if activityId provided
+        Activity activity = null;
+        if (request.getActivityId() != null) {
+            activity = activityRepository.findById(request.getActivityId())
+                    .orElse(null);
+        }
+        
         Moment moment = Moment.builder()
-                .userId(userId)
-                .activityId(request.getActivityId())
+                .user(user)
+                .activity(activity)
                 .photoUrl(request.getPhotoUrl())
                 .routeSnapshotUrl(request.getRouteSnapshotUrl())
                 .songTitle(request.getSongTitle())
@@ -71,29 +85,32 @@ public class MomentService {
     }
     
     public Page<MomentResponse> getUserMoments(Long userId, Long currentUserId, int page, int size) {
-        Page<Moment> moments = momentRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        Page<Moment> moments = momentRepository.findByUserOrderByCreatedAtDesc(user, PageRequest.of(page, size));
         return moments.map(moment -> buildMomentResponse(moment, currentUserId));
     }
     
     private MomentResponse buildMomentResponse(Moment moment, Long currentUserId) {
-        User user = userRepository.findById(moment.getUserId()).orElse(null);
+        User user = moment.getUser();
         
         List<Reaction> reactions = reactionRepository.findByMomentId(moment.getId());
         Map<Reaction.ReactionType, Long> reactionsByType = reactions.stream()
                 .collect(Collectors.groupingBy(Reaction::getType, Collectors.counting()));
         
         Reaction.ReactionType currentUserReaction = reactions.stream()
-                .filter(r -> r.getUserId().equals(currentUserId))
+                .filter(r -> r.getUser().getId().equals(currentUserId))
                 .map(Reaction::getType)
                 .findFirst()
                 .orElse(null);
         
         return MomentResponse.builder()
                 .id(moment.getId())
-                .userId(moment.getUserId())
-                .userDisplayName(user != null ? user.getDisplayName() : "Unknown")
-                .userAvatarUrl(user != null ? user.getAvatarUrl() : null)
-                .activityId(moment.getActivityId())
+                .userId(user.getId())
+                .userDisplayName(user.getDisplayName())
+                // .userAvatarUrl(user.getAvatarUrl())
+                .activityId(moment.getActivity() != null ? moment.getActivity().getId() : null)
                 .photoUrl(moment.getPhotoUrl())
                 .routeSnapshotUrl(moment.getRouteSnapshotUrl())
                 .songTitle(moment.getSongTitle())

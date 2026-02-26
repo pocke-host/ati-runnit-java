@@ -2,8 +2,6 @@ package com.runnit.api.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.Getter;
-import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -20,14 +18,13 @@ public class Moment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    @Column(name = "user", nullable = false)
-    private String user;
-
-    @Column(name = "activity_id")
-    private Long activityId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "activity_id")
+    private Activity activity;
 
     @Column(name = "photo_url", nullable = false)
     private String photoUrl;
@@ -50,18 +47,4 @@ public class Moment {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "activity_id")
-    private Activity activity;
-
-    // Getter method
-    public String getUser() {
-        return this.user;
-    }
-
-    // Setter method
-    public void setUser(String user) {
-        this.user = user;
-    }
 }

@@ -67,7 +67,7 @@ public class AuthController {
                     .id(user.getId())
                     .email(user.getEmail())
                     .displayName(user.getDisplayName())
-                    .avatarUrl(user.getAvatarUrl())
+                    // .avatarUrl(user.getAvatarUrl())
                     .followersCount(followRepository.countByFollowingUserId(userId))
                     .followingCount(followRepository.countByFollowerUserId(userId))
                     .build();

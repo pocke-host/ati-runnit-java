@@ -3,6 +3,7 @@ package com.runnit.api.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.Instant;
 
 @Entity
@@ -17,11 +18,13 @@ public class Reaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "moment_id", nullable = false)
-    private Long momentId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "moment_id", nullable = false)
+    private Moment moment;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false)
@@ -32,6 +35,6 @@ public class Reaction {
     private Instant createdAt;
 
     public enum ReactionType {
-        LIKE, FIRE, CLAP
+        FIRE, CLAP, HEART, STRONG, THUMBS_UP
     }
 }

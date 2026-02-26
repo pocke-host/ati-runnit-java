@@ -65,7 +65,8 @@ public class StoryService {
         
         // Get all users with active stories
         List<User> usersWithStories = storyRepository.findUsersWithActiveStories(
-            viewer, 
+            viewer,
+            viewer.getId(),
             LocalDateTime.now()
         );
         

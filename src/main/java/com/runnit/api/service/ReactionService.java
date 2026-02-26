@@ -24,8 +24,8 @@ public class ReactionService {
                     },
                     () -> {
                         Reaction reaction = Reaction.builder()
-                                .userId(userId)
-                                .momentId(momentId)
+                                // .userId(userId)
+                                // .momentId(momentId)
                                 .type(type)
                                 .build();
                         reactionRepository.save(reaction);

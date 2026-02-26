@@ -67,3 +67,15 @@ CREATE TABLE reactions (
     INDEX idx_moment (moment_id),
     INDEX idx_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Add integration columns to users table (should have been in V1)
+ALTER TABLE users
+ADD COLUMN garmin_access_token VARCHAR(500),
+ADD COLUMN garmin_refresh_token VARCHAR(500),
+ADD COLUMN garmin_token_expires_at TIMESTAMP,
+ADD COLUMN strava_access_token VARCHAR(500),
+ADD COLUMN strava_refresh_token VARCHAR(500),
+ADD COLUMN strava_token_expires_at TIMESTAMP,
+ADD COLUMN spotify_access_token VARCHAR(500),
+ADD COLUMN spotify_refresh_token VARCHAR(500),
+ADD COLUMN spotify_token_expires_at TIMESTAMP;

@@ -27,20 +27,20 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
     // Find stories from users that the viewer follows
     @Query("""
         SELECT s FROM Story s
-        JOIN s.user u
         WHERE s.isActive = true 
         AND s.expiresAt > :now
         AND (
             s.visibility = 'PUBLIC'
             OR (s.visibility = 'CLOSE_FRIENDS' AND :viewer MEMBER OF s.closeFriends)
         )
-        AND u IN (
-            SELECT f.following FROM Follow f WHERE f.follower = :viewer
+        AND s.user.id IN (
+            SELECT f.followingUserId FROM Follow f WHERE f.followerUserId = :viewerId
         )
         ORDER BY s.createdAt DESC
     """)
     List<Story> findStoriesForUser(
-        @Param("viewer") User viewer, 
+        @Param("viewer") User viewer,
+        @Param("viewerId") Long viewerId,
         @Param("now") LocalDateTime now
     );
     
@@ -53,13 +53,14 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
             s.visibility = 'PUBLIC'
             OR (s.visibility = 'CLOSE_FRIENDS' AND :viewer MEMBER OF s.closeFriends)
         )
-        AND s.user IN (
-            SELECT f.following FROM Follow f WHERE f.follower = :viewer
+        AND s.user.id IN (
+            SELECT f.followingUserId FROM Follow f WHERE f.followerUserId = :viewerId
         )
-        ORDER BY s.createdAt DESC
+        ORDER BY MAX(s.createdAt) DESC
     """)
     List<User> findUsersWithActiveStories(
         @Param("viewer") User viewer,
+        @Param("viewerId") Long viewerId,
         @Param("now") LocalDateTime now
     );
 }
