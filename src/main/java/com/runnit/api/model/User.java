@@ -6,7 +6,6 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
-import java.util.Optional;
 import java.time.LocalDateTime;
 
 @Entity
@@ -31,14 +30,14 @@ public class User {
     private String displayName;
 
     @Column(name = "avatar_url")
-    private Optional<String> avatarUrl;
+    private String avatarUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider", nullable = false)
-    private Optional<AuthProvider> authProvider;
+    private AuthProvider authProvider;
 
     @Column(name = "provider_id")
-    private Optional<String> providerId;
+    private String providerId;
 
     @Column(name = "password_hash")
     private String passwordHash;
