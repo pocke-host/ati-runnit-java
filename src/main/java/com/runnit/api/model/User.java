@@ -42,6 +42,18 @@ public class User {
     @Column(name = "password_hash")
     private String passwordHash;
 
+    @Column(columnDefinition = "TEXT")
+    private String bio;
+
+    @Column(nullable = false)
+    private String role = "ATHLETE"; // ATHLETE, COACH, WELLNESS_EXPERT
+
+    @Column(name = "is_verified", nullable = false)
+    private boolean isVerified = false;
+
+    @Column(name = "is_mentor_available", nullable = false)
+    private boolean isMentorAvailable = false;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

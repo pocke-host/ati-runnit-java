@@ -15,6 +15,10 @@ public class UserResponse {
     private String email;
     private String displayName;
     private String avatarUrl;
+    private String bio;
+    private String role;
+    private boolean isVerified;
+    private boolean isMentorAvailable;
     private Long followersCount;
     private Long followingCount;
 }
