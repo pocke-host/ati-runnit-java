@@ -15,6 +15,11 @@ public class UserResponse {
     private String email;
     private String displayName;
     private String avatarUrl;
-    private Long followersCount;
+    private String location;
+    private String sport;
+    private Long followerCount;
     private Long followingCount;
+    private Long activityCount;
+    private java.time.Instant createdAt;
+    private String unitSystem;
 }

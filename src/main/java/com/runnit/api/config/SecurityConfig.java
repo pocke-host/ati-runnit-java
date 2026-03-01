@@ -48,7 +48,9 @@ public class SecurityConfig {
             "http://127.0.0.1:5173",
             "http://localhost:5173",
             "capacitor://localhost",
-            "http://localhost"
+            "http://localhost",
+            "https://runnit.live",
+            "https://www.runnit.live"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

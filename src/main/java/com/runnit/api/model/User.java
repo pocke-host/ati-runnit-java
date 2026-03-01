@@ -42,6 +42,15 @@ public class User {
     @Column(name = "password_hash")
     private String passwordHash;
 
+    @Column(name = "location")
+    private String location;
+
+    @Column(name = "sport")
+    private String sport;
+
+    @Column(name = "unit_system")
+    private String unitSystem = "metric";
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -69,6 +69,19 @@ public class FollowController {
         }
     }
     
+    @GetMapping("/following")
+    public ResponseEntity<?> getMyFollowing(Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            List<UserResponse> following = followService.getFollowing(userId);
+            return ResponseEntity.ok(following);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
     @GetMapping("/{userId}/is-following")
     public ResponseEntity<?> isFollowing(@PathVariable Long userId, Authentication auth) {
         try {

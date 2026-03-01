@@ -79,8 +79,8 @@ public class FollowService {
                 .id(user.getId())
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
-                // .avatarUrl(user.getAvatarUrl())
-                .followersCount(followRepository.countByFollowingUserId(user.getId()))
+                .avatarUrl(user.getAvatarUrl())
+                .followerCount(followRepository.countByFollowingUserId(user.getId()))
                 .followingCount(followRepository.countByFollowerUserId(user.getId()))
                 .build();
     }

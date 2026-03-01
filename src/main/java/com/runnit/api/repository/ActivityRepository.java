@@ -9,4 +9,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ActivityRepository extends JpaRepository<Activity, Long> {
     Page<Activity> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    long countByUserId(Long userId);
 }

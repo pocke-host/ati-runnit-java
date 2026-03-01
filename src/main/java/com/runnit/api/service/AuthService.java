@@ -28,7 +28,8 @@ public class AuthService {
         User user = User.builder()
                 .email(email)
                 .displayName(displayName)
-                // .authProvider(User.AuthProvider.EMAIL)
+                .user(displayName)
+                .authProvider(User.AuthProvider.EMAIL)
                 .passwordHash(passwordEncoder.encode(password))
                 .build();
         

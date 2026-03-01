@@ -67,9 +67,13 @@ public class AuthController {
                     .id(user.getId())
                     .email(user.getEmail())
                     .displayName(user.getDisplayName())
-                    // .avatarUrl(user.getAvatarUrl())
-                    .followersCount(followRepository.countByFollowingUserId(userId))
+                    .avatarUrl(user.getAvatarUrl())
+                    .location(user.getLocation())
+                    .sport(user.getSport())
+                    .followerCount(followRepository.countByFollowingUserId(userId))
                     .followingCount(followRepository.countByFollowerUserId(userId))
+                    .createdAt(user.getCreatedAt())
+                    .unitSystem(user.getUnitSystem())
                     .build();
             
             return ResponseEntity.ok(response);
