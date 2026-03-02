@@ -14,9 +14,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class MomentResponse {
     private Long id;
-    private Long userId;
-    private String userDisplayName;
-    private String userAvatarUrl;
+    private UserInfo user;
     private Long activityId;
     private String photoUrl;
     private String routeSnapshotUrl;
@@ -27,4 +25,15 @@ public class MomentResponse {
     private Long reactionCount;
     private Map<Reaction.ReactionType, Long> reactionsByType;
     private Reaction.ReactionType currentUserReaction;
+    private Long commentCount;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UserInfo {
+        private Long id;
+        private String displayName;
+        private String avatarUrl;
+    }
 }

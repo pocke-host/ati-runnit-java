@@ -8,6 +8,7 @@ import com.runnit.api.model.Moment;
 import com.runnit.api.model.Reaction;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.ActivityRepository;
+import com.runnit.api.repository.CommentRepository;
 import com.runnit.api.repository.MomentRepository;
 import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.ReactionRepository;
@@ -33,6 +34,7 @@ public class MomentService {
     private final ReactionRepository reactionRepository;
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
+    private final CommentRepository commentRepository;
     
     @Transactional
     public Moment createMoment(Long userId, MomentRequest request) {
@@ -107,9 +109,11 @@ public class MomentService {
         
         return MomentResponse.builder()
                 .id(moment.getId())
-                .userId(user.getId())
-                .userDisplayName(user.getDisplayName())
-                // .userAvatarUrl(user.getAvatarUrl())
+                .user(MomentResponse.UserInfo.builder()
+                        .id(user.getId())
+                        .displayName(user.getDisplayName())
+                        .avatarUrl(user.getAvatarUrl())
+                        .build())
                 .activityId(moment.getActivity() != null ? moment.getActivity().getId() : null)
                 .photoUrl(moment.getPhotoUrl())
                 .routeSnapshotUrl(moment.getRouteSnapshotUrl())
@@ -120,6 +124,7 @@ public class MomentService {
                 .reactionCount((long) reactions.size())
                 .reactionsByType(reactionsByType)
                 .currentUserReaction(currentUserReaction)
+                .commentCount(commentRepository.countByMomentId(moment.getId()))
                 .build();
     }
 }

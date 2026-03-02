@@ -4,6 +4,7 @@ import com.runnit.api.dto.ActivityRequest;
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.ActivityRepository;
+import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -11,12 +12,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ActivityService {
     
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
+    private final FollowRepository followRepository;
     
     @Transactional
     public Activity createActivity(Long userId, ActivityRequest request) {
@@ -43,5 +47,11 @@ public class ActivityService {
     public Activity getActivityById(Long id) {
         return activityRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Activity not found"));
+    }
+
+    public Page<Activity> getFeed(Long userId, int page, int size) {
+        List<Long> followingIds = followRepository.findFollowingUserIds(userId);
+        followingIds.add(userId);
+        return activityRepository.findFeedByUserIds(followingIds, PageRequest.of(page, size));
     }
 }
