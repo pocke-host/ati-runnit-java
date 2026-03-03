@@ -1,20 +1,25 @@
 package com.runnit.api.dto;
 
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 import java.time.Instant;
 
-@Data
+@Getter
+@Setter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CommentResponse {
     private Long id;
     private String text;
     private Instant createdAt;
     private UserInfo user;
 
-    @Data
+    @Getter
+    @Setter
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class UserInfo {
         private Long id;
         private String displayName;

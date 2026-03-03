@@ -8,12 +8,13 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "reactions")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class Reaction {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

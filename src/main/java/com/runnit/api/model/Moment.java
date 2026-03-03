@@ -8,12 +8,13 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "moments")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class Moment {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

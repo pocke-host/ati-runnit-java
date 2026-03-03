@@ -1,14 +1,12 @@
 package com.runnit.api.dto;
 
 import com.runnit.api.model.Reaction;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import java.time.Instant;
 import java.util.Map;
 
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,7 +25,8 @@ public class MomentResponse {
     private Reaction.ReactionType currentUserReaction;
     private Long commentCount;
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
