@@ -149,7 +149,8 @@ public class ActivityController {
             Activity activity = activityRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Activity not found"));
 
-            Reaction.ReactionType type = Reaction.ReactionType.valueOf(body.get("reactionType").toUpperCase());
+            String rawType = body.containsKey("type") ? body.get("type") : body.get("reactionType");
+            Reaction.ReactionType type = Reaction.ReactionType.valueOf(rawType.toUpperCase());
 
             ActivityReaction reaction = activityReactionRepository
                     .findByActivityIdAndUserId(id, userId)
