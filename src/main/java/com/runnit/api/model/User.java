@@ -6,16 +6,14 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class User {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -59,44 +57,33 @@ public class User {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    // @Column(name = "garmin_access_token")
-    // private String garminAccessToken;
-
-    // @Column(name = "garmin_user_id")
-    // private String garminUserId;
-
-    // @Column(name = "strava_access_token")
-    // private String stravaAccessToken;
-
-    // @Column(name = "strava_refresh_token")
-    // private String stravaRefreshToken;
-
-    // @Column(name = "strava_athlete_id")
-    // private Long stravaAthleteId;
-
-    // @Column(name = "strava_token_expires_at")
-    // private LocalDateTime stravaTokenExpiresAt;
-
-    // // @Column(name = "garmin_token_secret")
-    // // private String garminTokenSecret;
-
-    // @Column(name = "spotify_access_token")
-    // private String spotifyAccessToken;
-
-    // @Column(name = "spotify_refresh_token")
-    // private String spotifyRefreshToken;
-
     public enum AuthProvider {
         GOOGLE, APPLE, EMAIL
     }
 
-    // Getter method
-    public String getUser() {
-        return this.user;
-    }
+    public Long getId() { return id; }
+    public String getEmail() { return email; }
+    public String getUser() { return user; }
+    public String getDisplayName() { return displayName; }
+    public String getAvatarUrl() { return avatarUrl; }
+    public AuthProvider getAuthProvider() { return authProvider; }
+    public String getProviderId() { return providerId; }
+    public String getPasswordHash() { return passwordHash; }
+    public String getLocation() { return location; }
+    public String getSport() { return sport; }
+    public String getUnitSystem() { return unitSystem; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 
-    // Setter method
-    public void setUser(String user) {
-        this.user = user;
-    }
+    public void setId(Long id) { this.id = id; }
+    public void setEmail(String email) { this.email = email; }
+    public void setUser(String user) { this.user = user; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+    public void setAuthProvider(AuthProvider authProvider) { this.authProvider = authProvider; }
+    public void setProviderId(String providerId) { this.providerId = providerId; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public void setLocation(String location) { this.location = location; }
+    public void setSport(String sport) { this.sport = sport; }
+    public void setUnitSystem(String unitSystem) { this.unitSystem = unitSystem; }
 }
