@@ -3,7 +3,6 @@ package com.runnit.api.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import java.io.Serializable;
 import java.time.Instant;
 
 @Entity
@@ -26,12 +25,4 @@ public class Follow {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
-}
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-class FollowId implements Serializable {
-    private Long followerUserId;
-    private Long followingUserId;
 }
