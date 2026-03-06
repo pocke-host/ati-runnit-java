@@ -1,20 +1,13 @@
 package com.runnit.api.model;
 
 import jakarta.persistence.*;
-import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "activities")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class Activity {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -59,11 +52,79 @@ public class Activity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    public enum SportType {
-        RUN, BIKE, SWIM, HIKE, WALK, OTHER
+    public Activity() {}
+
+    public Long getId() { return id; }
+    public User getUser() { return user; }
+    public SportType getSportType() { return sportType; }
+    public Integer getDurationSeconds() { return durationSeconds; }
+    public Integer getDistanceMeters() { return distanceMeters; }
+    public Integer getCalories() { return calories; }
+    public Integer getElevationGain() { return elevationGain; }
+    public Integer getAverageHeartRate() { return averageHeartRate; }
+    public Integer getMaxHeartRate() { return maxHeartRate; }
+    public Double getAveragePace() { return averagePace; }
+    public String getRoutePolyline() { return routePolyline; }
+    public Source getSource() { return source; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+
+    public void setId(Long id) { this.id = id; }
+    public void setUser(User user) { this.user = user; }
+    public void setSportType(SportType sportType) { this.sportType = sportType; }
+    public void setDurationSeconds(Integer durationSeconds) { this.durationSeconds = durationSeconds; }
+    public void setDistanceMeters(Integer distanceMeters) { this.distanceMeters = distanceMeters; }
+    public void setCalories(Integer calories) { this.calories = calories; }
+    public void setElevationGain(Integer elevationGain) { this.elevationGain = elevationGain; }
+    public void setAverageHeartRate(Integer averageHeartRate) { this.averageHeartRate = averageHeartRate; }
+    public void setMaxHeartRate(Integer maxHeartRate) { this.maxHeartRate = maxHeartRate; }
+    public void setAveragePace(Double averagePace) { this.averagePace = averagePace; }
+    public void setRoutePolyline(String routePolyline) { this.routePolyline = routePolyline; }
+    public void setSource(Source source) { this.source = source; }
+
+    public static Builder builder() { return new Builder(); }
+
+    public static class Builder {
+        private User user;
+        private SportType sportType;
+        private Integer durationSeconds;
+        private Integer distanceMeters;
+        private Integer calories;
+        private Integer elevationGain;
+        private Integer averageHeartRate;
+        private Integer maxHeartRate;
+        private Double averagePace;
+        private String routePolyline;
+        private Source source;
+
+        public Builder user(User user) { this.user = user; return this; }
+        public Builder sportType(SportType sportType) { this.sportType = sportType; return this; }
+        public Builder durationSeconds(Integer durationSeconds) { this.durationSeconds = durationSeconds; return this; }
+        public Builder distanceMeters(Integer distanceMeters) { this.distanceMeters = distanceMeters; return this; }
+        public Builder calories(Integer calories) { this.calories = calories; return this; }
+        public Builder elevationGain(Integer elevationGain) { this.elevationGain = elevationGain; return this; }
+        public Builder averageHeartRate(Integer averageHeartRate) { this.averageHeartRate = averageHeartRate; return this; }
+        public Builder maxHeartRate(Integer maxHeartRate) { this.maxHeartRate = maxHeartRate; return this; }
+        public Builder averagePace(Double averagePace) { this.averagePace = averagePace; return this; }
+        public Builder routePolyline(String routePolyline) { this.routePolyline = routePolyline; return this; }
+        public Builder source(Source source) { this.source = source; return this; }
+
+        public Activity build() {
+            Activity a = new Activity();
+            a.user = this.user;
+            a.sportType = this.sportType;
+            a.durationSeconds = this.durationSeconds;
+            a.distanceMeters = this.distanceMeters;
+            a.calories = this.calories;
+            a.elevationGain = this.elevationGain;
+            a.averageHeartRate = this.averageHeartRate;
+            a.maxHeartRate = this.maxHeartRate;
+            a.averagePace = this.averagePace;
+            a.routePolyline = this.routePolyline;
+            a.source = this.source;
+            return a;
+        }
     }
 
-    public enum Source {
-        MANUAL, GARMIN, STRAVA, APPLE_WATCH
-    }
+    public enum SportType { RUN, BIKE, SWIM, HIKE, WALK, OTHER }
+    public enum Source { MANUAL, GARMIN, STRAVA, APPLE_WATCH }
 }

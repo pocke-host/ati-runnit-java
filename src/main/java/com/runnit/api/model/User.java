@@ -1,17 +1,12 @@
 package com.runnit.api.model;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
 
 @Entity
 @Table(name = "users")
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class User {
 
     @Id
@@ -57,6 +52,8 @@ public class User {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    public User() {}
+
     public enum AuthProvider {
         GOOGLE, APPLE, EMAIL
     }
@@ -86,4 +83,45 @@ public class User {
     public void setLocation(String location) { this.location = location; }
     public void setSport(String sport) { this.sport = sport; }
     public void setUnitSystem(String unitSystem) { this.unitSystem = unitSystem; }
+
+    public static Builder builder() { return new Builder(); }
+
+    public static class Builder {
+        private String email;
+        private String user;
+        private String displayName;
+        private String avatarUrl;
+        private AuthProvider authProvider;
+        private String providerId;
+        private String passwordHash;
+        private String location;
+        private String sport;
+        private String unitSystem = "metric";
+
+        public Builder email(String email) { this.email = email; return this; }
+        public Builder user(String user) { this.user = user; return this; }
+        public Builder displayName(String displayName) { this.displayName = displayName; return this; }
+        public Builder avatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; return this; }
+        public Builder authProvider(AuthProvider authProvider) { this.authProvider = authProvider; return this; }
+        public Builder providerId(String providerId) { this.providerId = providerId; return this; }
+        public Builder passwordHash(String passwordHash) { this.passwordHash = passwordHash; return this; }
+        public Builder location(String location) { this.location = location; return this; }
+        public Builder sport(String sport) { this.sport = sport; return this; }
+        public Builder unitSystem(String unitSystem) { this.unitSystem = unitSystem; return this; }
+
+        public User build() {
+            User u = new User();
+            u.email = this.email;
+            u.user = this.user;
+            u.displayName = this.displayName;
+            u.avatarUrl = this.avatarUrl;
+            u.authProvider = this.authProvider;
+            u.providerId = this.providerId;
+            u.passwordHash = this.passwordHash;
+            u.location = this.location;
+            u.sport = this.sport;
+            u.unitSystem = this.unitSystem;
+            return u;
+        }
+    }
 }

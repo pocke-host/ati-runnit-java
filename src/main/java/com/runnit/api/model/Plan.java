@@ -1,18 +1,12 @@
 package com.runnit.api.model;
 
 import jakarta.persistence.*;
-import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-
 import java.time.Instant;
 import java.util.List;
 
 @Entity
 @Table(name = "plans")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class Plan {
 
     @Id
@@ -45,4 +39,54 @@ public class Plan {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
+
+    public Plan() {}
+
+    public Long getId() { return id; }
+    public User getUser() { return user; }
+    public String getName() { return name; }
+    public String getSport() { return sport; }
+    public String getGoal() { return goal; }
+    public String getLevel() { return level; }
+    public boolean isActive() { return active; }
+    public List<PlanWorkout> getWorkouts() { return workouts; }
+    public Instant getCreatedAt() { return createdAt; }
+
+    public void setId(Long id) { this.id = id; }
+    public void setUser(User user) { this.user = user; }
+    public void setName(String name) { this.name = name; }
+    public void setSport(String sport) { this.sport = sport; }
+    public void setGoal(String goal) { this.goal = goal; }
+    public void setLevel(String level) { this.level = level; }
+    public void setActive(boolean active) { this.active = active; }
+    public void setWorkouts(List<PlanWorkout> workouts) { this.workouts = workouts; }
+
+    public static Builder builder() { return new Builder(); }
+
+    public static class Builder {
+        private User user;
+        private String name;
+        private String sport;
+        private String goal;
+        private String level;
+        private boolean active = false;
+
+        public Builder user(User user) { this.user = user; return this; }
+        public Builder name(String name) { this.name = name; return this; }
+        public Builder sport(String sport) { this.sport = sport; return this; }
+        public Builder goal(String goal) { this.goal = goal; return this; }
+        public Builder level(String level) { this.level = level; return this; }
+        public Builder active(boolean active) { this.active = active; return this; }
+
+        public Plan build() {
+            Plan p = new Plan();
+            p.user = this.user;
+            p.name = this.name;
+            p.sport = this.sport;
+            p.goal = this.goal;
+            p.level = this.level;
+            p.active = this.active;
+            return p;
+        }
+    }
 }
