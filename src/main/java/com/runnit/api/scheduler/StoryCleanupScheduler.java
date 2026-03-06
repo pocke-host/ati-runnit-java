@@ -3,15 +3,16 @@ package com.runnit.api.scheduler;
 
 import com.runnit.api.service.StoryService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class StoryCleanupScheduler {
 
+    private static final Logger log = LoggerFactory.getLogger(StoryCleanupScheduler.class);
     private final StoryService storyService;
 
     // Run every hour
