@@ -32,6 +32,12 @@ public class Plan {
     @Column(name = "is_active", nullable = false)
     private boolean active = false;
 
+    @Column(name = "days_per_week")
+    private Integer daysPerWeek;
+
+    @Column(name = "total_weeks")
+    private Integer totalWeeks;
+
     @OneToMany(mappedBy = "plan", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("day ASC")
     private List<PlanWorkout> workouts;
@@ -49,6 +55,8 @@ public class Plan {
     public String getGoal() { return goal; }
     public String getLevel() { return level; }
     public boolean isActive() { return active; }
+    public Integer getDaysPerWeek() { return daysPerWeek; }
+    public Integer getTotalWeeks() { return totalWeeks; }
     public List<PlanWorkout> getWorkouts() { return workouts; }
     public Instant getCreatedAt() { return createdAt; }
 
@@ -59,6 +67,8 @@ public class Plan {
     public void setGoal(String goal) { this.goal = goal; }
     public void setLevel(String level) { this.level = level; }
     public void setActive(boolean active) { this.active = active; }
+    public void setDaysPerWeek(Integer daysPerWeek) { this.daysPerWeek = daysPerWeek; }
+    public void setTotalWeeks(Integer totalWeeks) { this.totalWeeks = totalWeeks; }
     public void setWorkouts(List<PlanWorkout> workouts) { this.workouts = workouts; }
 
     public static Builder builder() { return new Builder(); }
@@ -70,6 +80,8 @@ public class Plan {
         private String goal;
         private String level;
         private boolean active = false;
+        private Integer daysPerWeek;
+        private Integer totalWeeks;
 
         public Builder user(User user) { this.user = user; return this; }
         public Builder name(String name) { this.name = name; return this; }
@@ -77,6 +89,8 @@ public class Plan {
         public Builder goal(String goal) { this.goal = goal; return this; }
         public Builder level(String level) { this.level = level; return this; }
         public Builder active(boolean active) { this.active = active; return this; }
+        public Builder daysPerWeek(Integer daysPerWeek) { this.daysPerWeek = daysPerWeek; return this; }
+        public Builder totalWeeks(Integer totalWeeks) { this.totalWeeks = totalWeeks; return this; }
 
         public Plan build() {
             Plan p = new Plan();
@@ -86,6 +100,8 @@ public class Plan {
             p.goal = this.goal;
             p.level = this.level;
             p.active = this.active;
+            p.daysPerWeek = this.daysPerWeek;
+            p.totalWeeks = this.totalWeeks;
             return p;
         }
     }

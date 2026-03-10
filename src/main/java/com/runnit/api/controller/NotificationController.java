@@ -75,6 +75,7 @@ public class NotificationController {
         map.put("id", n.getId());
         map.put("type", n.getType());
         map.put("message", n.getMessage());
+        map.put("text", n.getMessage()); // alias expected by frontend
         map.put("read", n.isRead());
         map.put("createdAt", n.getCreatedAt());
         map.put("referenceId", n.getReferenceId());

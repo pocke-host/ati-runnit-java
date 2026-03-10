@@ -25,10 +25,12 @@ public class PlanController {
     private final UserRepository userRepository;
 
     @GetMapping
-    public ResponseEntity<?> getPlans(Authentication auth) {
+    public ResponseEntity<?> getPlans(
+            @RequestParam(required = false) Long athleteId,
+            Authentication auth) {
         try {
-            Long userId = (Long) auth.getPrincipal();
-            List<Map<String, Object>> plans = planRepository.findByUserIdOrderByCreatedAtDesc(userId)
+            Long targetUserId = athleteId != null ? athleteId : (Long) auth.getPrincipal();
+            List<Map<String, Object>> plans = planRepository.findByUserIdOrderByCreatedAtDesc(targetUserId)
                     .stream().map(this::toMap).collect(Collectors.toList());
             return ResponseEntity.ok(plans);
         } catch (Exception e) {
@@ -65,6 +67,8 @@ public class PlanController {
                     .sport((String) body.get("sport"))
                     .goal((String) body.get("goal"))
                     .level((String) body.get("level"))
+                    .daysPerWeek(body.containsKey("daysPerWeek") ? ((Number) body.get("daysPerWeek")).intValue() : null)
+                    .totalWeeks(body.containsKey("totalWeeks") ? ((Number) body.get("totalWeeks")).intValue() : null)
                     .active(false)
                     .build();
             plan = planRepository.save(plan);
@@ -181,19 +185,23 @@ public class PlanController {
     }
 
     private Plan buildSuggestedPlan(User user, String sport, String goal, String level) {
+        int weeks = "beginner".equalsIgnoreCase(level) ? 4 : "intermediate".equalsIgnoreCase(level) ? 8 : 12;
+        int days = "beginner".equalsIgnoreCase(level) ? 3 : 4;
         return Plan.builder()
                 .user(user)
                 .name(capitalize(level) + " " + capitalize(sport.toLowerCase()) + " Plan")
                 .sport(sport)
                 .goal(goal)
                 .level(level)
+                .daysPerWeek(days)
+                .totalWeeks(weeks)
                 .active(false)
                 .build();
     }
 
     private List<PlanWorkout> buildSuggestedWorkouts(Plan plan, String sport, String level) {
-        int weeks = "beginner".equalsIgnoreCase(level) ? 4 : "intermediate".equalsIgnoreCase(level) ? 8 : 12;
-        int daysPerWeek = "beginner".equalsIgnoreCase(level) ? 3 : 4;
+        int weeks = plan.getTotalWeeks() != null ? plan.getTotalWeeks() : ("beginner".equalsIgnoreCase(level) ? 4 : "intermediate".equalsIgnoreCase(level) ? 8 : 12);
+        int daysPerWeek = plan.getDaysPerWeek() != null ? plan.getDaysPerWeek() : ("beginner".equalsIgnoreCase(level) ? 3 : 4);
         List<PlanWorkout> workouts = new ArrayList<>();
         for (int week = 0; week < weeks; week++) {
             for (int day = 0; day < daysPerWeek; day++) {
@@ -229,6 +237,8 @@ public class PlanController {
         map.put("goal", plan.getGoal());
         map.put("level", plan.getLevel());
         map.put("isActive", plan.isActive());
+        map.put("daysPerWeek", plan.getDaysPerWeek());
+        map.put("totalWeeks", plan.getTotalWeeks());
         map.put("createdAt", plan.getCreatedAt());
         if (plan.getWorkouts() != null) {
             map.put("workouts", plan.getWorkouts().stream().map(w -> {
