@@ -56,6 +56,21 @@ public class User {
     @Column(name = "onboarding_complete")
     private Boolean onboardingComplete = false;
 
+    @Column(name = "strava_athlete_id")
+    private Long stravaAthleteId;
+
+    @Column(name = "strava_access_token", columnDefinition = "TEXT")
+    private String stravaAccessToken;
+
+    @Column(name = "strava_refresh_token", columnDefinition = "TEXT")
+    private String stravaRefreshToken;
+
+    @Column(name = "strava_token_expires_at")
+    private Long stravaTokenExpiresAt;
+
+    @Column(name = "strava_oauth_state", length = 100)
+    private String stravaOauthState;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -103,6 +118,16 @@ public class User {
     public void setIsPublic(Boolean isPublic) { this.isPublic = isPublic; }
     public void setRole(String role) { this.role = role; }
     public void setOnboardingComplete(Boolean onboardingComplete) { this.onboardingComplete = onboardingComplete; }
+    public Long getStravaAthleteId() { return stravaAthleteId; }
+    public String getStravaAccessToken() { return stravaAccessToken; }
+    public String getStravaRefreshToken() { return stravaRefreshToken; }
+    public Long getStravaTokenExpiresAt() { return stravaTokenExpiresAt; }
+    public String getStravaOauthState() { return stravaOauthState; }
+    public void setStravaAthleteId(Long stravaAthleteId) { this.stravaAthleteId = stravaAthleteId; }
+    public void setStravaAccessToken(String stravaAccessToken) { this.stravaAccessToken = stravaAccessToken; }
+    public void setStravaRefreshToken(String stravaRefreshToken) { this.stravaRefreshToken = stravaRefreshToken; }
+    public void setStravaTokenExpiresAt(Long stravaTokenExpiresAt) { this.stravaTokenExpiresAt = stravaTokenExpiresAt; }
+    public void setStravaOauthState(String stravaOauthState) { this.stravaOauthState = stravaOauthState; }
 
     public static Builder builder() { return new Builder(); }
 

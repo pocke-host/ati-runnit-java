@@ -48,6 +48,9 @@ public class Activity {
     @Column(name = "source")
     private Source source;
 
+    @Column(name = "external_id", length = 100)
+    private String externalId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -66,6 +69,7 @@ public class Activity {
     public Double getAveragePace() { return averagePace; }
     public String getRoutePolyline() { return routePolyline; }
     public Source getSource() { return source; }
+    public String getExternalId() { return externalId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     public void setId(Long id) { this.id = id; }
@@ -80,6 +84,7 @@ public class Activity {
     public void setAveragePace(Double averagePace) { this.averagePace = averagePace; }
     public void setRoutePolyline(String routePolyline) { this.routePolyline = routePolyline; }
     public void setSource(Source source) { this.source = source; }
+    public void setExternalId(String externalId) { this.externalId = externalId; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -95,6 +100,7 @@ public class Activity {
         private Double averagePace;
         private String routePolyline;
         private Source source;
+        private String externalId;
 
         public Builder user(User user) { this.user = user; return this; }
         public Builder sportType(SportType sportType) { this.sportType = sportType; return this; }
@@ -107,6 +113,7 @@ public class Activity {
         public Builder averagePace(Double averagePace) { this.averagePace = averagePace; return this; }
         public Builder routePolyline(String routePolyline) { this.routePolyline = routePolyline; return this; }
         public Builder source(Source source) { this.source = source; return this; }
+        public Builder externalId(String externalId) { this.externalId = externalId; return this; }
 
         public Activity build() {
             Activity a = new Activity();
@@ -121,6 +128,7 @@ public class Activity {
             a.averagePace = this.averagePace;
             a.routePolyline = this.routePolyline;
             a.source = this.source;
+            a.externalId = this.externalId;
             return a;
         }
     }

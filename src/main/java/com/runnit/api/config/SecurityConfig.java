@@ -35,7 +35,9 @@ public class SecurityConfig {
                     "/api/uploads/sign",
                     "/api/events",
                     "/api/stats",
-                    "/api/newsletter/**"
+                    "/api/newsletter/**",
+                    "/api/integrations/strava/callback",
+                    "/api/strava/webhook"
                 ).permitAll()
                 .anyRequest().authenticated()
             )
