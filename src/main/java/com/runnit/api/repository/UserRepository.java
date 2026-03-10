@@ -14,6 +14,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%'))")
     java.util.List<User> searchByDisplayNameOrEmail(@org.springframework.data.repository.query.Param("query") String query, org.springframework.data.domain.Pageable pageable);
 
+    java.util.List<User> findByRole(String role);
+
     // Optional<User> findByGarminAccessToken(String garminAccessToken);
-    // Optional<User> findByStravaAthleteId(Long stravaAthleteId); 
+    // Optional<User> findByStravaAthleteId(Long stravaAthleteId);
 }

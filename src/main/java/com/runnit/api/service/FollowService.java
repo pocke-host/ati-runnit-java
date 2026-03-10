@@ -43,45 +43,42 @@ public class FollowService {
     
     @Transactional
     public void unfollowUser(Long followerId, Long followingId) {
-        followRepository.findByFollowerUserId(followerId).stream()
-                .filter(f -> f.getFollowingUserId().equals(followingId))
-                .forEach(followRepository::delete);
+        followRepository.deleteByFollowerUserIdAndFollowingUserId(followerId, followingId);
     }
-    
+
+    @Transactional(readOnly = true)
     public List<UserResponse> getFollowers(Long userId) {
-        List<Follow> follows = followRepository.findByFollowingUserId(userId);
-        List<Long> followerIds = follows.stream()
+        List<Long> followerIds = followRepository.findByFollowingUserId(userId).stream()
                 .map(Follow::getFollowerUserId)
                 .collect(Collectors.toList());
-        
         return userRepository.findAllById(followerIds).stream()
                 .map(this::toUserResponse)
                 .collect(Collectors.toList());
     }
-    
+
+    @Transactional(readOnly = true)
     public List<UserResponse> getFollowing(Long userId) {
-        List<Follow> follows = followRepository.findByFollowerUserId(userId);
-        List<Long> followingIds = follows.stream()
+        List<Long> followingIds = followRepository.findByFollowerUserId(userId).stream()
                 .map(Follow::getFollowingUserId)
                 .collect(Collectors.toList());
-        
         return userRepository.findAllById(followingIds).stream()
                 .map(this::toUserResponse)
                 .collect(Collectors.toList());
     }
-    
+
+    @Transactional(readOnly = true)
     public boolean isFollowing(Long followerId, Long followingId) {
         return followRepository.existsByFollowerUserIdAndFollowingUserId(followerId, followingId);
     }
-    
+
     private UserResponse toUserResponse(User user) {
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
                 .avatarUrl(user.getAvatarUrl())
-                .followerCount(followRepository.countByFollowingUserId(user.getId()))
-                .followingCount(followRepository.countByFollowerUserId(user.getId()))
+                .sport(user.getSport())
+                .primarySport(user.getSport())
                 .build();
     }
 }

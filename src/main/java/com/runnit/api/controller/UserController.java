@@ -44,19 +44,37 @@ public class UserController {
     }
 
     @PatchMapping("/me")
-    public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> body, Authentication auth) {
+    public ResponseEntity<?> updateProfile(@RequestBody Map<String, Object> body, Authentication auth) {
         try {
             Long userId = (Long) auth.getPrincipal();
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
-            if (body.containsKey("displayName")) user.setDisplayName(body.get("displayName"));
-            if (body.containsKey("location"))    user.setLocation(body.get("location"));
-            if (body.containsKey("sport"))       user.setSport(body.get("sport"));
-            if (body.containsKey("avatarUrl"))   user.setAvatarUrl(body.get("avatarUrl"));
+            if (body.containsKey("displayName"))       user.setDisplayName((String) body.get("displayName"));
+            if (body.containsKey("location"))          user.setLocation((String) body.get("location"));
+            if (body.containsKey("sport"))             user.setSport((String) body.get("sport"));
+            if (body.containsKey("primarySport"))      user.setSport((String) body.get("primarySport"));
+            if (body.containsKey("avatarUrl"))         user.setAvatarUrl((String) body.get("avatarUrl"));
+            if (body.containsKey("bio"))               user.setBio((String) body.get("bio"));
+            if (body.containsKey("isPublic"))          user.setIsPublic((Boolean) body.get("isPublic"));
+            if (body.containsKey("role"))              user.setRole((String) body.get("role"));
+            if (body.containsKey("onboardingComplete")) user.setOnboardingComplete((Boolean) body.get("onboardingComplete"));
 
             userRepository.save(user);
             return ResponseEntity.ok(toFullResponse(user));
+        } catch (RuntimeException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<?> deleteAccount(Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            userRepository.deleteById(userId);
+            return ResponseEntity.ok(Map.of("message", "Account deleted"));
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
@@ -131,6 +149,12 @@ public class UserController {
                 .avatarUrl(user.getAvatarUrl())
                 .location(user.getLocation())
                 .sport(user.getSport())
+                .primarySport(user.getSport())
+                .bio(user.getBio())
+                .isPublic(user.getIsPublic())
+                .role(user.getRole())
+                .onboardingComplete(user.getOnboardingComplete())
+                .unitSystem(user.getUnitSystem())
                 .followerCount(followRepository.countByFollowingUserId(user.getId()))
                 .followingCount(followRepository.countByFollowerUserId(user.getId()))
                 .activityCount(activityRepository.countByUserId(user.getId()))

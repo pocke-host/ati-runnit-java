@@ -44,6 +44,18 @@ public class User {
     @Column(name = "unit_system")
     private String unitSystem = "metric";
 
+    @Column(name = "bio", columnDefinition = "TEXT")
+    private String bio;
+
+    @Column(name = "is_public")
+    private Boolean isPublic = true;
+
+    @Column(name = "role")
+    private String role = "athlete";
+
+    @Column(name = "onboarding_complete")
+    private Boolean onboardingComplete = false;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -69,6 +81,10 @@ public class User {
     public String getLocation() { return location; }
     public String getSport() { return sport; }
     public String getUnitSystem() { return unitSystem; }
+    public String getBio() { return bio; }
+    public Boolean getIsPublic() { return isPublic; }
+    public String getRole() { return role; }
+    public Boolean getOnboardingComplete() { return onboardingComplete; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
@@ -83,6 +99,10 @@ public class User {
     public void setLocation(String location) { this.location = location; }
     public void setSport(String sport) { this.sport = sport; }
     public void setUnitSystem(String unitSystem) { this.unitSystem = unitSystem; }
+    public void setBio(String bio) { this.bio = bio; }
+    public void setIsPublic(Boolean isPublic) { this.isPublic = isPublic; }
+    public void setRole(String role) { this.role = role; }
+    public void setOnboardingComplete(Boolean onboardingComplete) { this.onboardingComplete = onboardingComplete; }
 
     public static Builder builder() { return new Builder(); }
 

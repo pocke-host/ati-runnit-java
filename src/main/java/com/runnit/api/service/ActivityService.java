@@ -28,27 +28,33 @@ public class ActivityService {
             .orElseThrow(() -> new RuntimeException("User not found"));
         
         Activity activity = Activity.builder()
-                .user(user)  // Use User object, not userId
+                .user(user)
                 .sportType(request.getSportType())
                 .durationSeconds(request.getDurationSeconds())
                 .distanceMeters(request.getDistanceMeters())
+                .elevationGain(request.getElevationGain())
+                .calories(request.getCalories())
+                .averageHeartRate(request.getAverageHeartRate())
+                .averagePace(request.getAveragePace())
+                .routePolyline(request.getRoutePolyline())
                 .source(Activity.Source.MANUAL)
                 .build();
-        
+
         return activityRepository.save(activity);
     }
-    
+
+    @Transactional(readOnly = true)
     public Page<Activity> getUserActivities(Long userId, int page, int size) {
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-            return activityRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), PageRequest.of(page, size));
+        return activityRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
     }
-    
+
+    @Transactional(readOnly = true)
     public Activity getActivityById(Long id) {
         return activityRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Activity not found"));
     }
 
+    @Transactional(readOnly = true)
     public Page<Activity> getFeed(Long userId, int page, int size) {
         List<Long> followingIds = followRepository.findFollowingUserIds(userId);
         followingIds.add(userId);
