@@ -56,8 +56,7 @@ public class StravaIntegrationController {
     public ResponseEntity<?> status(Authentication auth) {
         try {
             Long userId = (Long) auth.getPrincipal();
-            boolean connected = stravaService.isConnected(userId);
-            return ResponseEntity.ok(Map.of("connected", connected));
+            return ResponseEntity.ok(stravaService.getStatus(userId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

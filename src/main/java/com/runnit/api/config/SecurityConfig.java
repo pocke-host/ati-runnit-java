@@ -37,7 +37,9 @@ public class SecurityConfig {
                     "/api/stats",
                     "/api/newsletter/**",
                     "/api/integrations/strava/callback",
-                    "/api/strava/webhook"
+                    "/api/strava/webhook",
+                    "/api/garmin/oauth/callback",
+                    "/api/garmin/oauth/webhook"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

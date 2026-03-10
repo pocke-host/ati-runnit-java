@@ -15,6 +15,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,6 +41,7 @@ public class StravaService {
 
     private static final String STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
     private static final String STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities";
+    private static final String STRAVA_ACTIVITY_URL = "https://www.strava.com/api/v3/activities/";
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -125,27 +127,11 @@ public class StravaService {
 
         int imported = 0;
         for (Map<String, Object> stravaActivity : response.getBody()) {
-            String externalId = "strava_" + stravaActivity.get("id");
-            if (activityRepository.existsByUserIdAndExternalId(user.getId(), externalId)) continue;
-
-            Activity activity = Activity.builder()
-                    .user(user)
-                    .externalId(externalId)
-                    .source(Activity.Source.STRAVA)
-                    .sportType(mapSportType((String) stravaActivity.get("type")))
-                    .durationSeconds(getInt(stravaActivity, "moving_time"))
-                    .distanceMeters(getInt(stravaActivity, "distance"))
-                    .elevationGain(getInt(stravaActivity, "total_elevation_gain"))
-                    .calories(getInt(stravaActivity, "calories"))
-                    .averageHeartRate(getInt(stravaActivity, "average_heartrate"))
-                    .maxHeartRate(getInt(stravaActivity, "max_heartrate"))
-                    .averagePace(getDouble(stravaActivity, "average_speed"))
-                    .routePolyline(extractPolyline(stravaActivity))
-                    .build();
-
-            activityRepository.save(activity);
-            imported++;
+            if (saveStravaActivity(user, stravaActivity)) imported++;
         }
+
+        user.setStravaLastSync(Instant.now());
+        userRepository.save(user);
         return imported;
     }
 
@@ -162,7 +148,7 @@ public class StravaService {
         userRepository.save(user);
     }
 
-    /** Handle a webhook event pushed by Strava (new activity created) */
+    /** Handle a webhook event pushed by Strava — fetches only the specific new activity */
     @Transactional
     public void handleWebhookEvent(Map<String, Object> event) {
         String objectType = (String) event.get("object_type");
@@ -170,7 +156,53 @@ public class StravaService {
         if (!"activity".equals(objectType) || !"create".equals(aspectType)) return;
 
         Long stravaAthleteId = ((Number) event.get("owner_id")).longValue();
-        userRepository.findByStravaAthleteId(stravaAthleteId).ifPresent(this::syncActivities);
+        Long activityId = ((Number) event.get("object_id")).longValue();
+
+        userRepository.findByStravaAthleteId(stravaAthleteId).ifPresent(user -> {
+            String token = getValidAccessToken(user);
+            if (token == null) return;
+
+            try {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setBearerAuth(token);
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+                ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                        STRAVA_ACTIVITY_URL + activityId,
+                        HttpMethod.GET, entity,
+                        new ParameterizedTypeReference<>() {});
+
+                if (response.getBody() != null) {
+                    saveStravaActivity(user, response.getBody());
+                    user.setStravaLastSync(Instant.now());
+                    userRepository.save(user);
+                }
+            } catch (Exception ignored) {}
+        });
+    }
+
+    /** Maps and saves a single Strava activity; returns true if newly imported */
+    private boolean saveStravaActivity(User user, Map<String, Object> stravaActivity) {
+        String externalId = "strava_" + stravaActivity.get("id");
+        if (activityRepository.existsByUserIdAndExternalId(user.getId(), externalId)) return false;
+
+        Activity activity = Activity.builder()
+                .user(user)
+                .externalId(externalId)
+                .source(Activity.Source.STRAVA)
+                .sportType(mapSportType((String) stravaActivity.get("type")))
+                .durationSeconds(getInt(stravaActivity, "moving_time"))
+                .distanceMeters(getInt(stravaActivity, "distance"))
+                .elevationGain(getInt(stravaActivity, "total_elevation_gain"))
+                .calories(getInt(stravaActivity, "calories"))
+                .averageHeartRate(getInt(stravaActivity, "average_heartrate"))
+                .maxHeartRate(getInt(stravaActivity, "max_heartrate"))
+                .averagePace(getDouble(stravaActivity, "average_speed"))
+                .routePolyline(extractPolyline(stravaActivity))
+                .build();
+
+        activityRepository.save(activity);
+        return true;
     }
 
     public String getFrontendUrl() { return frontendUrl; }
@@ -179,6 +211,15 @@ public class StravaService {
         return userRepository.findById(userId)
                 .map(u -> u.getStravaAccessToken() != null)
                 .orElse(false);
+    }
+
+    public Map<String, Object> getStatus(Long userId) {
+        return userRepository.findById(userId).map(u -> {
+            Map<String, Object> status = new HashMap<>();
+            status.put("connected", u.getStravaAccessToken() != null);
+            status.put("lastSync", u.getStravaLastSync() != null ? u.getStravaLastSync().toString() : null);
+            return status;
+        }).orElse(Map.of("connected", false, "lastSync", null));
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

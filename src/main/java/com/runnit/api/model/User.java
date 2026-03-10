@@ -71,6 +71,24 @@ public class User {
     @Column(name = "strava_oauth_state", length = 100)
     private String stravaOauthState;
 
+    @Column(name = "strava_last_sync")
+    private Instant stravaLastSync;
+
+    @Column(name = "garmin_access_token", columnDefinition = "TEXT")
+    private String garminAccessToken;
+
+    @Column(name = "garmin_access_token_secret", columnDefinition = "TEXT")
+    private String garminAccessTokenSecret;
+
+    @Column(name = "garmin_request_token", length = 200)
+    private String garminRequestToken;
+
+    @Column(name = "garmin_request_token_secret", columnDefinition = "TEXT")
+    private String garminRequestTokenSecret;
+
+    @Column(name = "garmin_last_sync")
+    private Instant garminLastSync;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -128,6 +146,18 @@ public class User {
     public void setStravaRefreshToken(String stravaRefreshToken) { this.stravaRefreshToken = stravaRefreshToken; }
     public void setStravaTokenExpiresAt(Long stravaTokenExpiresAt) { this.stravaTokenExpiresAt = stravaTokenExpiresAt; }
     public void setStravaOauthState(String stravaOauthState) { this.stravaOauthState = stravaOauthState; }
+    public Instant getStravaLastSync() { return stravaLastSync; }
+    public void setStravaLastSync(Instant stravaLastSync) { this.stravaLastSync = stravaLastSync; }
+    public String getGarminAccessToken() { return garminAccessToken; }
+    public void setGarminAccessToken(String garminAccessToken) { this.garminAccessToken = garminAccessToken; }
+    public String getGarminAccessTokenSecret() { return garminAccessTokenSecret; }
+    public void setGarminAccessTokenSecret(String garminAccessTokenSecret) { this.garminAccessTokenSecret = garminAccessTokenSecret; }
+    public String getGarminRequestToken() { return garminRequestToken; }
+    public void setGarminRequestToken(String garminRequestToken) { this.garminRequestToken = garminRequestToken; }
+    public String getGarminRequestTokenSecret() { return garminRequestTokenSecret; }
+    public void setGarminRequestTokenSecret(String garminRequestTokenSecret) { this.garminRequestTokenSecret = garminRequestTokenSecret; }
+    public Instant getGarminLastSync() { return garminLastSync; }
+    public void setGarminLastSync(Instant garminLastSync) { this.garminLastSync = garminLastSync; }
 
     public static Builder builder() { return new Builder(); }
 
