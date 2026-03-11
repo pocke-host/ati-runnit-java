@@ -32,7 +32,8 @@ public class AuthController {
             Map<String, Object> response = authService.registerWithEmail(
                 request.getEmail(),
                 request.getPassword(),
-                request.getDisplayName()
+                request.getDisplayName(),
+                request.getRole()
             );
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {

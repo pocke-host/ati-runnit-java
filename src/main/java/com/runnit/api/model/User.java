@@ -172,6 +172,7 @@ public class User {
         private String location;
         private String sport;
         private String unitSystem = "metric";
+        private String role = "athlete";
 
         public Builder email(String email) { this.email = email; return this; }
         public Builder user(String user) { this.user = user; return this; }
@@ -183,6 +184,7 @@ public class User {
         public Builder location(String location) { this.location = location; return this; }
         public Builder sport(String sport) { this.sport = sport; return this; }
         public Builder unitSystem(String unitSystem) { this.unitSystem = unitSystem; return this; }
+        public Builder role(String role) { this.role = role; return this; }
 
         public User build() {
             User u = new User();
@@ -196,6 +198,7 @@ public class User {
             u.location = this.location;
             u.sport = this.sport;
             u.unitSystem = this.unitSystem;
+            u.role = this.role;
             return u;
         }
     }

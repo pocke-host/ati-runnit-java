@@ -18,13 +18,17 @@ public class RegisterRequest {
     @Size(min = 2, max = 100, message = "Display name must be between 2 and 100 characters")
     private String displayName;
 
+    private String role = "athlete";
+
     public RegisterRequest() {}
 
     public String getEmail() { return email; }
     public String getPassword() { return password; }
     public String getDisplayName() { return displayName; }
+    public String getRole() { return role; }
 
     public void setEmail(String email) { this.email = email; }
     public void setPassword(String password) { this.password = password; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public void setRole(String role) { this.role = role; }
 }

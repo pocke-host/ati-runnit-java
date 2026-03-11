@@ -20,17 +20,20 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     
     @Transactional
-    public Map<String, Object> registerWithEmail(String email, String password, String displayName) {
+    public Map<String, Object> registerWithEmail(String email, String password, String displayName, String role) {
         if (userRepository.existsByEmail(email)) {
             throw new RuntimeException("Email already exists");
         }
-        
+
+        String safeRole = (role != null && role.equals("coach")) ? "coach" : "athlete";
+
         User user = User.builder()
                 .email(email)
                 .displayName(displayName)
                 .user(displayName)
                 .authProvider(User.AuthProvider.EMAIL)
                 .passwordHash(passwordEncoder.encode(password))
+                .role(safeRole)
                 .build();
         
         user = userRepository.save(user);
