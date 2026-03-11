@@ -4,15 +4,12 @@ import com.runnit.api.model.User;
 import com.runnit.api.repository.UserRepository;
 import com.stripe.Stripe;
 import com.stripe.model.Customer;
-import com.stripe.model.billingportal.Session;
-import com.stripe.model.checkout.Session.LineItemCollectionParams;
-import com.stripe.param.CustomerCreateParams;
-import com.stripe.param.CustomerSearchParams;
-import com.stripe.param.billingportal.SessionCreateParams;
-import com.stripe.param.checkout.SessionCreateParams;
 import com.stripe.model.Event;
 import com.stripe.model.Subscription;
+import com.stripe.model.billingportal.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.CustomerCreateParams;
+import com.stripe.param.CustomerSearchParams;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +34,7 @@ public class BillingController {
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
-    /** POST /api/billing/checkout-session — creates a Stripe Checkout session */
+    /** POST /api/billing/checkout-session */
     @PostMapping("/checkout-session")
     public ResponseEntity<?> createCheckoutSession(
             @RequestBody Map<String, Object> body,
@@ -52,28 +49,29 @@ public class BillingController {
             if (priceId == null || priceId.isBlank())
                 return ResponseEntity.badRequest().body(Map.of("error", "priceId is required"));
 
-            // Retrieve or create Stripe customer for this user
             String customerId = getOrCreateCustomer(user);
 
-            SessionCreateParams params = SessionCreateParams.builder()
-                    .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                    .setCustomer(customerId)
-                    .addLineItem(
-                            SessionCreateParams.LineItem.builder()
-                                    .setPrice(priceId)
-                                    .setQuantity(1L)
-                                    .build()
-                    )
-                    .setSuccessUrl(frontendUrl + "/subscribe/success?session_id={CHECKOUT_SESSION_ID}")
-                    .setCancelUrl(frontendUrl + "/subscribe/cancel")
-                    .setSubscriptionData(
-                            SessionCreateParams.SubscriptionData.builder()
-                                    .setTrialPeriodDays(14L)
-                                    .build()
-                    )
-                    .build();
+            com.stripe.param.checkout.SessionCreateParams params =
+                    com.stripe.param.checkout.SessionCreateParams.builder()
+                            .setMode(com.stripe.param.checkout.SessionCreateParams.Mode.SUBSCRIPTION)
+                            .setCustomer(customerId)
+                            .addLineItem(
+                                    com.stripe.param.checkout.SessionCreateParams.LineItem.builder()
+                                            .setPrice(priceId)
+                                            .setQuantity(1L)
+                                            .build()
+                            )
+                            .setSuccessUrl(frontendUrl + "/subscribe/success?session_id={CHECKOUT_SESSION_ID}")
+                            .setCancelUrl(frontendUrl + "/subscribe/cancel")
+                            .setSubscriptionData(
+                                    com.stripe.param.checkout.SessionCreateParams.SubscriptionData.builder()
+                                            .setTrialPeriodDays(14L)
+                                            .build()
+                            )
+                            .build();
 
-            com.stripe.model.checkout.Session session = com.stripe.model.checkout.Session.create(params);
+            com.stripe.model.checkout.Session session =
+                    com.stripe.model.checkout.Session.create(params);
             return ResponseEntity.ok(Map.of("sessionId", session.getId()));
 
         } catch (Exception e) {
@@ -81,7 +79,7 @@ public class BillingController {
         }
     }
 
-    /** POST /api/billing/portal — opens the Stripe Customer Portal */
+    /** POST /api/billing/portal */
     @PostMapping("/portal")
     public ResponseEntity<?> createPortalSession(Authentication auth) {
         try {
@@ -92,10 +90,11 @@ public class BillingController {
 
             String customerId = getOrCreateCustomer(user);
 
-            SessionCreateParams params = SessionCreateParams.builder()
-                    .setCustomer(customerId)
-                    .setReturnUrl(frontendUrl + "/billing")
-                    .build();
+            com.stripe.param.billingportal.SessionCreateParams params =
+                    com.stripe.param.billingportal.SessionCreateParams.builder()
+                            .setCustomer(customerId)
+                            .setReturnUrl(frontendUrl + "/billing")
+                            .build();
 
             Session session = Session.create(params);
             return ResponseEntity.ok(Map.of("url", session.getUrl()));
@@ -105,7 +104,7 @@ public class BillingController {
         }
     }
 
-    /** POST /api/billing/webhook — Stripe webhook (no auth filter) */
+    /** POST /api/billing/webhook — no auth, verified by Stripe signature */
     @PostMapping("/webhook")
     public ResponseEntity<?> handleWebhook(
             @RequestBody String payload,
@@ -119,9 +118,7 @@ public class BillingController {
                 case "customer.subscription.updated": {
                     Subscription sub = (Subscription) event.getDataObjectDeserializer()
                             .getObject().orElseThrow();
-                    String customerId = sub.getCustomer();
-                    String status     = sub.getStatus(); // "active", "trialing", "canceled", etc.
-                    updateUserSubscription(customerId, status);
+                    updateUserSubscription(sub.getCustomer(), sub.getStatus());
                     break;
                 }
                 case "customer.subscription.deleted": {
@@ -141,10 +138,7 @@ public class BillingController {
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
-    /** Find existing Stripe customer by email, or create one */
     private String getOrCreateCustomer(User user) throws Exception {
-        // Check if we stored a customerId on the user (add stripeCustomerId field to User if desired)
-        // For now, search by email
         CustomerSearchParams search = CustomerSearchParams.builder()
                 .setQuery("email:'" + user.getEmail() + "'")
                 .build();
@@ -152,16 +146,14 @@ public class BillingController {
         if (!results.getData().isEmpty()) {
             return results.getData().get(0).getId();
         }
-
         CustomerCreateParams createParams = CustomerCreateParams.builder()
                 .setEmail(user.getEmail())
-                .setName(user.getUsername())
+                .setName(user.getDisplayName())
                 .build();
         return Customer.create(createParams).getId();
     }
 
     private void updateUserSubscription(String stripeCustomerId, String status) {
-        // Optional: look up user by stripeCustomerId and update their subscription status
-        // Requires a stripeCustomerId column on the users table — add as a follow-up migration
+        // Future: look up user by stripeCustomerId and update subscription status
     }
 }
