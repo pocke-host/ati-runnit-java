@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -61,7 +62,7 @@ public class PlanController {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
-            Plan plan = Plan.builder()
+            Plan.Builder builder = Plan.builder()
                     .user(user)
                     .name((String) body.getOrDefault("name", "My Plan"))
                     .sport((String) body.get("sport"))
@@ -69,11 +70,26 @@ public class PlanController {
                     .level((String) body.get("level"))
                     .daysPerWeek(body.containsKey("daysPerWeek") ? ((Number) body.get("daysPerWeek")).intValue() : null)
                     .totalWeeks(body.containsKey("totalWeeks") ? ((Number) body.get("totalWeeks")).intValue() : null)
-                    .active(false)
-                    .build();
-            plan = planRepository.save(plan);
+                    .active(false);
+
+            // Parse new date/fitness fields
+            if (body.get("startDate") instanceof String s && !s.isBlank()) {
+                try { builder.startDate(LocalDate.parse(s)); } catch (Exception ignored) {}
+            }
+            if (body.get("targetRaceDate") instanceof String s && !s.isBlank()) {
+                try { builder.targetRaceDate(LocalDate.parse(s)); } catch (Exception ignored) {}
+            }
+            if (body.containsKey("currentWeeklyMeters") && body.get("currentWeeklyMeters") != null) {
+                builder.currentWeeklyMeters(((Number) body.get("currentWeeklyMeters")).intValue());
+            }
+            if (body.containsKey("targetSeconds") && body.get("targetSeconds") != null) {
+                builder.targetSeconds(((Number) body.get("targetSeconds")).intValue());
+            }
+
+            Plan plan = planRepository.save(builder.build());
 
             if (body.containsKey("workouts")) {
+                @SuppressWarnings("unchecked")
                 List<Map<String, Object>> workoutsData = (List<Map<String, Object>>) body.get("workouts");
                 final Plan savedPlan = plan;
                 List<PlanWorkout> workouts = workoutsData.stream().map(w -> PlanWorkout.builder()
@@ -83,6 +99,10 @@ public class PlanController {
                         .description((String) w.get("description"))
                         .durationMinutes(w.containsKey("durationMinutes") ? ((Number) w.get("durationMinutes")).intValue() : null)
                         .distanceMeters(w.containsKey("distanceMeters") ? ((Number) w.get("distanceMeters")).intValue() : null)
+                        .workoutType(w.containsKey("workoutType") ? (String) w.get("workoutType") : null)
+                        .weekNumber(w.containsKey("weekNumber") ? ((Number) w.get("weekNumber")).intValue() : null)
+                        .targetPaceSeconds(w.containsKey("targetPaceSeconds") && w.get("targetPaceSeconds") != null
+                                ? ((Number) w.get("targetPaceSeconds")).intValue() : null)
                         .build()).collect(Collectors.toList());
                 workoutRepository.saveAll(workouts);
                 plan.setWorkouts(workouts);
@@ -200,17 +220,19 @@ public class PlanController {
     }
 
     private List<PlanWorkout> buildSuggestedWorkouts(Plan plan, String sport, String level) {
-        int weeks = plan.getTotalWeeks() != null ? plan.getTotalWeeks() : ("beginner".equalsIgnoreCase(level) ? 4 : "intermediate".equalsIgnoreCase(level) ? 8 : 12);
-        int daysPerWeek = plan.getDaysPerWeek() != null ? plan.getDaysPerWeek() : ("beginner".equalsIgnoreCase(level) ? 3 : 4);
+        int weeks = plan.getTotalWeeks() != null ? plan.getTotalWeeks() : 8;
+        int daysPerWeek = plan.getDaysPerWeek() != null ? plan.getDaysPerWeek() : 3;
         List<PlanWorkout> workouts = new ArrayList<>();
+        String[] dayLabels = {"Monday", "Wednesday", "Friday", "Sunday"};
         for (int week = 0; week < weeks; week++) {
             for (int day = 0; day < daysPerWeek; day++) {
-                int globalDay = week * 7 + (day * 2) + 1;
                 workouts.add(PlanWorkout.builder()
                         .plan(plan)
-                        .day(globalDay)
-                        .title("Week " + (week + 1) + " — " + capitalize(sport.toLowerCase()) + " Session " + (day + 1))
+                        .day(day + 1)
+                        .weekNumber(week + 1)
+                        .title(dayLabels[day % dayLabels.length])
                         .description(buildWorkoutDescription(sport, week, day, level))
+                        .workoutType(day == daysPerWeek - 1 ? "LONG_RUN" : day % 2 == 0 ? "EASY" : "TEMPO")
                         .durationMinutes(30 + (week * 5))
                         .distanceMeters(sport.equalsIgnoreCase("RUN") ? 3000 + (week * 500) : null)
                         .build());
@@ -229,6 +251,44 @@ public class PlanController {
         return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase();
     }
 
+    // ── Phase & Theme helpers ─────────────────────────
+
+    private String computePhase(int weekNumber, int totalWeeks) {
+        int baseWeeks = (int) Math.ceil(totalWeeks * 0.40);
+        int buildWeeks = (int) Math.ceil(totalWeeks * 0.35);
+        int peakWeeks = (int) Math.ceil(totalWeeks * 0.15);
+        if (weekNumber <= baseWeeks) return "BASE";
+        if (weekNumber <= baseWeeks + buildWeeks) return "BUILD";
+        if (weekNumber <= baseWeeks + buildWeeks + peakWeeks) return "PEAK";
+        return "TAPER";
+    }
+
+    private String computeTheme(int weekNumber, int totalWeeks) {
+        String phase = computePhase(weekNumber, totalWeeks);
+        return switch (phase) {
+            case "BASE"  -> weekNumber % 4 == 0 ? "Recovery" : "Base Building";
+            case "BUILD" -> weekNumber % 4 == 0 ? "Recovery" : "Build Phase";
+            case "PEAK"  -> "Peak Week";
+            case "TAPER" -> weekNumber == totalWeeks ? "Race Week" : "Taper";
+            default      -> "Training Week";
+        };
+    }
+
+    private String mapWorkoutType(String workoutType) {
+        if (workoutType == null) return "Easy Run";
+        return switch (workoutType) {
+            case "EASY"     -> "Easy Run";
+            case "TEMPO"    -> "Tempo Run";
+            case "INTERVAL" -> "Interval";
+            case "LONG_RUN" -> "Long Run";
+            case "RECOVERY" -> "Recovery Run";
+            case "REST"     -> "Rest";
+            default         -> workoutType;
+        };
+    }
+
+    // ── toMap ────────────────────────────────────────
+
     private Map<String, Object> toMap(Plan plan) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", plan.getId());
@@ -239,20 +299,57 @@ public class PlanController {
         map.put("isActive", plan.isActive());
         map.put("daysPerWeek", plan.getDaysPerWeek());
         map.put("totalWeeks", plan.getTotalWeeks());
+        map.put("startDate", plan.getStartDate() != null ? plan.getStartDate().toString() : null);
+        map.put("targetRaceDate", plan.getTargetRaceDate() != null ? plan.getTargetRaceDate().toString() : null);
+        map.put("currentWeeklyMeters", plan.getCurrentWeeklyMeters());
+        map.put("targetSeconds", plan.getTargetSeconds());
         map.put("createdAt", plan.getCreatedAt());
-        if (plan.getWorkouts() != null) {
-            map.put("workouts", plan.getWorkouts().stream().map(w -> {
-                Map<String, Object> wm = new HashMap<>();
-                wm.put("id", w.getId());
-                wm.put("day", w.getDay());
-                wm.put("title", w.getTitle());
-                wm.put("description", w.getDescription());
-                wm.put("durationMinutes", w.getDurationMinutes());
-                wm.put("distanceMeters", w.getDistanceMeters());
-                wm.put("isCompleted", w.isCompleted());
-                return wm;
-            }).collect(Collectors.toList()));
+
+        if (plan.getWorkouts() != null && !plan.getWorkouts().isEmpty()) {
+            int totalWeeks = plan.getTotalWeeks() != null ? plan.getTotalWeeks() : 1;
+
+            // Group by weekNumber (fall back to day-based grouping for legacy data)
+            Map<Integer, List<PlanWorkout>> byWeek = new LinkedHashMap<>();
+            for (PlanWorkout w : plan.getWorkouts()) {
+                int wn = w.getWeekNumber() != null ? w.getWeekNumber()
+                        : (w.getDay() != null ? ((w.getDay() - 1) / 7) + 1 : 1);
+                byWeek.computeIfAbsent(wn, k -> new ArrayList<>()).add(w);
+            }
+
+            List<Map<String, Object>> weeks = byWeek.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(entry -> {
+                        int wn = entry.getKey();
+                        Map<String, Object> weekMap = new HashMap<>();
+                        weekMap.put("weekNumber", wn);
+                        weekMap.put("theme", computeTheme(wn, totalWeeks));
+                        weekMap.put("phase", computePhase(wn, totalWeeks));
+
+                        List<Map<String, Object>> wos = entry.getValue().stream()
+                                .sorted(Comparator.comparingInt(w -> w.getDay() != null ? w.getDay() : 0))
+                                .map(w -> {
+                                    Map<String, Object> wm = new HashMap<>();
+                                    wm.put("id", w.getId());
+                                    wm.put("dayLabel", w.getTitle()); // title stores dayLabel
+                                    wm.put("type", mapWorkoutType(w.getWorkoutType()));
+                                    wm.put("workoutType", w.getWorkoutType());
+                                    wm.put("description", w.getDescription());
+                                    wm.put("durationMinutes", w.getDurationMinutes());
+                                    wm.put("distanceMeters", w.getDistanceMeters());
+                                    wm.put("targetPaceSeconds", w.getTargetPaceSeconds());
+                                    wm.put("completed", w.isCompleted());
+                                    return wm;
+                                }).collect(Collectors.toList());
+
+                        weekMap.put("workouts", wos);
+                        return weekMap;
+                    }).collect(Collectors.toList());
+
+            map.put("weeks", weeks);
+        } else {
+            map.put("weeks", List.of());
         }
+
         return map;
     }
 }

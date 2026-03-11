@@ -32,6 +32,15 @@ public class PlanWorkout {
     @Column(name = "is_completed", nullable = false)
     private boolean completed = false;
 
+    @Column(name = "workout_type", length = 50)
+    private String workoutType;
+
+    @Column(name = "week_number")
+    private Integer weekNumber;
+
+    @Column(name = "target_pace_seconds")
+    private Integer targetPaceSeconds;
+
     public PlanWorkout() {}
 
     public Long getId() { return id; }
@@ -42,6 +51,9 @@ public class PlanWorkout {
     public Integer getDurationMinutes() { return durationMinutes; }
     public Integer getDistanceMeters() { return distanceMeters; }
     public boolean isCompleted() { return completed; }
+    public String getWorkoutType() { return workoutType; }
+    public Integer getWeekNumber() { return weekNumber; }
+    public Integer getTargetPaceSeconds() { return targetPaceSeconds; }
 
     public void setId(Long id) { this.id = id; }
     public void setPlan(Plan plan) { this.plan = plan; }
@@ -51,6 +63,9 @@ public class PlanWorkout {
     public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
     public void setDistanceMeters(Integer distanceMeters) { this.distanceMeters = distanceMeters; }
     public void setCompleted(boolean completed) { this.completed = completed; }
+    public void setWorkoutType(String workoutType) { this.workoutType = workoutType; }
+    public void setWeekNumber(Integer weekNumber) { this.weekNumber = weekNumber; }
+    public void setTargetPaceSeconds(Integer targetPaceSeconds) { this.targetPaceSeconds = targetPaceSeconds; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -62,6 +77,9 @@ public class PlanWorkout {
         private Integer durationMinutes;
         private Integer distanceMeters;
         private boolean completed = false;
+        private String workoutType;
+        private Integer weekNumber;
+        private Integer targetPaceSeconds;
 
         public Builder plan(Plan plan) { this.plan = plan; return this; }
         public Builder day(Integer day) { this.day = day; return this; }
@@ -70,6 +88,9 @@ public class PlanWorkout {
         public Builder durationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; return this; }
         public Builder distanceMeters(Integer distanceMeters) { this.distanceMeters = distanceMeters; return this; }
         public Builder completed(boolean completed) { this.completed = completed; return this; }
+        public Builder workoutType(String workoutType) { this.workoutType = workoutType; return this; }
+        public Builder weekNumber(Integer weekNumber) { this.weekNumber = weekNumber; return this; }
+        public Builder targetPaceSeconds(Integer targetPaceSeconds) { this.targetPaceSeconds = targetPaceSeconds; return this; }
 
         public PlanWorkout build() {
             PlanWorkout w = new PlanWorkout();
@@ -80,6 +101,9 @@ public class PlanWorkout {
             w.durationMinutes = this.durationMinutes;
             w.distanceMeters = this.distanceMeters;
             w.completed = this.completed;
+            w.workoutType = this.workoutType;
+            w.weekNumber = this.weekNumber;
+            w.targetPaceSeconds = this.targetPaceSeconds;
             return w;
         }
     }

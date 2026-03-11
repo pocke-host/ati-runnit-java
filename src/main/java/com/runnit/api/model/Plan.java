@@ -3,6 +3,7 @@ package com.runnit.api.model;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 @Entity
@@ -38,8 +39,20 @@ public class Plan {
     @Column(name = "total_weeks")
     private Integer totalWeeks;
 
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "target_race_date")
+    private LocalDate targetRaceDate;
+
+    @Column(name = "current_weekly_meters")
+    private Integer currentWeeklyMeters;
+
+    @Column(name = "target_seconds")
+    private Integer targetSeconds;
+
     @OneToMany(mappedBy = "plan", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("day ASC")
+    @OrderBy("week_number ASC, day ASC")
     private List<PlanWorkout> workouts;
 
     @CreationTimestamp
@@ -57,6 +70,10 @@ public class Plan {
     public boolean isActive() { return active; }
     public Integer getDaysPerWeek() { return daysPerWeek; }
     public Integer getTotalWeeks() { return totalWeeks; }
+    public LocalDate getStartDate() { return startDate; }
+    public LocalDate getTargetRaceDate() { return targetRaceDate; }
+    public Integer getCurrentWeeklyMeters() { return currentWeeklyMeters; }
+    public Integer getTargetSeconds() { return targetSeconds; }
     public List<PlanWorkout> getWorkouts() { return workouts; }
     public Instant getCreatedAt() { return createdAt; }
 
@@ -69,6 +86,10 @@ public class Plan {
     public void setActive(boolean active) { this.active = active; }
     public void setDaysPerWeek(Integer daysPerWeek) { this.daysPerWeek = daysPerWeek; }
     public void setTotalWeeks(Integer totalWeeks) { this.totalWeeks = totalWeeks; }
+    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
+    public void setTargetRaceDate(LocalDate targetRaceDate) { this.targetRaceDate = targetRaceDate; }
+    public void setCurrentWeeklyMeters(Integer currentWeeklyMeters) { this.currentWeeklyMeters = currentWeeklyMeters; }
+    public void setTargetSeconds(Integer targetSeconds) { this.targetSeconds = targetSeconds; }
     public void setWorkouts(List<PlanWorkout> workouts) { this.workouts = workouts; }
 
     public static Builder builder() { return new Builder(); }
@@ -82,6 +103,10 @@ public class Plan {
         private boolean active = false;
         private Integer daysPerWeek;
         private Integer totalWeeks;
+        private LocalDate startDate;
+        private LocalDate targetRaceDate;
+        private Integer currentWeeklyMeters;
+        private Integer targetSeconds;
 
         public Builder user(User user) { this.user = user; return this; }
         public Builder name(String name) { this.name = name; return this; }
@@ -91,6 +116,10 @@ public class Plan {
         public Builder active(boolean active) { this.active = active; return this; }
         public Builder daysPerWeek(Integer daysPerWeek) { this.daysPerWeek = daysPerWeek; return this; }
         public Builder totalWeeks(Integer totalWeeks) { this.totalWeeks = totalWeeks; return this; }
+        public Builder startDate(LocalDate startDate) { this.startDate = startDate; return this; }
+        public Builder targetRaceDate(LocalDate targetRaceDate) { this.targetRaceDate = targetRaceDate; return this; }
+        public Builder currentWeeklyMeters(Integer currentWeeklyMeters) { this.currentWeeklyMeters = currentWeeklyMeters; return this; }
+        public Builder targetSeconds(Integer targetSeconds) { this.targetSeconds = targetSeconds; return this; }
 
         public Plan build() {
             Plan p = new Plan();
@@ -102,6 +131,10 @@ public class Plan {
             p.active = this.active;
             p.daysPerWeek = this.daysPerWeek;
             p.totalWeeks = this.totalWeeks;
+            p.startDate = this.startDate;
+            p.targetRaceDate = this.targetRaceDate;
+            p.currentWeeklyMeters = this.currentWeeklyMeters;
+            p.targetSeconds = this.targetSeconds;
             return p;
         }
     }
