@@ -43,7 +43,7 @@ public class NotificationController {
             Long userId = (Long) auth.getPrincipal();
             Notification notification = notificationRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Notification not found"));
-            if (!notification.getUser().getId().equals(userId)) {
+            if (!notification.getUserId().equals(userId)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
             }
             notification.setRead(true);
