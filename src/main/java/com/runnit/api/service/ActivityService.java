@@ -37,6 +37,8 @@ public class ActivityService {
                 .averageHeartRate(request.getAverageHeartRate())
                 .averagePace(request.getAveragePace())
                 .routePolyline(request.getRoutePolyline())
+                .startLat(request.getStartLat())
+                .startLng(request.getStartLng())
                 .source(Activity.Source.MANUAL)
                 .build();
 
