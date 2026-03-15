@@ -42,6 +42,7 @@ public class Notification {
     public Notification() {}
 
     public Long getId() { return id; }
+    public Long getUserId() { return user != null ? user.getId() : null; }
     public User getUser() { return user; }
     public String getType() { return type; }
     public String getMessage() { return message; }
