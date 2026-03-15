@@ -15,6 +15,7 @@ import com.runnit.api.service.ActivityService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -162,6 +163,24 @@ public class ActivityController {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @GetMapping("/nearby")
+    public ResponseEntity<?> getNearbyActivities(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "50") double radius,
+            @RequestParam(required = false) String sport,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size) {
+        try {
+            Page<java.util.Map<String, Object>> results = activityRepository.findNearby(
+                lat, lng, radius, sport, PageRequest.of(page, size)
+            );
+            return ResponseEntity.ok(results);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

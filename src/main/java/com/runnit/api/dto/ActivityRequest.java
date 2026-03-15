@@ -21,6 +21,8 @@ public class ActivityRequest {
     private Integer averageHeartRate;
     private Double averagePace;
     private String routePolyline;
+    private Double startLat;
+    private Double startLng;
 
     public ActivityRequest() {}
 
@@ -33,6 +35,8 @@ public class ActivityRequest {
     public Integer getAverageHeartRate() { return averageHeartRate; }
     public Double getAveragePace() { return averagePace; }
     public String getRoutePolyline() { return routePolyline; }
+    public Double getStartLat() { return startLat; }
+    public Double getStartLng() { return startLng; }
 
     public void setSportType(Activity.SportType sportType) { this.sportType = sportType; }
     public void setDurationSeconds(Integer durationSeconds) { this.durationSeconds = durationSeconds; }
@@ -43,4 +47,6 @@ public class ActivityRequest {
     public void setAverageHeartRate(Integer averageHeartRate) { this.averageHeartRate = averageHeartRate; }
     public void setAveragePace(Double averagePace) { this.averagePace = averagePace; }
     public void setRoutePolyline(String routePolyline) { this.routePolyline = routePolyline; }
+    public void setStartLat(Double startLat) { this.startLat = startLat; }
+    public void setStartLng(Double startLng) { this.startLng = startLng; }
 }

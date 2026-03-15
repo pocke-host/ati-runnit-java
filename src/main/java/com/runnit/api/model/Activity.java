@@ -44,6 +44,12 @@ public class Activity {
     @Column(name = "route_polyline", columnDefinition = "TEXT")
     private String routePolyline;
 
+    @Column(name = "start_lat")
+    private Double startLat;
+
+    @Column(name = "start_lng")
+    private Double startLng;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "source")
     private Source source;
@@ -68,6 +74,8 @@ public class Activity {
     public Integer getMaxHeartRate() { return maxHeartRate; }
     public Double getAveragePace() { return averagePace; }
     public String getRoutePolyline() { return routePolyline; }
+    public Double getStartLat() { return startLat; }
+    public Double getStartLng() { return startLng; }
     public Source getSource() { return source; }
     public String getExternalId() { return externalId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
@@ -83,6 +91,8 @@ public class Activity {
     public void setMaxHeartRate(Integer maxHeartRate) { this.maxHeartRate = maxHeartRate; }
     public void setAveragePace(Double averagePace) { this.averagePace = averagePace; }
     public void setRoutePolyline(String routePolyline) { this.routePolyline = routePolyline; }
+    public void setStartLat(Double startLat) { this.startLat = startLat; }
+    public void setStartLng(Double startLng) { this.startLng = startLng; }
     public void setSource(Source source) { this.source = source; }
     public void setExternalId(String externalId) { this.externalId = externalId; }
 
@@ -99,6 +109,8 @@ public class Activity {
         private Integer maxHeartRate;
         private Double averagePace;
         private String routePolyline;
+        private Double startLat;
+        private Double startLng;
         private Source source;
         private String externalId;
 
@@ -112,6 +124,8 @@ public class Activity {
         public Builder maxHeartRate(Integer maxHeartRate) { this.maxHeartRate = maxHeartRate; return this; }
         public Builder averagePace(Double averagePace) { this.averagePace = averagePace; return this; }
         public Builder routePolyline(String routePolyline) { this.routePolyline = routePolyline; return this; }
+        public Builder startLat(Double startLat) { this.startLat = startLat; return this; }
+        public Builder startLng(Double startLng) { this.startLng = startLng; return this; }
         public Builder source(Source source) { this.source = source; return this; }
         public Builder externalId(String externalId) { this.externalId = externalId; return this; }
 
@@ -127,6 +141,8 @@ public class Activity {
             a.maxHeartRate = this.maxHeartRate;
             a.averagePace = this.averagePace;
             a.routePolyline = this.routePolyline;
+            a.startLat = this.startLat;
+            a.startLng = this.startLng;
             a.source = this.source;
             a.externalId = this.externalId;
             return a;
