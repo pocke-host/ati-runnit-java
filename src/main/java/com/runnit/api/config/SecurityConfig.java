@@ -15,6 +15,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.util.List;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @RequiredArgsConstructor
@@ -42,6 +43,7 @@ public class SecurityConfig {
                     "/api/garmin/oauth/webhook",
                     "/api/billing/webhook"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/live-shares/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
