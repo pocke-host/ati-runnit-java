@@ -57,6 +57,9 @@ public class Activity {
     @Column(name = "external_id", length = 100)
     private String externalId;
 
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -78,6 +81,7 @@ public class Activity {
     public Double getStartLng() { return startLng; }
     public Source getSource() { return source; }
     public String getExternalId() { return externalId; }
+    public String getNotes() { return notes; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     public void setId(Long id) { this.id = id; }
@@ -95,6 +99,7 @@ public class Activity {
     public void setStartLng(Double startLng) { this.startLng = startLng; }
     public void setSource(Source source) { this.source = source; }
     public void setExternalId(String externalId) { this.externalId = externalId; }
+    public void setNotes(String notes) { this.notes = notes; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -113,6 +118,7 @@ public class Activity {
         private Double startLng;
         private Source source;
         private String externalId;
+        private String notes;
 
         public Builder user(User user) { this.user = user; return this; }
         public Builder sportType(SportType sportType) { this.sportType = sportType; return this; }
@@ -128,6 +134,7 @@ public class Activity {
         public Builder startLng(Double startLng) { this.startLng = startLng; return this; }
         public Builder source(Source source) { this.source = source; return this; }
         public Builder externalId(String externalId) { this.externalId = externalId; return this; }
+        public Builder notes(String notes) { this.notes = notes; return this; }
 
         public Activity build() {
             Activity a = new Activity();
@@ -145,6 +152,7 @@ public class Activity {
             a.startLng = this.startLng;
             a.source = this.source;
             a.externalId = this.externalId;
+            a.notes = this.notes;
             return a;
         }
     }
