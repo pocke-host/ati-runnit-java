@@ -155,6 +155,38 @@ public class ClubController {
         }
     }
 
+    @GetMapping("/with-location")
+    public ResponseEntity<?> getWithLocation() {
+        return ResponseEntity.ok(clubRepository.findAll().stream()
+                .filter(c -> c.getLatitude() != null)
+                .map(this::toMap).collect(Collectors.toList()));
+    }
+
+    @PatchMapping("/{id}/location")
+    @Transactional
+    public ResponseEntity<?> setLocation(@PathVariable Long id,
+                                          @RequestBody Map<String, Object> body,
+                                          Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            Club club = clubRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Club not found"));
+            if (!club.getOwner().getId().equals(userId)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not owner"));
+            }
+            if (body.get("latitude") != null)
+                club.setLatitude(((Number) body.get("latitude")).doubleValue());
+            if (body.get("longitude") != null)
+                club.setLongitude(((Number) body.get("longitude")).doubleValue());
+            if (body.get("city") != null)
+                club.setCity((String) body.get("city"));
+            clubRepository.save(club);
+            return ResponseEntity.ok(toMap(club));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     private Map<String, Object> toMap(Club c) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", c.getId());
@@ -165,6 +197,10 @@ public class ClubController {
         map.put("memberCount", c.getMemberCount());
         map.put("isPrivate", c.isPrivateClub());
         map.put("createdAt", c.getCreatedAt());
+        map.put("ownerId",   c.getOwner().getId());
+        map.put("latitude",  c.getLatitude());
+        map.put("longitude", c.getLongitude());
+        map.put("city",      c.getCity());
         return map;
     }
 
