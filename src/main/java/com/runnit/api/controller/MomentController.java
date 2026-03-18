@@ -3,6 +3,8 @@ package com.runnit.api.controller;
 import com.runnit.api.dto.CommentResponse;
 import com.runnit.api.dto.MomentRequest;
 import com.runnit.api.dto.MomentResponse;
+import com.runnit.api.exception.BadRequestException;
+import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.model.Comment;
 import com.runnit.api.model.Moment;
 import com.runnit.api.model.User;
@@ -10,6 +12,7 @@ import com.runnit.api.repository.CommentRepository;
 import com.runnit.api.repository.MomentRepository;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.service.MomentService;
+import com.runnit.api.util.SanitizationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -81,7 +84,7 @@ public class MomentController {
         try {
             Long userId = (Long) auth.getPrincipal();
             Moment moment = momentRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Moment not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Moment not found"));
             if (!moment.getUser().getId().equals(userId)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
             }
@@ -116,13 +119,17 @@ public class MomentController {
         try {
             Long userId = (Long) auth.getPrincipal();
             User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
             Moment moment = momentRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Moment not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Moment not found"));
+            String text = SanitizationUtil.sanitizeAndLimit(body.get("text"), 1000);
+            if (text == null || text.isBlank()) {
+                throw new BadRequestException("Comment text is required");
+            }
             Comment comment = Comment.builder()
                     .user(user)
                     .moment(moment)
-                    .content(body.get("text"))
+                    .content(text)
                     .build();
             comment = commentRepository.save(comment);
             return ResponseEntity.ok(toCommentResponse(comment));

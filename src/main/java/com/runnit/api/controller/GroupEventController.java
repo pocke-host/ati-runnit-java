@@ -145,7 +145,7 @@ public class GroupEventController {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("inviteId", i.getId());
             m.put("userId", i.getInvitee().getId());
-            m.put("displayName", i.getInvitee().getFirstName() + " " + i.getInvitee().getLastName());
+            m.put("displayName", i.getInvitee().getDisplayName());
             m.put("status", i.getStatus());
             return m;
         }).collect(Collectors.toList());
@@ -158,7 +158,7 @@ public class GroupEventController {
         result.put("locationName", event.getLocationName());
         result.put("description", event.getDescription());
         result.put("creatorId", event.getCreator().getId());
-        result.put("creatorName", event.getCreator().getFirstName() + " " + event.getCreator().getLastName());
+        result.put("creatorName", event.getCreator().getDisplayName());
         result.put("attendeeCount", attendeeCount);
         result.put("myInviteId", myInvite != null ? myInvite.getId() : null);
         result.put("myRsvpStatus", myInvite != null ? myInvite.getStatus() : null);

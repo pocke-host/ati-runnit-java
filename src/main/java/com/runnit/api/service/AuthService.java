@@ -1,5 +1,9 @@
 package com.runnit.api.service;
 
+import com.runnit.api.exception.BadRequestException;
+import com.runnit.api.exception.ConflictException;
+import com.runnit.api.exception.ResourceNotFoundException;
+import com.runnit.api.exception.UnauthorizedException;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.security.JwtUtil;
@@ -22,7 +26,7 @@ public class AuthService {
     @Transactional
     public Map<String, Object> registerWithEmail(String email, String password, String displayName, String role) {
         if (userRepository.existsByEmail(email)) {
-            throw new RuntimeException("Email already exists");
+            throw new ConflictException("Email already exists");
         }
 
         String safeRole = (role != null && role.equals("coach")) ? "coach" : "athlete";
@@ -47,14 +51,10 @@ public class AuthService {
     
     public Map<String, Object> loginWithEmail(String email, String password) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
-        
-        // if (user.getAuthProvider() != User.AuthProvider.EMAIL) {
-        //     throw new RuntimeException("Please use " + user.getAuthProvider() + " to sign in");
-        // }
-        
+                .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
+
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new UnauthorizedException("Invalid credentials");
         }
         
         String token = jwtUtil.generateToken(user.getId(), user.getEmail());
@@ -90,7 +90,7 @@ public class AuthService {
     
     public User getUserById(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
     
     private Map<String, Object> userToMap(User user) {

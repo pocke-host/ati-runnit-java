@@ -3,6 +3,7 @@ package com.runnit.api.controller;
 import com.runnit.api.model.CoachMessage;
 import com.runnit.api.repository.CoachMessageRepository;
 import com.runnit.api.repository.CoachRequestRepository;
+import com.runnit.api.util.SanitizationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -63,7 +64,7 @@ public class CoachMessageController {
             if (coachId == null) {
                 return ResponseEntity.status(403).body(Map.of("error", "No approved coaching relationship"));
             }
-            String msgBody = (String) body.get("body");
+            String msgBody = SanitizationUtil.sanitizeAndLimit((String) body.get("body"), 2000);
             if (msgBody == null || msgBody.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Message body required"));
             }
@@ -71,7 +72,7 @@ public class CoachMessageController {
             msg.setCoachId(coachId);
             msg.setAthleteId(athleteId);
             msg.setSenderId(callerId);
-            msg.setBody(msgBody.trim());
+            msg.setBody(msgBody);
             msg = coachMessageRepository.save(msg);
             return ResponseEntity.ok(toMap(msg));
         } catch (Exception e) {

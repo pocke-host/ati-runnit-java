@@ -32,7 +32,7 @@ public class LiveShareController {
             LiveShare share = new LiveShare();
             share.setToken(UUID.randomUUID().toString());
             share.setUserId(userId);
-            share.setDisplayName(user.getFirstName() + " " + user.getLastName());
+            share.setDisplayName(user.getDisplayName());
             share.setSportType((String) body.getOrDefault("sportType", "RUN"));
             share.setIsActive(true);
             share.setStartedAt(LocalDateTime.now());
