@@ -184,6 +184,29 @@ public class ActivityController {
         }
     }
 
+    @PatchMapping("/{id}")
+    @Transactional
+    public ResponseEntity<?> patchActivity(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            Activity activity = activityRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Activity not found"));
+            if (!activity.getUser().getId().equals(userId)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
+            }
+            if (body.containsKey("notes")) {
+                activity.setNotes(body.get("notes"));
+            }
+            activityRepository.save(activity);
+            return ResponseEntity.ok(activity);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @DeleteMapping("/{id}/reactions")
     @Transactional
     public ResponseEntity<?> removeReaction(@PathVariable Long id, Authentication auth) {

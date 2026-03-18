@@ -34,6 +34,15 @@ public class Club {
     @Column(name = "member_count", nullable = false)
     private int memberCount = 1;
 
+    @Column
+    private Double latitude;
+
+    @Column
+    private Double longitude;
+
+    @Column(length = 100)
+    private String city;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -48,6 +57,9 @@ public class Club {
     public boolean isPrivateClub() { return privateClub; }
     public User getOwner() { return owner; }
     public int getMemberCount() { return memberCount; }
+    public Double getLatitude() { return latitude; }
+    public Double getLongitude() { return longitude; }
+    public String getCity() { return city; }
     public Instant getCreatedAt() { return createdAt; }
 
     public void setId(Long id) { this.id = id; }
@@ -58,6 +70,9 @@ public class Club {
     public void setPrivateClub(boolean privateClub) { this.privateClub = privateClub; }
     public void setOwner(User owner) { this.owner = owner; }
     public void setMemberCount(int memberCount) { this.memberCount = memberCount; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+    public void setCity(String city) { this.city = city; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -69,6 +84,9 @@ public class Club {
         private boolean privateClub = false;
         private User owner;
         private int memberCount = 1;
+        private Double latitude;
+        private Double longitude;
+        private String city;
 
         public Builder name(String name) { this.name = name; return this; }
         public Builder sport(String sport) { this.sport = sport; return this; }
@@ -77,6 +95,9 @@ public class Club {
         public Builder privateClub(boolean privateClub) { this.privateClub = privateClub; return this; }
         public Builder owner(User owner) { this.owner = owner; return this; }
         public Builder memberCount(int memberCount) { this.memberCount = memberCount; return this; }
+        public Builder latitude(Double latitude) { this.latitude = latitude; return this; }
+        public Builder longitude(Double longitude) { this.longitude = longitude; return this; }
+        public Builder city(String city) { this.city = city; return this; }
 
         public Club build() {
             Club c = new Club();
@@ -87,6 +108,9 @@ public class Club {
             c.privateClub = this.privateClub;
             c.owner = this.owner;
             c.memberCount = this.memberCount;
+            c.latitude = this.latitude;
+            c.longitude = this.longitude;
+            c.city = this.city;
             return c;
         }
     }
