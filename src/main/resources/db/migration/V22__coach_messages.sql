@@ -1,0 +1,10 @@
+CREATE TABLE coach_messages (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  coach_id BIGINT NOT NULL,
+  athlete_id BIGINT NOT NULL,
+  sender_id BIGINT NOT NULL,
+  body TEXT NOT NULL,
+  is_read TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+);
