@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -66,18 +67,32 @@ public class AuthService {
     }
     
     @Transactional
-    public Map<String, Object> handleOAuthLogin(User.AuthProvider provider, String providerId, 
+    public Map<String, Object> handleOAuthLogin(User.AuthProvider provider, String providerId,
                                                  String email, String displayName, String avatarUrl) {
         User user = userRepository.findByAuthProviderAndProviderId(provider, providerId)
                 .orElseGet(() -> {
-                    User newUser = User.builder()
+                    // If the same email exists (registered via email before), link provider to that account
+                    if (email != null) {
+                        Optional<User> existingByEmail = userRepository.findByEmail(email);
+                        if (existingByEmail.isPresent()) {
+                            User existing = existingByEmail.get();
+                            existing.setAuthProvider(provider);
+                            existing.setProviderId(providerId);
+                            if (avatarUrl != null && existing.getAvatarUrl() == null) {
+                                existing.setAvatarUrl(avatarUrl);
+                            }
+                            return userRepository.save(existing);
+                        }
+                    }
+                    // Brand-new user via OAuth
+                    return userRepository.save(User.builder()
                             .email(email)
-                            .displayName(displayName)
-                            // .avatarUrl(avatarUrl)
-                            // .authProvider(provider)
-                            // .providerId(providerId)
-                            .build();
-                    return userRepository.save(newUser);
+                            .displayName(displayName != null ? displayName : email)
+                            .avatarUrl(avatarUrl)
+                            .authProvider(provider)
+                            .providerId(providerId)
+                            .role("athlete")
+                            .build());
                 });
         
         String token = jwtUtil.generateToken(user.getId(), user.getEmail());
