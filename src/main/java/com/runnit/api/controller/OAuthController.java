@@ -205,6 +205,7 @@ public class OAuthController {
         cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setMaxAge((int) (jwtExpiration / 1000));
+        cookie.setAttribute("SameSite", "None"); // required for cross-origin cookie sharing
         response.addCookie(cookie);
     }
 }
