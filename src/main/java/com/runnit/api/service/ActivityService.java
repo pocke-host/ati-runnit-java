@@ -1,18 +1,24 @@
 package com.runnit.api.service;
 
 import com.runnit.api.dto.ActivityRequest;
+import com.runnit.api.dto.FeedActivityDTO;
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.User;
+import com.runnit.api.repository.ActivityReactionRepository;
 import com.runnit.api.repository.ActivityRepository;
+import com.runnit.api.repository.CommentRepository;
 import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +27,8 @@ public class ActivityService {
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
+    private final ActivityReactionRepository activityReactionRepository;
+    private final CommentRepository commentRepository;
     
     @Transactional
     public Activity createActivity(Long userId, ActivityRequest request) {
@@ -57,9 +65,39 @@ public class ActivityService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Activity> getFeed(Long userId, int page, int size) {
+    public Page<FeedActivityDTO> getFeed(Long userId, int page, int size) {
         List<Long> followingIds = followRepository.findFollowingUserIds(userId);
         followingIds.add(userId);
-        return activityRepository.findFeedByUserIds(followingIds, PageRequest.of(page, size));
+
+        Page<Activity> activityPage = activityRepository.findFeedByUserIds(followingIds, PageRequest.of(page, size));
+        List<Activity> activities = activityPage.getContent();
+
+        if (activities.isEmpty()) {
+            return new PageImpl<>(List.of(), activityPage.getPageable(), activityPage.getTotalElements());
+        }
+
+        List<Long> ids = activities.stream().map(Activity::getId).collect(Collectors.toList());
+
+        // Batch load reaction counts — 1 query instead of N
+        Map<Long, Long> reactionCounts = activityReactionRepository.countGroupedByActivityIds(ids)
+                .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
+
+        // Batch load comment counts — 1 query instead of N
+        Map<Long, Long> commentCounts = commentRepository.countGroupedByActivityIds(ids)
+                .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
+
+        // Batch load current user's reactions — 1 query instead of N
+        Map<Long, String> userReactions = activityReactionRepository.findUserReactionsByActivityIds(ids, userId)
+                .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> r[1].toString()));
+
+        List<FeedActivityDTO> dtos = activities.stream().map(a -> {
+            FeedActivityDTO dto = FeedActivityDTO.from(a);
+            dto.setReactionCount(reactionCounts.getOrDefault(a.getId(), 0L));
+            dto.setCommentCount(commentCounts.getOrDefault(a.getId(), 0L));
+            dto.setUserReactionType(userReactions.get(a.getId()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        return new PageImpl<>(dtos, activityPage.getPageable(), activityPage.getTotalElements());
     }
 }

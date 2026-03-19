@@ -16,6 +16,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.util.List;
 import org.springframework.http.HttpMethod;
+import org.springframework.web.client.RestTemplate;
 
 @Configuration
 @RequiredArgsConstructor
@@ -34,6 +35,7 @@ public class SecurityConfig {
                     "/api/auth/login",
                     "/api/auth/register",
                     "/api/auth/logout",
+                    "/api/auth/oauth/**",
                     "/api/health",
                     "/api/uploads/sign",
                     "/api/events",
@@ -76,5 +78,10 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 }

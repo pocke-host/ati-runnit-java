@@ -56,6 +56,12 @@ public class NotificationController {
         }
     }
 
+    @GetMapping("/count")
+    public ResponseEntity<?> getUnreadCount(Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        return ResponseEntity.ok(Map.of("unreadCount", notificationRepository.countByUser_IdAndReadFalse(userId)));
+    }
+
     @PatchMapping("/read-all")
     @Transactional
     public ResponseEntity<?> markAllRead(Authentication auth) {
