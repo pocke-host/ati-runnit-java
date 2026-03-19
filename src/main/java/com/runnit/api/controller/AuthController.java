@@ -59,6 +59,7 @@ public class AuthController {
         cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setMaxAge(0);
+        cookie.setAttribute("SameSite", "None"); // must match the original cookie's SameSite attribute to clear it
         response.addCookie(cookie);
         return ResponseEntity.ok(Map.of("message", "Logged out"));
     }
@@ -95,6 +96,7 @@ public class AuthController {
         cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setMaxAge((int) (jwtExpiration / 1000));
+        cookie.setAttribute("SameSite", "None"); // required for cross-origin cookie sharing (runnit.live → onrender.com)
         response.addCookie(cookie);
     }
 }
