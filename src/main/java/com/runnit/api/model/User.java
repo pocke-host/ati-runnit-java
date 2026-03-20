@@ -56,6 +56,9 @@ public class User {
     @Column(name = "onboarding_complete")
     private Boolean onboardingComplete = false;
 
+    @Column(name = "archetype", length = 50)
+    private String archetype;
+
     @Column(name = "strava_athlete_id")
     private Long stravaAthleteId;
 
@@ -118,6 +121,7 @@ public class User {
     public Boolean getIsPublic() { return isPublic; }
     public String getRole() { return role; }
     public Boolean getOnboardingComplete() { return onboardingComplete; }
+    public String getArchetype() { return archetype; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
@@ -136,6 +140,7 @@ public class User {
     public void setIsPublic(Boolean isPublic) { this.isPublic = isPublic; }
     public void setRole(String role) { this.role = role; }
     public void setOnboardingComplete(Boolean onboardingComplete) { this.onboardingComplete = onboardingComplete; }
+    public void setArchetype(String archetype) { this.archetype = archetype; }
     public Long getStravaAthleteId() { return stravaAthleteId; }
     public String getStravaAccessToken() { return stravaAccessToken; }
     public String getStravaRefreshToken() { return stravaRefreshToken; }
