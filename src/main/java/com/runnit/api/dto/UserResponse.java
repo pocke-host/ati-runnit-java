@@ -19,6 +19,7 @@ public class UserResponse {
     private Long activityCount;
     private Instant createdAt;
     private String unitSystem;
+    private String archetype;
 
     public UserResponse() {}
 
@@ -38,6 +39,7 @@ public class UserResponse {
     public Long getActivityCount() { return activityCount; }
     public Instant getCreatedAt() { return createdAt; }
     public String getUnitSystem() { return unitSystem; }
+    public String getArchetype() { return archetype; }
 
     public void setId(Long id) { this.id = id; }
     public void setEmail(String email) { this.email = email; }
@@ -55,6 +57,7 @@ public class UserResponse {
     public void setActivityCount(Long activityCount) { this.activityCount = activityCount; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public void setUnitSystem(String unitSystem) { this.unitSystem = unitSystem; }
+    public void setArchetype(String archetype) { this.archetype = archetype; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -75,6 +78,7 @@ public class UserResponse {
         private Long activityCount;
         private Instant createdAt;
         private String unitSystem;
+        private String archetype;
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder email(String email) { this.email = email; return this; }
@@ -92,6 +96,7 @@ public class UserResponse {
         public Builder activityCount(Long activityCount) { this.activityCount = activityCount; return this; }
         public Builder createdAt(Instant createdAt) { this.createdAt = createdAt; return this; }
         public Builder unitSystem(String unitSystem) { this.unitSystem = unitSystem; return this; }
+        public Builder archetype(String archetype) { this.archetype = archetype; return this; }
 
         public UserResponse build() {
             UserResponse r = new UserResponse();
@@ -111,6 +116,7 @@ public class UserResponse {
             r.activityCount = this.activityCount;
             r.createdAt = this.createdAt;
             r.unitSystem = this.unitSystem;
+            r.archetype = this.archetype;
             return r;
         }
     }

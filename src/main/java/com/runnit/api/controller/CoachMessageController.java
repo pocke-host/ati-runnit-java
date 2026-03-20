@@ -112,12 +112,7 @@ public class CoachMessageController {
     public ResponseEntity<?> unreadCount(Authentication auth) {
         try {
             Long callerId = (Long) auth.getPrincipal();
-            // Find all threads where caller is involved and count unread (not sent by caller)
-            long count = coachMessageRepository.findAll().stream()
-                    .filter(m -> (m.getCoachId().equals(callerId) || m.getAthleteId().equals(callerId))
-                            && !m.getSenderId().equals(callerId)
-                            && !m.isRead())
-                    .count();
+            long count = coachMessageRepository.countUnreadForUser(callerId);
             return ResponseEntity.ok(Map.of("unreadCount", count));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

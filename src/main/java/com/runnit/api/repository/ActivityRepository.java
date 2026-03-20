@@ -16,6 +16,12 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     boolean existsByUserIdAndExternalId(Long userId, String externalId);
 
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM Activity a WHERE a.user.id = :userId AND a.createdAt >= :since")
+    java.util.List<Activity> findByUserIdSince(
+        @org.springframework.data.repository.query.Param("userId") Long userId,
+        @org.springframework.data.repository.query.Param("since") java.time.LocalDateTime since
+    );
+
     @org.springframework.data.jpa.repository.Query("SELECT a FROM Activity a JOIN FETCH a.user WHERE a.user.id IN :userIds ORDER BY a.createdAt DESC")
     Page<Activity> findFeedByUserIds(@org.springframework.data.repository.query.Param("userIds") java.util.List<Long> userIds, Pageable pageable);
 
