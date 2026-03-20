@@ -45,6 +45,7 @@ public class SecurityConfig {
                     "/api/billing/webhook"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/live-shares/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/moments/*/comments").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
