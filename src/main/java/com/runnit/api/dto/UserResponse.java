@@ -20,6 +20,8 @@ public class UserResponse {
     private Instant createdAt;
     private String unitSystem;
     private String archetype;
+    private String subscriptionStatus;
+    private String subscriptionTier;
 
     public UserResponse() {}
 
@@ -40,6 +42,8 @@ public class UserResponse {
     public Instant getCreatedAt() { return createdAt; }
     public String getUnitSystem() { return unitSystem; }
     public String getArchetype() { return archetype; }
+    public String getSubscriptionStatus() { return subscriptionStatus; }
+    public String getSubscriptionTier() { return subscriptionTier; }
 
     public void setId(Long id) { this.id = id; }
     public void setEmail(String email) { this.email = email; }
@@ -58,6 +62,8 @@ public class UserResponse {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public void setUnitSystem(String unitSystem) { this.unitSystem = unitSystem; }
     public void setArchetype(String archetype) { this.archetype = archetype; }
+    public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
+    public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -79,6 +85,8 @@ public class UserResponse {
         private Instant createdAt;
         private String unitSystem;
         private String archetype;
+        private String subscriptionStatus;
+        private String subscriptionTier;
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder email(String email) { this.email = email; return this; }
@@ -97,6 +105,8 @@ public class UserResponse {
         public Builder createdAt(Instant createdAt) { this.createdAt = createdAt; return this; }
         public Builder unitSystem(String unitSystem) { this.unitSystem = unitSystem; return this; }
         public Builder archetype(String archetype) { this.archetype = archetype; return this; }
+        public Builder subscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; return this; }
+        public Builder subscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; return this; }
 
         public UserResponse build() {
             UserResponse r = new UserResponse();
@@ -117,6 +127,8 @@ public class UserResponse {
             r.createdAt = this.createdAt;
             r.unitSystem = this.unitSystem;
             r.archetype = this.archetype;
+            r.subscriptionStatus = this.subscriptionStatus;
+            r.subscriptionTier = this.subscriptionTier;
             return r;
         }
     }

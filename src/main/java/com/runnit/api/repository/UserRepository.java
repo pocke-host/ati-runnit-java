@@ -16,6 +16,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     java.util.List<User> findByRole(String role);
 
+    Optional<User> findByStripeCustomerId(String stripeCustomerId);
     Optional<User> findByStravaAthleteId(Long stravaAthleteId);
     Optional<User> findByStravaOauthState(String state);
     Optional<User> findByGarminRequestToken(String requestToken);
