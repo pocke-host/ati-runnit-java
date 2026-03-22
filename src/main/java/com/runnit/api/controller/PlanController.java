@@ -1,11 +1,13 @@
 package com.runnit.api.controller;
 
+import com.runnit.api.dto.TrainingBlockResponse;
 import com.runnit.api.model.Plan;
 import com.runnit.api.model.PlanWorkout;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.PlanRepository;
 import com.runnit.api.repository.PlanWorkoutRepository;
 import com.runnit.api.repository.UserRepository;
+import com.runnit.api.service.TrainingBlockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -24,6 +26,28 @@ public class PlanController {
     private final PlanRepository planRepository;
     private final PlanWorkoutRepository workoutRepository;
     private final UserRepository userRepository;
+    private final TrainingBlockService trainingBlockService;
+
+    /**
+     * GET /api/plans/active/block
+     * Returns a full training-block summary for the currently active plan:
+     * current phase/theme, week progress, phase boundaries, per-week volume
+     * trend, and this week's workouts.
+     * Returns 404 if no active plan exists.
+     */
+    @GetMapping("/active/block")
+    public ResponseEntity<?> getActiveBlock(Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            TrainingBlockResponse block = trainingBlockService.getBlockSummary(userId);
+            if (block == null) {
+                return ResponseEntity.status(404).body(Map.of("error", "No active plan found"));
+            }
+            return ResponseEntity.ok(block);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
     @GetMapping
     public ResponseEntity<?> getPlans(
