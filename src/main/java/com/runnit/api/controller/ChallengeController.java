@@ -2,10 +2,12 @@ package com.runnit.api.controller;
 
 import com.runnit.api.model.Challenge;
 import com.runnit.api.model.ChallengeParticipant;
+import com.runnit.api.model.User;
 import com.runnit.api.repository.ChallengeParticipantRepository;
 import com.runnit.api.repository.ChallengeRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/challenges")
 @RequiredArgsConstructor
@@ -41,6 +44,7 @@ public class ChallengeController {
                     .stream().map(this::toMap).collect(Collectors.toList());
             return ResponseEntity.ok(challenges);
         } catch (Exception e) {
+            log.error("Failed to fetch user challenges: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -54,7 +58,7 @@ public class ChallengeController {
                 return ResponseEntity.status(404).body(Map.of("error", "Challenge not found"));
             }
             if (participantRepository.existsByChallengeIdAndUserId(id, userId)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Already entered"));
+                return ResponseEntity.status(409).body(Map.of("error", "Already entered this challenge"));
             }
             participantRepository.save(ChallengeParticipant.builder()
                     .challengeId(id).userId(userId).value(0).build());
@@ -64,6 +68,7 @@ public class ChallengeController {
             });
             return ResponseEntity.ok(Map.of("message", "Entered challenge"));
         } catch (Exception e) {
+            log.error("Failed to enter challenge id={}: {}", id, e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -80,32 +85,50 @@ public class ChallengeController {
             });
             return ResponseEntity.ok(Map.of("message", "Left challenge"));
         } catch (Exception e) {
+            log.error("Failed to leave challenge id={}: {}", id, e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
+    /**
+     * Returns the leaderboard for a challenge.
+     * Users are batch-loaded in a single query to avoid N+1 queries.
+     */
     @GetMapping("/{id}/leaderboard")
     public ResponseEntity<?> getLeaderboard(@PathVariable Long id) {
         try {
             List<ChallengeParticipant> participants = participantRepository.findByChallengeIdOrderByValueDesc(id);
+
+            // Batch-load all users in one query instead of per-participant lookups
+            List<Long> userIds = participants.stream()
+                    .map(ChallengeParticipant::getUserId)
+                    .collect(Collectors.toList());
+            Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
+                    .collect(Collectors.toMap(User::getId, u -> u));
+
             AtomicInteger rank = new AtomicInteger(1);
             List<Map<String, Object>> entries = participants.stream().map(p -> {
-                Map<String, Object> entry = new HashMap<>();
+                Map<String, Object> entry = new LinkedHashMap<>();
                 entry.put("userId", p.getUserId());
                 entry.put("rank", rank.getAndIncrement());
                 entry.put("value", p.getValue());
-                userRepository.findById(p.getUserId()).ifPresent(u ->
-                        entry.put("displayName", u.getDisplayName()));
+                User u = userMap.get(p.getUserId());
+                if (u != null) {
+                    entry.put("displayName", u.getDisplayName());
+                    entry.put("avatarUrl", u.getAvatarUrl());
+                }
                 return entry;
             }).collect(Collectors.toList());
+
             return ResponseEntity.ok(Map.of("entries", entries));
         } catch (Exception e) {
+            log.error("Failed to fetch leaderboard for challenge id={}: {}", id, e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
     private Map<String, Object> toMap(Challenge c) {
-        Map<String, Object> map = new HashMap<>();
+        Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", c.getId());
         map.put("name", c.getName());
         map.put("description", c.getDescription());

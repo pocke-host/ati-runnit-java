@@ -11,13 +11,16 @@ import com.stripe.net.Webhook;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.CustomerSearchParams;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/billing")
 @RequiredArgsConstructor
@@ -46,8 +49,9 @@ public class BillingController {
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             String priceId = (String) body.get("priceId");
-            if (priceId == null || priceId.isBlank())
+            if (priceId == null || priceId.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "priceId is required"));
+            }
 
             String customerId = getOrCreateCustomer(user);
 
@@ -72,9 +76,11 @@ public class BillingController {
 
             com.stripe.model.checkout.Session session =
                     com.stripe.model.checkout.Session.create(params);
+            log.info("Checkout session created: userId={} sessionId={}", userId, session.getId());
             return ResponseEntity.ok(Map.of("sessionId", session.getId()));
 
         } catch (Exception e) {
+            log.error("Failed to create checkout session: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -100,18 +106,21 @@ public class BillingController {
             return ResponseEntity.ok(Map.of("url", session.getUrl()));
 
         } catch (Exception e) {
+            log.error("Failed to create billing portal session: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
     /** POST /api/billing/webhook — no auth, verified by Stripe signature */
     @PostMapping("/webhook")
+    @Transactional
     public ResponseEntity<?> handleWebhook(
             @RequestBody String payload,
             @RequestHeader("Stripe-Signature") String sigHeader) {
         try {
             Stripe.apiKey = stripeSecretKey;
             Event event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
+            log.info("Stripe webhook received: type={}", event.getType());
 
             switch (event.getType()) {
                 case "customer.subscription.created":
@@ -128,32 +137,64 @@ public class BillingController {
                     break;
                 }
                 default:
+                    log.debug("Unhandled Stripe event type: {}", event.getType());
                     break;
             }
             return ResponseEntity.ok(Map.of("received", true));
         } catch (Exception e) {
+            log.error("Stripe webhook processing failed: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
+    /**
+     * Finds or creates a Stripe Customer for the given user.
+     * Stores the Stripe customerId on the User to avoid repeated Stripe searches.
+     */
     private String getOrCreateCustomer(User user) throws Exception {
+        // Use stored customerId if we already have one
+        if (user.getStripeCustomerId() != null && !user.getStripeCustomerId().isBlank()) {
+            return user.getStripeCustomerId();
+        }
+
+        // Search Stripe by email for an existing customer
         CustomerSearchParams search = CustomerSearchParams.builder()
                 .setQuery("email:'" + user.getEmail() + "'")
                 .build();
         var results = Customer.search(search);
+
+        String customerId;
         if (!results.getData().isEmpty()) {
-            return results.getData().get(0).getId();
+            customerId = results.getData().get(0).getId();
+            log.debug("Found existing Stripe customer: userId={} customerId={}", user.getId(), customerId);
+        } else {
+            CustomerCreateParams createParams = CustomerCreateParams.builder()
+                    .setEmail(user.getEmail())
+                    .setName(user.getDisplayName())
+                    .build();
+            customerId = Customer.create(createParams).getId();
+            log.info("Created Stripe customer: userId={} customerId={}", user.getId(), customerId);
         }
-        CustomerCreateParams createParams = CustomerCreateParams.builder()
-                .setEmail(user.getEmail())
-                .setName(user.getDisplayName())
-                .build();
-        return Customer.create(createParams).getId();
+
+        // Persist the Stripe customerId so future calls skip the search
+        user.setStripeCustomerId(customerId);
+        userRepository.save(user);
+
+        return customerId;
     }
 
+    /**
+     * Updates the user's subscription_status based on a Stripe webhook event.
+     * Looks up the user by their stored stripeCustomerId.
+     */
     private void updateUserSubscription(String stripeCustomerId, String status) {
-        // Future: look up user by stripeCustomerId and update subscription status
+        userRepository.findByStripeCustomerId(stripeCustomerId).ifPresentOrElse(user -> {
+            user.setSubscriptionStatus(status);
+            userRepository.save(user);
+            log.info("Updated subscription: userId={} stripeCustomerId={} status={}",
+                    user.getId(), stripeCustomerId, status);
+        }, () -> log.warn("Stripe webhook: no user found for customerId={}", stripeCustomerId));
     }
 }

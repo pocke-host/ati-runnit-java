@@ -14,6 +14,7 @@ import com.runnit.api.repository.UserRepository;
 import com.runnit.api.service.ActivityService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/activities")
 @RequiredArgsConstructor
@@ -46,9 +48,8 @@ public class ActivityController {
             Activity activity = activityService.createActivity(userId, request);
             return ResponseEntity.ok(activity);
         } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
+            log.error("Failed to create activity: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -63,9 +64,8 @@ public class ActivityController {
             Page<Activity> activities = activityService.getUserActivities(targetUserId, page, size);
             return ResponseEntity.ok(activities);
         } catch (Exception e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
+            log.error("Failed to fetch activities: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -75,6 +75,7 @@ public class ActivityController {
             Activity activity = activityService.getActivityById(id);
             return ResponseEntity.ok(activity);
         } catch (Exception e) {
+            log.warn("Activity not found: id={}", id);
             return ResponseEntity.notFound().build();
         }
     }

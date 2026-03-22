@@ -8,6 +8,7 @@ import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.service.MomentService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -34,12 +36,10 @@ public class UserController {
         try {
             User user = userRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("User not found"));
-
             return ResponseEntity.ok(toFullResponse(user));
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(404).body(error);
+            log.warn("User profile not found: id={}", id);
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -50,22 +50,21 @@ public class UserController {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
-            if (body.containsKey("displayName"))       user.setDisplayName((String) body.get("displayName"));
-            if (body.containsKey("location"))          user.setLocation((String) body.get("location"));
-            if (body.containsKey("sport"))             user.setSport((String) body.get("sport"));
-            if (body.containsKey("primarySport"))      user.setSport((String) body.get("primarySport"));
-            if (body.containsKey("avatarUrl"))         user.setAvatarUrl((String) body.get("avatarUrl"));
-            if (body.containsKey("bio"))               user.setBio((String) body.get("bio"));
-            if (body.containsKey("isPublic"))          user.setIsPublic((Boolean) body.get("isPublic"));
-            if (body.containsKey("role"))              user.setRole((String) body.get("role"));
+            if (body.containsKey("displayName"))        user.setDisplayName((String) body.get("displayName"));
+            if (body.containsKey("location"))           user.setLocation((String) body.get("location"));
+            if (body.containsKey("sport"))              user.setSport((String) body.get("sport"));
+            if (body.containsKey("primarySport"))       user.setSport((String) body.get("primarySport"));
+            if (body.containsKey("avatarUrl"))          user.setAvatarUrl((String) body.get("avatarUrl"));
+            if (body.containsKey("bio"))                user.setBio((String) body.get("bio"));
+            if (body.containsKey("isPublic"))           user.setIsPublic((Boolean) body.get("isPublic"));
+            if (body.containsKey("role"))               user.setRole((String) body.get("role"));
             if (body.containsKey("onboardingComplete")) user.setOnboardingComplete((Boolean) body.get("onboardingComplete"));
 
             userRepository.save(user);
             return ResponseEntity.ok(toFullResponse(user));
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
+            log.error("Failed to update profile: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -74,11 +73,11 @@ public class UserController {
         try {
             Long userId = (Long) auth.getPrincipal();
             userRepository.deleteById(userId);
+            log.info("Account deleted: userId={}", userId);
             return ResponseEntity.ok(Map.of("message", "Account deleted"));
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
+            log.error("Failed to delete account: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -94,12 +93,15 @@ public class UserController {
             userRepository.save(user);
             return ResponseEntity.ok(Map.of("unitSystem", user.getUnitSystem()));
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
+            log.error("Failed to update preferences: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
+    /**
+     * Search users by display name. Email is intentionally excluded from results
+     * to prevent leaking user email addresses through the search API.
+     */
     @GetMapping("/search")
     public ResponseEntity<?> searchUsers(
             @RequestParam String query,
@@ -112,15 +114,15 @@ public class UserController {
                     .map(u -> UserResponse.builder()
                             .id(u.getId())
                             .displayName(u.getDisplayName())
-                            .email(u.getEmail())
+                            // email intentionally omitted from search results
                             .avatarUrl(u.getAvatarUrl())
+                            .sport(u.getSport())
                             .build())
                     .collect(Collectors.toList());
             return ResponseEntity.ok(results);
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
+            log.error("User search failed: query={} error={}", query, e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -135,13 +137,17 @@ public class UserController {
             Page<MomentResponse> moments = momentService.getUserMoments(id, currentUserId, page, size);
             return ResponseEntity.ok(moments);
         } catch (RuntimeException e) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(404).body(error);
+            log.error("Failed to fetch user moments: userId={} error={}", id, e.getMessage(), e);
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
         }
     }
 
+    // ── Helper ────────────────────────────────────────────────────────────────
+
     private UserResponse toFullResponse(User user) {
+        String subscriptionStatus = user.getSubscriptionStatus();
+        String subscriptionTier = deriveSubscriptionTier(subscriptionStatus);
+
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
@@ -155,10 +161,25 @@ public class UserController {
                 .role(user.getRole())
                 .onboardingComplete(user.getOnboardingComplete())
                 .unitSystem(user.getUnitSystem())
+                .archetype(user.getArchetype())
+                .subscriptionStatus(subscriptionStatus)
+                .subscriptionTier(subscriptionTier)
                 .followerCount(followRepository.countByFollowingUserId(user.getId()))
                 .followingCount(followRepository.countByFollowerUserId(user.getId()))
                 .activityCount(activityRepository.countByUserId(user.getId()))
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    /**
+     * Maps a Stripe subscription status to a human-readable tier.
+     * "active" and "trialing" indicate an active paid plan.
+     */
+    private String deriveSubscriptionTier(String subscriptionStatus) {
+        if (subscriptionStatus == null) return "free";
+        return switch (subscriptionStatus) {
+            case "active", "trialing" -> "pro";
+            default -> "free";
+        };
     }
 }
