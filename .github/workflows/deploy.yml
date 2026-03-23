@@ -1,0 +1,99 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+# Only run deploy after CI passes on the same commit
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # required to push to ghcr.io
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+      # -----------------------------------------------------------------------
+      # DEPLOY STEP — fill in once your server/platform is configured
+      # -----------------------------------------------------------------------
+      # Option A: Render (current hosting — uses deploy hook)
+      # - name: Trigger Render deploy
+      #   run: curl -s "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+      #
+      # Option B: SSH to VPS
+      # - name: Deploy to server
+      #   uses: appleboy/ssh-action@v1
+      #   with:
+      #     host: ${{ secrets.DEPLOY_HOST }}
+      #     username: ${{ secrets.DEPLOY_USER }}
+      #     key: ${{ secrets.DEPLOY_SSH_KEY }}
+      #     script: |
+      #       docker pull ghcr.io/${{ github.repository }}:latest
+      #       docker stop runnit-api || true
+      #       docker rm runnit-api || true
+      #       docker run -d --name runnit-api \
+      #         -p 8080:8080 \
+      #         -e DB_HOST=${{ secrets.DB_HOST }} \
+      #         -e DB_NAME=${{ secrets.DB_NAME }} \
+      #         -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
+      #         -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+      #         -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
+      #         -e S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }} \
+      #         -e AWS_REGION=${{ secrets.AWS_REGION }} \
+      #         -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+      #         -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+      #         -e STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }} \
+      #         -e STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+      #         -e STRIPE_PRICE_PREMIUM_MONTHLY=${{ secrets.STRIPE_PRICE_PREMIUM_MONTHLY }} \
+      #         -e STRIPE_PRICE_PREMIUM_ANNUAL=${{ secrets.STRIPE_PRICE_PREMIUM_ANNUAL }} \
+      #         -e STRIPE_PRICE_DUO_MONTHLY=${{ secrets.STRIPE_PRICE_DUO_MONTHLY }} \
+      #         -e STRIPE_PRICE_DUO_ANNUAL=${{ secrets.STRIPE_PRICE_DUO_ANNUAL }} \
+      #         -e STRAVA_CLIENT_ID=${{ secrets.STRAVA_CLIENT_ID }} \
+      #         -e STRAVA_CLIENT_SECRET=${{ secrets.STRAVA_CLIENT_SECRET }} \
+      #         -e GARMIN_CONSUMER_KEY=${{ secrets.GARMIN_CONSUMER_KEY }} \
+      #         -e GARMIN_CONSUMER_SECRET=${{ secrets.GARMIN_CONSUMER_SECRET }} \
+      #         -e GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
+      #         -e APPLE_CLIENT_ID=${{ secrets.APPLE_CLIENT_ID }} \
+      #         -e FRONTEND_URL=${{ secrets.FRONTEND_URL }} \
+      #         ghcr.io/${{ github.repository }}:latest
+      # -----------------------------------------------------------------------
+
+      - name: Deploy placeholder
+        run: |
+          echo "Image pushed to ghcr.io/${{ github.repository }}:latest"
+          echo "Configure your deploy target in this step (see commented options above)."
