@@ -44,6 +44,7 @@ public class AthleteArchetypeController {
             Archetype archetype = Archetype.valueOf(stored);
             return ResponseEntity.ok(toMap(archetype));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to get archetype for user", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -68,6 +69,7 @@ public class AthleteArchetypeController {
             log.info("Recomputed archetype for userId={}: {}", userId, archetype.name());
             return ResponseEntity.ok(toMap(archetype));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to recompute archetype for user", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

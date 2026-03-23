@@ -3,6 +3,7 @@ package com.runnit.api.controller;
 import com.runnit.api.model.*;
 import com.runnit.api.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/multisport-events")
 @RequiredArgsConstructor
@@ -79,6 +81,7 @@ public class MultisportEventController {
 
             return ResponseEntity.ok(toDetailMap(event));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

@@ -2,12 +2,14 @@ package com.runnit.api.controller;
 
 import com.runnit.api.service.GarminService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/integrations/garmin")
 @RequiredArgsConstructor
@@ -23,6 +25,7 @@ public class GarminIntegrationController {
             String authUrl = garminService.buildAuthorizationUrl(userId);
             return ResponseEntity.ok(Map.of("authorizationUrl", authUrl));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -34,6 +37,7 @@ public class GarminIntegrationController {
             Long userId = (Long) auth.getPrincipal();
             return ResponseEntity.ok(garminService.getStatus(userId));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -46,6 +50,7 @@ public class GarminIntegrationController {
             int count = garminService.syncActivities(userId);
             return ResponseEntity.ok(Map.of("imported", count, "message", count + " activities synced"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -58,6 +63,7 @@ public class GarminIntegrationController {
             garminService.disconnect(userId);
             return ResponseEntity.ok(Map.of("message", "Garmin disconnected"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

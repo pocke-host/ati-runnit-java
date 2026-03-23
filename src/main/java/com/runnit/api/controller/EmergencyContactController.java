@@ -3,6 +3,7 @@ package com.runnit.api.controller;
 import com.runnit.api.model.EmergencyContact;
 import com.runnit.api.repository.EmergencyContactRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/emergency-contacts")
 @RequiredArgsConstructor
@@ -37,6 +39,7 @@ public class EmergencyContactController {
             ec.setEmail((String) body.get("email"));
             return ResponseEntity.ok(toMap(repo.save(ec)));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -53,6 +56,7 @@ public class EmergencyContactController {
             repo.delete(ec);
             return ResponseEntity.ok(Map.of("ok", true));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

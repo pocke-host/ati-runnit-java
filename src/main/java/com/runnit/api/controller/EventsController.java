@@ -11,10 +11,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import lombok.extern.slf4j.Slf4j;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/events")
 public class EventsController {
@@ -49,6 +51,7 @@ public class EventsController {
             ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
             return ResponseEntity.ok(response.getBody());
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.ok(Map.of("races", new Object[0]));
         }
     }
@@ -112,6 +115,7 @@ public class EventsController {
             return ResponseEntity.ok(results);
 
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.ok(List.of());
         }
     }

@@ -2,6 +2,7 @@ package com.runnit.api.controller;
 
 import com.runnit.api.service.GarminService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,6 +13,7 @@ import java.util.Map;
  * Handles the OAuth 1.0a callback redirect from Garmin Connect.
  * Garmin redirects here with oauth_token and oauth_verifier after user authorizes.
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/garmin/oauth")
 @RequiredArgsConstructor
@@ -33,6 +35,7 @@ public class GarminOAuthController {
             try {
                 redirectUrl = garminService.handleCallback(oauth_token, oauth_verifier);
             } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
                 redirectUrl = garminService.getFrontendUrl() + "/devices?error=garmin_failed";
             }
         }

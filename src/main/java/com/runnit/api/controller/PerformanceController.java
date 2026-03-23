@@ -42,6 +42,7 @@ public class PerformanceController {
             PerformanceResponse response = performanceService.compute(userId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to compute performance intelligence: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

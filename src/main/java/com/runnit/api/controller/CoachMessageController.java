@@ -5,6 +5,7 @@ import com.runnit.api.repository.CoachMessageRepository;
 import com.runnit.api.repository.CoachRequestRepository;
 import com.runnit.api.util.SanitizationUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/coach/messages")
 @RequiredArgsConstructor
@@ -44,6 +46,7 @@ public class CoachMessageController {
                     .collect(Collectors.toList());
             return ResponseEntity.ok(messages);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -76,6 +79,7 @@ public class CoachMessageController {
             msg = coachMessageRepository.save(msg);
             return ResponseEntity.ok(toMap(msg));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -99,6 +103,7 @@ public class CoachMessageController {
             coachMessageRepository.saveAll(unread);
             return ResponseEntity.ok(Map.of("marked", unread.size()));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -115,6 +120,7 @@ public class CoachMessageController {
             long count = coachMessageRepository.countUnreadForUser(callerId);
             return ResponseEntity.ok(Map.of("unreadCount", count));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

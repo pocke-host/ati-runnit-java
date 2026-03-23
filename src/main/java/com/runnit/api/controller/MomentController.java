@@ -15,6 +15,7 @@ import com.runnit.api.service.MomentService;
 import com.runnit.api.util.SanitizationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/moments")
 @RequiredArgsConstructor
@@ -45,6 +47,7 @@ public class MomentController {
             Moment moment = momentService.createMoment(userId, request);
             return ResponseEntity.ok(moment);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -61,6 +64,7 @@ public class MomentController {
             Page<MomentResponse> feed = momentService.getFeed(userId, page, size);
             return ResponseEntity.ok(feed);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -74,6 +78,7 @@ public class MomentController {
             MomentResponse moment = momentService.getMomentById(id, userId);
             return ResponseEntity.ok(moment);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.notFound().build();
         }
     }
@@ -104,6 +109,7 @@ public class MomentController {
                     .stream().map(this::toCommentResponse).collect(Collectors.toList());
             return ResponseEntity.ok(comments);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -151,6 +157,7 @@ public class MomentController {
             Page<MomentResponse> moments = momentService.getUserMoments(userId, currentUserId, page, size);
             return ResponseEntity.ok(moments);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);

@@ -5,6 +5,7 @@ import com.runnit.api.model.User;
 import com.runnit.api.repository.LiveShareRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/live-shares")
 @RequiredArgsConstructor
@@ -43,6 +45,7 @@ public class LiveShareController {
 
             return ResponseEntity.ok(Map.of("token", saved.getToken(), "shareUrl", shareUrl));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -66,6 +69,7 @@ public class LiveShareController {
             liveShareRepository.save(share);
             return ResponseEntity.ok(Map.of("ok", true));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -88,6 +92,7 @@ public class LiveShareController {
             liveShareRepository.save(share);
             return ResponseEntity.ok(Map.of("ok", true));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

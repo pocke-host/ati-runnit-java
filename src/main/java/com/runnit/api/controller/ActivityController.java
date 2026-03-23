@@ -48,6 +48,7 @@ public class ActivityController {
             Activity activity = activityService.createActivity(userId, request);
             return ResponseEntity.ok(activity);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to create activity: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -64,6 +65,7 @@ public class ActivityController {
             Page<Activity> activities = activityService.getUserActivities(targetUserId, page, size);
             return ResponseEntity.ok(activities);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to fetch activities: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -75,6 +77,7 @@ public class ActivityController {
             Activity activity = activityService.getActivityById(id);
             return ResponseEntity.ok(activity);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.warn("Activity not found: id={}", id);
             return ResponseEntity.notFound().build();
         }
@@ -106,6 +109,7 @@ public class ActivityController {
                     .stream().map(this::toCommentResponse).collect(Collectors.toList());
             return ResponseEntity.ok(comments);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -181,6 +185,7 @@ public class ActivityController {
             );
             return ResponseEntity.ok(results);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

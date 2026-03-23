@@ -114,6 +114,7 @@ public class OAuthController {
             setJwtCookie(response, (String) result.get("token"));
             response.sendRedirect(frontendUrl + "/oauth-callback");
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Google OAuth callback failed", e);
             response.sendRedirect(frontendUrl + "/oauth-callback?error=google_auth_failed");
         }
@@ -182,6 +183,7 @@ public class OAuthController {
             setJwtCookie(response, (String) result.get("token"));
             response.sendRedirect(frontendUrl + "/oauth-callback");
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Apple OAuth callback failed", e);
             response.sendRedirect(frontendUrl + "/oauth-callback?error=apple_auth_failed");
         }

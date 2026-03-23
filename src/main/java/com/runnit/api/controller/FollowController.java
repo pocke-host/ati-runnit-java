@@ -4,6 +4,7 @@ package com.runnit.api.controller;
 import com.runnit.api.dto.UserResponse;
 import com.runnit.api.service.FollowService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/follow")
 @RequiredArgsConstructor
@@ -26,6 +28,7 @@ public class FollowController {
             followService.followUser(followerId, userId);
             return ResponseEntity.ok(Map.of("message", "Successfully followed user"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -39,6 +42,7 @@ public class FollowController {
             followService.unfollowUser(followerId, userId);
             return ResponseEntity.ok(Map.of("message", "Successfully unfollowed user"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -51,6 +55,7 @@ public class FollowController {
             List<UserResponse> followers = followService.getFollowers(userId);
             return ResponseEntity.ok(followers);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -63,6 +68,7 @@ public class FollowController {
             List<UserResponse> following = followService.getFollowing(userId);
             return ResponseEntity.ok(following);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -76,6 +82,7 @@ public class FollowController {
             List<UserResponse> followers = followService.getFollowers(userId);
             return ResponseEntity.ok(followers);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -89,6 +96,7 @@ public class FollowController {
             List<UserResponse> following = followService.getFollowing(userId);
             return ResponseEntity.ok(following);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -102,6 +110,7 @@ public class FollowController {
             boolean isFollowing = followService.isFollowing(followerId, userId);
             return ResponseEntity.ok(Map.of("isFollowing", isFollowing));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
