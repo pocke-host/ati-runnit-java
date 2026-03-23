@@ -5,6 +5,7 @@ import com.runnit.api.model.WorkoutEvent;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.WorkoutEventRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/workout-events")
 @RequiredArgsConstructor
@@ -34,6 +36,7 @@ public class WorkoutEventController {
                     .stream().map(this::toMap).toList();
             return ResponseEntity.ok(events);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -61,6 +64,7 @@ public class WorkoutEventController {
 
             return ResponseEntity.ok(toMap(eventRepository.save(ev)));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -88,6 +92,7 @@ public class WorkoutEventController {
 
             return ResponseEntity.ok(toMap(eventRepository.save(ev)));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -103,6 +108,7 @@ public class WorkoutEventController {
             eventRepository.delete(ev);
             return ResponseEntity.ok(Map.of("deleted", true));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

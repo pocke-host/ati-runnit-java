@@ -5,6 +5,7 @@ import com.runnit.api.dto.ReactionRequest;
 import com.runnit.api.service.ReactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/moments/{momentId}/reaction")
 @RequiredArgsConstructor
@@ -29,6 +31,7 @@ public class ReactionController {
             reactionService.addOrUpdateReaction(userId, momentId, request.getType());
             return ResponseEntity.ok(Map.of("message", "Reaction added"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -44,6 +47,7 @@ public class ReactionController {
             reactionService.removeReaction(userId, momentId);
             return ResponseEntity.ok(Map.of("message", "Reaction removed"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);

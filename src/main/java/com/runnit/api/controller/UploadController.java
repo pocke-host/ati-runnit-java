@@ -33,6 +33,7 @@ public class UploadController {
             );
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to generate presigned upload URL: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

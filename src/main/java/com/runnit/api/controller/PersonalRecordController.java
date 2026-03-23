@@ -7,6 +7,7 @@ import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.PersonalRecordRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -18,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/personal-records")
 @RequiredArgsConstructor
@@ -34,6 +36,7 @@ public class PersonalRecordController {
             PersonalRecord pr = prRepository.findByUserId(userId).orElse(null);
             return ResponseEntity.ok(toMap(pr));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
@@ -85,6 +88,7 @@ public class PersonalRecordController {
             prRepository.save(pr);
             return ResponseEntity.ok(toMap(pr));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);

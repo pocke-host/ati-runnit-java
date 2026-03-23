@@ -3,6 +3,7 @@ package com.runnit.api.controller;
 import com.runnit.api.model.RaceBookmark;
 import com.runnit.api.repository.RaceBookmarkRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/race-bookmarks")
 @RequiredArgsConstructor
@@ -34,6 +36,7 @@ public class RaceBookmarkController {
                     .collect(Collectors.toList());
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -69,6 +72,7 @@ public class RaceBookmarkController {
             bm = raceBookmarkRepository.save(bm);
             return ResponseEntity.ok(toMap(bm));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

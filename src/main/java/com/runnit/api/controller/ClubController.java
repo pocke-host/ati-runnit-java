@@ -9,6 +9,7 @@ import com.runnit.api.repository.ClubMessageRepository;
 import com.runnit.api.repository.ClubRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/clubs")
 @RequiredArgsConstructor
@@ -40,6 +42,7 @@ public class ClubController {
             return ResponseEntity.ok(clubRepository.findByMemberUserId(userId)
                     .stream().map(this::toMap).collect(Collectors.toList()));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -66,6 +69,7 @@ public class ClubController {
             memberRepository.save(ClubMember.builder().clubId(club.getId()).userId(userId).build());
             return ResponseEntity.ok(toMap(club));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -85,6 +89,7 @@ public class ClubController {
             clubRepository.save(club);
             return ResponseEntity.ok(Map.of("message", "Joined club"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -101,6 +106,7 @@ public class ClubController {
             });
             return ResponseEntity.ok(Map.of("message", "Left club"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -119,6 +125,7 @@ public class ClubController {
             }).collect(Collectors.toList());
             return ResponseEntity.ok(members);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -130,6 +137,7 @@ public class ClubController {
                     .stream().map(this::toMessageMap).collect(Collectors.toList());
             return ResponseEntity.ok(messages);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -151,6 +159,7 @@ public class ClubController {
             message = messageRepository.save(message);
             return ResponseEntity.ok(toMessageMap(message));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -183,6 +192,7 @@ public class ClubController {
             clubRepository.save(club);
             return ResponseEntity.ok(toMap(club));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

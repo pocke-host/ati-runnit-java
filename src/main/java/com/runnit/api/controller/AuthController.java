@@ -4,6 +4,7 @@ import com.runnit.api.dto.LoginRequest;
 import com.runnit.api.dto.RegisterRequest;
 import com.runnit.api.dto.UserResponse;
 import com.runnit.api.model.User;
+import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.service.AuthService;
 import com.runnit.api.repository.FollowRepository;
 import jakarta.servlet.http.Cookie;
@@ -17,7 +18,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -25,6 +28,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final FollowRepository followRepository;
+    private final ActivityRepository activityRepository;
 
     @Value("${jwt.expiration}")
     private Long jwtExpiration;
@@ -40,6 +44,8 @@ public class AuthController {
                 request.getRole()
         );
         setJwtCookie(response, (String) result.get("token"));
+        Long userId = extractUserId(result);
+        result.put("user", buildUserResponse(authService.getUserById(userId), userId));
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -49,6 +55,8 @@ public class AuthController {
             HttpServletResponse response) {
         Map<String, Object> result = authService.loginWithEmail(request.getEmail(), request.getPassword());
         setJwtCookie(response, (String) result.get("token"));
+        Long userId = extractUserId(result);
+        result.put("user", buildUserResponse(authService.getUserById(userId), userId));
         return ResponseEntity.ok(result);
     }
 
@@ -68,8 +76,13 @@ public class AuthController {
     public ResponseEntity<?> getCurrentUser(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         User user = authService.getUserById(userId);
+        return ResponseEntity.ok(buildUserResponse(user, userId));
+    }
 
-        UserResponse userResponse = UserResponse.builder()
+    private UserResponse buildUserResponse(User user, Long userId) {
+        String status = user.getSubscriptionStatus();
+        String tier = ("active".equals(status) || "trialing".equals(status)) ? "pro" : "free";
+        return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
@@ -83,11 +96,19 @@ public class AuthController {
                 .onboardingComplete(user.getOnboardingComplete())
                 .followerCount(followRepository.countByFollowingUserId(userId))
                 .followingCount(followRepository.countByFollowerUserId(userId))
+                .activityCount(activityRepository.countByUserId(userId))
                 .createdAt(user.getCreatedAt())
                 .unitSystem(user.getUnitSystem())
+                .archetype(user.getArchetype())
+                .subscriptionStatus(status)
+                .subscriptionTier(tier)
                 .build();
+    }
 
-        return ResponseEntity.ok(userResponse);
+    @SuppressWarnings("unchecked")
+    private Long extractUserId(Map<String, Object> authResult) {
+        Map<String, Object> userMap = (Map<String, Object>) authResult.get("user");
+        return ((Number) userMap.get("id")).longValue();
     }
 
     private void setJwtCookie(HttpServletResponse response, String token) {

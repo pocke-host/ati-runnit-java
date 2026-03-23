@@ -71,6 +71,7 @@ public class GroupEventController {
 
             return ResponseEntity.ok(toMap(saved, userId));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to create group event: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -106,6 +107,7 @@ public class GroupEventController {
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to fetch group events for user: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -133,6 +135,7 @@ public class GroupEventController {
             inviteRepository.save(invite);
             return ResponseEntity.ok(Map.of("id", invite.getId(), "status", invite.getStatus()));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to RSVP invite id={}: {}", id, e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -153,6 +156,7 @@ public class GroupEventController {
             eventRepository.delete(event);
             return ResponseEntity.ok(Map.of("deleted", true));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to delete group event id={}: {}", id, e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

@@ -80,6 +80,7 @@ public class BillingController {
             return ResponseEntity.ok(Map.of("sessionId", session.getId()));
 
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to create checkout session: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -106,6 +107,7 @@ public class BillingController {
             return ResponseEntity.ok(Map.of("url", session.getUrl()));
 
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to create billing portal session: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -142,6 +144,7 @@ public class BillingController {
             }
             return ResponseEntity.ok(Map.of("received", true));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Stripe webhook processing failed: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

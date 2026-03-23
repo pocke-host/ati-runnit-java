@@ -5,6 +5,7 @@ import com.runnit.api.model.User;
 import com.runnit.api.repository.CoachRequestRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
  * Handles coach-side endpoints (/api/coach/*) and
  * athlete-side endpoints (/api/coaches/*, /api/athlete/*).
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class CoachController {
@@ -41,6 +43,7 @@ public class CoachController {
                     .collect(Collectors.toList());
             return ResponseEntity.ok(athletes);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -68,6 +71,7 @@ public class CoachController {
             }).collect(Collectors.toList());
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -95,6 +99,7 @@ public class CoachController {
             coachRequestRepository.deleteByCoachIdAndAthleteId(coachId, athleteId);
             return ResponseEntity.ok(Map.of("message", "Athlete removed"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -111,6 +116,7 @@ public class CoachController {
                     .collect(Collectors.toList());
             return ResponseEntity.ok(coaches);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -134,6 +140,7 @@ public class CoachController {
             req = coachRequestRepository.save(req);
             return ResponseEntity.ok(Map.of("id", req.getId(), "status", req.getStatus()));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -147,6 +154,7 @@ public class CoachController {
             coachRequestRepository.deleteByCoachIdAndAthleteId(coachId, athleteId);
             return ResponseEntity.ok(Map.of("message", "Request cancelled"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -162,6 +170,7 @@ public class CoachController {
                     .map(coach -> ResponseEntity.ok((Object) toUserMap(coach)))
                     .orElse(ResponseEntity.ok(null));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

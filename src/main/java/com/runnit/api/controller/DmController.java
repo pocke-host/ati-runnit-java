@@ -5,6 +5,7 @@ import com.runnit.api.model.User;
 import com.runnit.api.repository.DirectMessageRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/dms")
 @RequiredArgsConstructor
@@ -50,6 +52,7 @@ public class DmController {
 
             return ResponseEntity.ok(conversations);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -71,6 +74,7 @@ public class DmController {
             }).collect(Collectors.toList());
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -105,6 +109,7 @@ public class DmController {
                     "read", msg.isRead()
             ));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -118,6 +123,7 @@ public class DmController {
             dmRepository.markConversationRead(partnerId, userId);
             return ResponseEntity.ok(Map.of("message", "Conversation marked as read"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

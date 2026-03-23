@@ -44,6 +44,7 @@ public class ChallengeController {
                     .stream().map(this::toMap).collect(Collectors.toList());
             return ResponseEntity.ok(challenges);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to fetch user challenges: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -68,6 +69,7 @@ public class ChallengeController {
             });
             return ResponseEntity.ok(Map.of("message", "Entered challenge"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to enter challenge id={}: {}", id, e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -85,6 +87,7 @@ public class ChallengeController {
             });
             return ResponseEntity.ok(Map.of("message", "Left challenge"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to leave challenge id={}: {}", id, e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -122,6 +125,7 @@ public class ChallengeController {
 
             return ResponseEntity.ok(Map.of("entries", entries));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Failed to fetch leaderboard for challenge id={}: {}", id, e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

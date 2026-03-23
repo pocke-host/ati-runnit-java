@@ -2,6 +2,7 @@ package com.runnit.api.controller;
 
 import com.runnit.api.service.StravaService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/integrations/strava")
 @RequiredArgsConstructor
@@ -25,6 +27,7 @@ public class StravaIntegrationController {
             String authUrl = stravaService.buildAuthorizationUrl(userId);
             return ResponseEntity.ok(Map.of("url", authUrl));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -45,6 +48,7 @@ public class StravaIntegrationController {
             try {
                 redirectUrl = stravaService.handleCallback(code, state);
             } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
                 redirectUrl = stravaService.getFrontendUrl() + "/devices?error=strava_failed";
             }
         }
@@ -58,6 +62,7 @@ public class StravaIntegrationController {
             Long userId = (Long) auth.getPrincipal();
             return ResponseEntity.ok(stravaService.getStatus(userId));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -70,6 +75,7 @@ public class StravaIntegrationController {
             int count = stravaService.syncActivities(userId);
             return ResponseEntity.ok(Map.of("imported", count, "message", count + " activities synced"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -82,6 +88,7 @@ public class StravaIntegrationController {
             stravaService.disconnect(userId);
             return ResponseEntity.ok(Map.of("message", "Strava disconnected"));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

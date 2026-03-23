@@ -9,6 +9,7 @@ import com.runnit.api.repository.PlanWorkoutRepository;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.service.TrainingBlockService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/plans")
 @RequiredArgsConstructor
@@ -45,6 +47,7 @@ public class PlanController {
             }
             return ResponseEntity.ok(block);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -59,6 +62,7 @@ public class PlanController {
                     .stream().map(this::toMap).collect(Collectors.toList());
             return ResponseEntity.ok(plans);
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -134,6 +138,7 @@ public class PlanController {
 
             return ResponseEntity.ok(toMap(plan));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -224,6 +229,7 @@ public class PlanController {
 
             return ResponseEntity.ok(toMap(plan));
         } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
