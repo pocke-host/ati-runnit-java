@@ -1,10 +1,14 @@
 package com.runnit.api.controller;
 
 import com.runnit.api.config.SecurityConfig;
+import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.FollowRepository;
+import com.runnit.api.security.AppleTokenValidator;
+import com.runnit.api.security.GoogleTokenValidator;
 import com.runnit.api.security.JwtAuthenticationFilter;
 import com.runnit.api.security.JwtUtil;
 import com.runnit.api.service.AuthService;
+import com.runnit.api.service.RefreshTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -35,7 +39,11 @@ class AuthControllerTest {
     // requests reach the security chain as unauthenticated and hit the permitAll() rules
     @MockBean private JwtUtil jwtUtil;
     @MockBean private AuthService authService;
+    @MockBean private RefreshTokenService refreshTokenService;
     @MockBean private FollowRepository followRepository;
+    @MockBean private ActivityRepository activityRepository;
+    @MockBean private GoogleTokenValidator googleTokenValidator;
+    @MockBean private AppleTokenValidator appleTokenValidator;
 
     @Test
     void logout_withNoCredentials_returns200NotForbidden() throws Exception {

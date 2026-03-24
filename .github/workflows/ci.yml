@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and run tests
+        run: ./mvnw clean verify --no-transfer-progress
+        env:
+          # Tests run against H2 in-memory DB (src/test/resources/application.properties)
+          # These env vars satisfy @Value injections that don't have defaults
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-test-secret-key-min-256-bits-long-padding-here-ok' }}
+          STRIPE_SECRET_KEY: sk_test_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          STRIPE_PRICE_PREMIUM_MONTHLY: price_ci_placeholder
+          STRIPE_PRICE_PREMIUM_ANNUAL: price_ci_placeholder
+          STRIPE_PRICE_DUO_MONTHLY: price_ci_placeholder
+          STRIPE_PRICE_DUO_ANNUAL: price_ci_placeholder
+          DB_HOST: localhost
+          DB_NAME: runnit_db
+          DB_USERNAME: root
+          DB_PASSWORD: unused_in_ci
+          GOOGLE_CLIENT_ID: ci-google-client-id
+          APPLE_CLIENT_ID: ci-apple-client-id
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: target/surefire-reports/
+          retention-days: 7
