@@ -61,7 +61,8 @@ public class SecurityConfig {
             "capacitor://localhost",
             "http://localhost",
             "https://runnit.live",
-            "https://www.runnit.live"
+            "https://www.runnit.live",
+            "https://ati-runnit-vue.vercel.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
