@@ -13,6 +13,7 @@ public class MomentResponse {
     private String songTitle;
     private String songArtist;
     private String songLink;
+    private String caption;
     private Instant createdAt;
     private Long reactionCount;
     private Map<Reaction.ReactionType, Long> reactionsByType;
@@ -29,6 +30,7 @@ public class MomentResponse {
     public String getSongTitle() { return songTitle; }
     public String getSongArtist() { return songArtist; }
     public String getSongLink() { return songLink; }
+    public String getCaption() { return caption; }
     public Instant getCreatedAt() { return createdAt; }
     public Long getReactionCount() { return reactionCount; }
     public Map<Reaction.ReactionType, Long> getReactionsByType() { return reactionsByType; }
@@ -46,6 +48,7 @@ public class MomentResponse {
         private String songTitle;
         private String songArtist;
         private String songLink;
+        private String caption;
         private Instant createdAt;
         private Long reactionCount;
         private Map<Reaction.ReactionType, Long> reactionsByType;
@@ -60,6 +63,7 @@ public class MomentResponse {
         public Builder songTitle(String songTitle) { this.songTitle = songTitle; return this; }
         public Builder songArtist(String songArtist) { this.songArtist = songArtist; return this; }
         public Builder songLink(String songLink) { this.songLink = songLink; return this; }
+        public Builder caption(String caption) { this.caption = caption; return this; }
         public Builder createdAt(Instant createdAt) { this.createdAt = createdAt; return this; }
         public Builder reactionCount(Long reactionCount) { this.reactionCount = reactionCount; return this; }
         public Builder reactionsByType(Map<Reaction.ReactionType, Long> reactionsByType) { this.reactionsByType = reactionsByType; return this; }
@@ -76,6 +80,7 @@ public class MomentResponse {
             r.songTitle = this.songTitle;
             r.songArtist = this.songArtist;
             r.songLink = this.songLink;
+            r.caption = this.caption;
             r.createdAt = this.createdAt;
             r.reactionCount = this.reactionCount;
             r.reactionsByType = this.reactionsByType;

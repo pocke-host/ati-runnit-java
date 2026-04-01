@@ -65,6 +65,7 @@ public class MomentService {
                 .songTitle(request.getSongTitle())
                 .songArtist(request.getSongArtist())
                 .songLink(request.getSongLink())
+                .caption(request.getCaption())
                 .dayKey(today)
                 .build();
         
@@ -120,6 +121,7 @@ public class MomentService {
                 .songTitle(moment.getSongTitle())
                 .songArtist(moment.getSongArtist())
                 .songLink(moment.getSongLink())
+                .caption(moment.getCaption())
                 .createdAt(moment.getCreatedAt())
                 .reactionCount((long) reactions.size())
                 .reactionsByType(reactionsByType)

@@ -27,14 +27,17 @@ public class Moment {
     @Column(name = "route_snapshot_url")
     private String routeSnapshotUrl;
 
-    @Column(name = "song_title", nullable = false)
+    @Column(name = "song_title")
     private String songTitle;
 
-    @Column(name = "song_artist", nullable = false)
+    @Column(name = "song_artist")
     private String songArtist;
 
     @Column(name = "song_link")
     private String songLink;
+
+    @Column(name = "caption", length = 500)
+    private String caption;
 
     @Column(name = "day_key", nullable = false)
     private LocalDate dayKey;
@@ -53,6 +56,7 @@ public class Moment {
     public String getSongTitle() { return songTitle; }
     public String getSongArtist() { return songArtist; }
     public String getSongLink() { return songLink; }
+    public String getCaption() { return caption; }
     public LocalDate getDayKey() { return dayKey; }
     public Instant getCreatedAt() { return createdAt; }
 
@@ -64,6 +68,7 @@ public class Moment {
     public void setSongTitle(String songTitle) { this.songTitle = songTitle; }
     public void setSongArtist(String songArtist) { this.songArtist = songArtist; }
     public void setSongLink(String songLink) { this.songLink = songLink; }
+    public void setCaption(String caption) { this.caption = caption; }
     public void setDayKey(LocalDate dayKey) { this.dayKey = dayKey; }
 
     public static Builder builder() { return new Builder(); }
@@ -76,6 +81,7 @@ public class Moment {
         private String songTitle;
         private String songArtist;
         private String songLink;
+        private String caption;
         private LocalDate dayKey;
 
         public Builder user(User user) { this.user = user; return this; }
@@ -85,6 +91,7 @@ public class Moment {
         public Builder songTitle(String songTitle) { this.songTitle = songTitle; return this; }
         public Builder songArtist(String songArtist) { this.songArtist = songArtist; return this; }
         public Builder songLink(String songLink) { this.songLink = songLink; return this; }
+        public Builder caption(String caption) { this.caption = caption; return this; }
         public Builder dayKey(LocalDate dayKey) { this.dayKey = dayKey; return this; }
 
         public Moment build() {
@@ -96,6 +103,7 @@ public class Moment {
             m.songTitle = this.songTitle;
             m.songArtist = this.songArtist;
             m.songLink = this.songLink;
+            m.caption = this.caption;
             m.dayKey = this.dayKey;
             return m;
         }
