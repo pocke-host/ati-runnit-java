@@ -102,6 +102,12 @@ public class User {
     @Column(name = "garmin_last_sync")
     private Instant garminLastSync;
 
+    @Column(name = "push_token", columnDefinition = "TEXT")
+    private String pushToken;
+
+    @Column(name = "push_platform", length = 20)
+    private String pushPlatform;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -177,6 +183,10 @@ public class User {
     public void setGarminRequestTokenSecret(String garminRequestTokenSecret) { this.garminRequestTokenSecret = garminRequestTokenSecret; }
     public Instant getGarminLastSync() { return garminLastSync; }
     public void setGarminLastSync(Instant garminLastSync) { this.garminLastSync = garminLastSync; }
+    public String getPushToken() { return pushToken; }
+    public void setPushToken(String pushToken) { this.pushToken = pushToken; }
+    public String getPushPlatform() { return pushPlatform; }
+    public void setPushPlatform(String pushPlatform) { this.pushPlatform = pushPlatform; }
 
     public static Builder builder() { return new Builder(); }
 

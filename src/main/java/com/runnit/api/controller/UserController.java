@@ -142,6 +142,45 @@ public class UserController {
         }
     }
 
+    @PostMapping("/me/push-token")
+    public ResponseEntity<?> savePushToken(@RequestBody Map<String, String> body, Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            String token    = body.get("token");
+            String platform = body.get("platform");
+            if (token == null || token.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "token is required"));
+            }
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            user.setPushToken(token);
+            user.setPushPlatform(platform);
+            userRepository.save(user);
+            log.info("Push token saved: userId={} platform={}", userId, platform);
+            return ResponseEntity.ok(Map.of("message", "Push token saved"));
+        } catch (RuntimeException e) {
+            log.error("Failed to save push token: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/me/push-token")
+    public ResponseEntity<?> deletePushToken(Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            user.setPushToken(null);
+            user.setPushPlatform(null);
+            userRepository.save(user);
+            log.info("Push token removed: userId={}", userId);
+            return ResponseEntity.ok(Map.of("message", "Push token removed"));
+        } catch (RuntimeException e) {
+            log.error("Failed to remove push token: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private UserResponse toFullResponse(User user) {
