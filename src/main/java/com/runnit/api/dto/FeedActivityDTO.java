@@ -3,13 +3,30 @@ package com.runnit.api.dto;
 import com.runnit.api.model.Activity;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 public class FeedActivityDTO {
 
+    // Nested user info — matches the shape frontend expects as `item.user.{id,displayName,avatarUrl}`
+    public static class UserInfo {
+        private Long id;
+        private String displayName;
+        private String avatarUrl;
+
+        public UserInfo(Long id, String displayName, String avatarUrl) {
+            this.id = id;
+            this.displayName = displayName;
+            this.avatarUrl = avatarUrl;
+        }
+
+        public Long getId() { return id; }
+        public String getDisplayName() { return displayName; }
+        public String getAvatarUrl() { return avatarUrl; }
+    }
+
     private Long id;
-    private Long userId;
-    private String userDisplayName;
-    private String userAvatarUrl;
+    private UserInfo user;
     private String sportType;
     private Integer durationSeconds;
     private Integer distanceMeters;
@@ -23,16 +40,20 @@ public class FeedActivityDTO {
     private String notes;
     private String source;
     private LocalDateTime createdAt;
-    private long reactionCount;
     private long commentCount;
-    private String userReactionType;
+    // Per-reaction-type counts: { "LIKE": 3, "FIRE": 1, "CLAP": 0 }
+    private Map<String, Long> reactionCounts = new HashMap<>();
+    // The current authenticated user's reaction type, or null if none
+    private String userReaction;
 
     public static FeedActivityDTO from(Activity a) {
         FeedActivityDTO dto = new FeedActivityDTO();
         dto.id = a.getId();
-        dto.userId = a.getUser().getId();
-        dto.userDisplayName = a.getUser().getDisplayName();
-        dto.userAvatarUrl = a.getUser().getAvatarUrl();
+        dto.user = new UserInfo(
+            a.getUser().getId(),
+            a.getUser().getDisplayName(),
+            a.getUser().getAvatarUrl()
+        );
         dto.sportType = a.getSportType() != null ? a.getSportType().name() : null;
         dto.durationSeconds = a.getDurationSeconds();
         dto.distanceMeters = a.getDistanceMeters();
@@ -50,9 +71,7 @@ public class FeedActivityDTO {
     }
 
     public Long getId() { return id; }
-    public Long getUserId() { return userId; }
-    public String getUserDisplayName() { return userDisplayName; }
-    public String getUserAvatarUrl() { return userAvatarUrl; }
+    public UserInfo getUser() { return user; }
     public String getSportType() { return sportType; }
     public Integer getDurationSeconds() { return durationSeconds; }
     public Integer getDistanceMeters() { return distanceMeters; }
@@ -66,11 +85,11 @@ public class FeedActivityDTO {
     public String getNotes() { return notes; }
     public String getSource() { return source; }
     public LocalDateTime getCreatedAt() { return createdAt; }
-    public long getReactionCount() { return reactionCount; }
     public long getCommentCount() { return commentCount; }
-    public String getUserReactionType() { return userReactionType; }
+    public Map<String, Long> getReactionCounts() { return reactionCounts; }
+    public String getUserReaction() { return userReaction; }
 
-    public void setReactionCount(long reactionCount) { this.reactionCount = reactionCount; }
     public void setCommentCount(long commentCount) { this.commentCount = commentCount; }
-    public void setUserReactionType(String userReactionType) { this.userReactionType = userReactionType; }
+    public void setReactionCounts(Map<String, Long> reactionCounts) { this.reactionCounts = reactionCounts; }
+    public void setUserReaction(String userReaction) { this.userReaction = userReaction; }
 }

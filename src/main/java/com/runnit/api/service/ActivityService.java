@@ -16,6 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,18 +24,18 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ActivityService {
-    
+
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final ActivityReactionRepository activityReactionRepository;
     private final CommentRepository commentRepository;
-    
+
     @Transactional
     public Activity createActivity(Long userId, ActivityRequest request) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found"));
-        
+
         Activity activity = Activity.builder()
                 .user(user)
                 .sportType(request.getSportType())
@@ -78,9 +79,14 @@ public class ActivityService {
 
         List<Long> ids = activities.stream().map(Activity::getId).collect(Collectors.toList());
 
-        // Batch load reaction counts — 1 query instead of N
-        Map<Long, Long> reactionCounts = activityReactionRepository.countGroupedByActivityIds(ids)
-                .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
+        // Batch load per-type reaction counts — returns [activityId, type, count]
+        Map<Long, Map<String, Long>> reactionCountsByType = new HashMap<>();
+        activityReactionRepository.countGroupedByActivityIdsAndType(ids).forEach(row -> {
+            Long actId = (Long) row[0];
+            String type = row[1].toString();
+            Long count = (Long) row[2];
+            reactionCountsByType.computeIfAbsent(actId, k -> new HashMap<>()).put(type, count);
+        });
 
         // Batch load comment counts — 1 query instead of N
         Map<Long, Long> commentCounts = commentRepository.countGroupedByActivityIds(ids)
@@ -92,9 +98,9 @@ public class ActivityService {
 
         List<FeedActivityDTO> dtos = activities.stream().map(a -> {
             FeedActivityDTO dto = FeedActivityDTO.from(a);
-            dto.setReactionCount(reactionCounts.getOrDefault(a.getId(), 0L));
+            dto.setReactionCounts(reactionCountsByType.getOrDefault(a.getId(), Map.of()));
             dto.setCommentCount(commentCounts.getOrDefault(a.getId(), 0L));
-            dto.setUserReactionType(userReactions.get(a.getId()));
+            dto.setUserReaction(userReactions.get(a.getId()));
             return dto;
         }).collect(Collectors.toList());
 
