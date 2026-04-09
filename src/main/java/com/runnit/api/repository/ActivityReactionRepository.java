@@ -17,6 +17,10 @@ public interface ActivityReactionRepository extends JpaRepository<ActivityReacti
     @Query("SELECT r.activity.id, COUNT(r) FROM ActivityReaction r WHERE r.activity.id IN :ids GROUP BY r.activity.id")
     List<Object[]> countGroupedByActivityIds(@Param("ids") List<Long> ids);
 
+    // Returns [activityId, reactionType, count] rows for per-type breakdown
+    @Query("SELECT r.activity.id, r.type, COUNT(r) FROM ActivityReaction r WHERE r.activity.id IN :ids GROUP BY r.activity.id, r.type")
+    List<Object[]> countGroupedByActivityIdsAndType(@Param("ids") List<Long> ids);
+
     @Query("SELECT r.activity.id, r.type FROM ActivityReaction r WHERE r.activity.id IN :ids AND r.user.id = :userId")
     List<Object[]> findUserReactionsByActivityIds(@Param("ids") List<Long> ids, @Param("userId") Long userId);
 }
