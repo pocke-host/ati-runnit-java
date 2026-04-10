@@ -55,8 +55,44 @@ public class ActivityService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Activity> getUserActivities(Long userId, int page, int size) {
-        return activityRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
+    public Page<FeedActivityDTO> getUserActivities(Long userId, int page, int size, Long viewerUserId) {
+        Page<Activity> activityPage = activityRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
+        List<Activity> activities = activityPage.getContent();
+
+        if (activities.isEmpty()) {
+            return new PageImpl<>(List.of(), activityPage.getPageable(), activityPage.getTotalElements());
+        }
+
+        List<Long> ids = activities.stream().map(Activity::getId).collect(Collectors.toList());
+
+        // Batch load per-type reaction counts
+        Map<Long, Map<String, Long>> reactionCountsByType = new HashMap<>();
+        activityReactionRepository.countGroupedByActivityIdsAndType(ids).forEach(row -> {
+            Long actId = (Long) row[0];
+            String type = row[1].toString();
+            Long count = (Long) row[2];
+            reactionCountsByType.computeIfAbsent(actId, k -> new HashMap<>()).put(type, count);
+        });
+
+        // Batch load comment counts
+        Map<Long, Long> commentCounts = commentRepository.countGroupedByActivityIds(ids)
+                .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
+
+        // Batch load viewer's reactions (null-safe — viewer may be null for public profile views)
+        Map<Long, String> userReactions = viewerUserId != null
+                ? activityReactionRepository.findUserReactionsByActivityIds(ids, viewerUserId)
+                        .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> r[1].toString()))
+                : Map.of();
+
+        List<FeedActivityDTO> dtos = activities.stream().map(a -> {
+            FeedActivityDTO dto = FeedActivityDTO.from(a);
+            dto.setReactionCounts(reactionCountsByType.getOrDefault(a.getId(), Map.of()));
+            dto.setCommentCount(commentCounts.getOrDefault(a.getId(), 0L));
+            dto.setUserReaction(userReactions.get(a.getId()));
+            return dto;
+        }).collect(Collectors.toList());
+
+        return new PageImpl<>(dtos, activityPage.getPageable(), activityPage.getTotalElements());
     }
 
     @Transactional(readOnly = true)
