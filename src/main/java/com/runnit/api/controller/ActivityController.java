@@ -47,10 +47,10 @@ public class ActivityController {
         try {
             Long userId = (Long) auth.getPrincipal();
             Activity activity = activityService.createActivity(userId, request);
-            return ResponseEntity.ok(activity);
+            // Return as DTO so frontend cache has the same shape as GET /api/activities
+            return ResponseEntity.ok(FeedActivityDTO.from(activity));
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            log.error("Failed to create activity: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
@@ -222,7 +222,7 @@ public class ActivityController {
                 activity.setNotes(body.get("notes"));
             }
             activityRepository.save(activity);
-            return ResponseEntity.ok(activity);
+            return ResponseEntity.ok(FeedActivityDTO.from(activity));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
