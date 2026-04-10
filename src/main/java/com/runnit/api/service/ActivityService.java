@@ -44,10 +44,12 @@ public class ActivityService {
                 .elevationGain(request.getElevationGain())
                 .calories(request.getCalories())
                 .averageHeartRate(request.getAverageHeartRate())
+                .maxHeartRate(request.getMaxHeartRate())
                 .averagePace(request.getAveragePace())
                 .routePolyline(request.getRoutePolyline())
                 .startLat(request.getStartLat())
                 .startLng(request.getStartLng())
+                .notes(request.getNotes())
                 .source(Activity.Source.MANUAL)
                 .build();
 

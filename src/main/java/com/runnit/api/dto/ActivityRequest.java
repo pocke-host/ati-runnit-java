@@ -19,10 +19,12 @@ public class ActivityRequest {
     private Integer elevationMeters; // alias for elevationGain from frontend
     private Integer calories;
     private Integer averageHeartRate;
+    private Integer maxHeartRate;
     private Double averagePace;
     private String routePolyline;
     private Double startLat;
     private Double startLng;
+    private String notes;
 
     public ActivityRequest() {}
 
@@ -33,10 +35,12 @@ public class ActivityRequest {
     public Integer getElevationMeters() { return elevationMeters; }
     public Integer getCalories() { return calories; }
     public Integer getAverageHeartRate() { return averageHeartRate; }
+    public Integer getMaxHeartRate() { return maxHeartRate; }
     public Double getAveragePace() { return averagePace; }
     public String getRoutePolyline() { return routePolyline; }
     public Double getStartLat() { return startLat; }
     public Double getStartLng() { return startLng; }
+    public String getNotes() { return notes; }
 
     public void setSportType(Activity.SportType sportType) { this.sportType = sportType; }
     public void setDurationSeconds(Integer durationSeconds) { this.durationSeconds = durationSeconds; }
@@ -45,8 +49,12 @@ public class ActivityRequest {
     public void setElevationMeters(Integer elevationMeters) { this.elevationMeters = elevationMeters; }
     public void setCalories(Integer calories) { this.calories = calories; }
     public void setAverageHeartRate(Integer averageHeartRate) { this.averageHeartRate = averageHeartRate; }
+    // Frontend sends "avgHeartRate" — map both names to the same field
+    public void setAvgHeartRate(Integer avgHeartRate) { this.averageHeartRate = avgHeartRate; }
+    public void setMaxHeartRate(Integer maxHeartRate) { this.maxHeartRate = maxHeartRate; }
     public void setAveragePace(Double averagePace) { this.averagePace = averagePace; }
     public void setRoutePolyline(String routePolyline) { this.routePolyline = routePolyline; }
     public void setStartLat(Double startLat) { this.startLat = startLat; }
     public void setStartLng(Double startLng) { this.startLng = startLng; }
+    public void setNotes(String notes) { this.notes = notes; }
 }
