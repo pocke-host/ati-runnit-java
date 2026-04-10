@@ -2,6 +2,7 @@ package com.runnit.api.controller;
 
 import com.runnit.api.dto.ActivityRequest;
 import com.runnit.api.dto.CommentResponse;
+import com.runnit.api.dto.FeedActivityDTO;
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.ActivityReaction;
 import com.runnit.api.model.Comment;
@@ -61,12 +62,12 @@ public class ActivityController {
             @RequestParam(required = false) Long userId,
             Authentication auth) {
         try {
-            Long targetUserId = userId != null ? userId : (Long) auth.getPrincipal();
-            Page<Activity> activities = activityService.getUserActivities(targetUserId, page, size);
+            Long viewerUserId = (Long) auth.getPrincipal();
+            Long targetUserId = userId != null ? userId : viewerUserId;
+            Page<FeedActivityDTO> activities = activityService.getUserActivities(targetUserId, page, size, viewerUserId);
             return ResponseEntity.ok(activities);
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            log.error("Failed to fetch activities: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
