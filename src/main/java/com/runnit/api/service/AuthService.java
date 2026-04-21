@@ -4,25 +4,37 @@ import com.runnit.api.exception.BadRequestException;
 import com.runnit.api.exception.ConflictException;
 import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.exception.UnauthorizedException;
+import com.runnit.api.model.PasswordResetToken;
 import com.runnit.api.model.User;
+import com.runnit.api.repository.PasswordResetTokenRepository;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-    
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
+
+    @Value("${app.password-reset.expiry-minutes:60}")
+    private int resetExpiryMinutes;
     
     @Transactional
     public Map<String, Object> registerWithEmail(String email, String password, String displayName, String role) {
@@ -111,6 +123,59 @@ public class AuthService {
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    /**
+     * Generates a password-reset token and emails the link to the user.
+     * Always returns success (even if email not found) to prevent user enumeration.
+     */
+    @Transactional
+    public void requestPasswordReset(String email) {
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            log.info("[auth] Password reset requested for unknown email: {}", email);
+            return; // silent — don't leak whether the email exists
+        }
+        User user = userOpt.get();
+
+        // Invalidate any existing tokens for this user
+        passwordResetTokenRepository.deleteByUserId(user.getId());
+
+        String token = UUID.randomUUID().toString();
+        Instant expiresAt = Instant.now().plusSeconds(resetExpiryMinutes * 60L);
+        passwordResetTokenRepository.save(new PasswordResetToken(user.getId(), token, expiresAt));
+
+        emailService.sendPasswordReset(email, token);
+        log.info("[auth] Password reset token issued for userId={}", user.getId());
+    }
+
+    /**
+     * Validates the reset token and updates the user's password.
+     */
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token)
+                .orElseThrow(() -> new BadRequestException("Invalid or expired reset link"));
+
+        if (resetToken.isUsed()) {
+            throw new BadRequestException("This reset link has already been used");
+        }
+        if (resetToken.getExpiresAt().isBefore(Instant.now())) {
+            throw new BadRequestException("This reset link has expired — please request a new one");
+        }
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new BadRequestException("Password must be at least 8 characters");
+        }
+
+        User user = userRepository.findById(resetToken.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+        log.info("[auth] Password reset complete for userId={}", user.getId());
     }
     
     private Map<String, Object> userToMap(User user) {

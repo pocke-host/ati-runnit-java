@@ -234,6 +234,41 @@ public class AuthController {
     }
 
     // -------------------------------------------------------------------------
+    // Password reset
+    // -------------------------------------------------------------------------
+
+    /**
+     * POST /api/auth/forgot-password
+     * Body: { "email": "user@example.com" }
+     *
+     * Always returns 200 regardless of whether the email exists (prevents enumeration).
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (!StringUtils.hasText(email)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+        }
+        authService.requestPasswordReset(email.trim().toLowerCase());
+        return ResponseEntity.ok(Map.of("message", "If that email is registered, a reset link is on its way."));
+    }
+
+    /**
+     * POST /api/auth/reset-password
+     * Body: { "token": "...", "newPassword": "..." }
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
+        String token = body.get("token");
+        String newPassword = body.get("newPassword");
+        if (!StringUtils.hasText(token) || !StringUtils.hasText(newPassword)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "token and newPassword are required"));
+        }
+        authService.resetPassword(token, newPassword);
+        return ResponseEntity.ok(Map.of("message", "Password updated. You can now sign in."));
+    }
+
+    // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
 
