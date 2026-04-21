@@ -1,7 +1,7 @@
 package com.runnit.api.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -11,23 +11,32 @@ import jakarta.mail.internet.MimeMessage;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    // Optional — JavaMailSender is only auto-configured when spring.mail.host is set.
+    // Without it (local dev, test env), emails are logged and skipped gracefully.
+    @Autowired(required = false)
+    private JavaMailSender mailSender;
 
-    @Value("${app.mail.from}")
+    @Value("${app.mail.from:noreply@runnit.live}")
     private String fromAddress;
 
-    @Value("${app.frontend.url}")
+    @Value("${app.frontend.url:https://runnit.live}")
     private String frontendUrl;
 
     /**
      * Sends a password-reset email containing a one-time link.
      * The link expires in 60 minutes (controlled by AuthService token TTL).
+     * If SMTP is not configured, logs the reset link and returns without throwing.
      */
     public void sendPasswordReset(String toEmail, String token) {
         String resetLink = frontendUrl + "/reset-password?token=" + token;
+
+        if (mailSender == null) {
+            log.warn("[email] SMTP not configured — skipping send. Reset link for {}: {}", toEmail, resetLink);
+            return;
+        }
+
         String html = buildPasswordResetHtml(resetLink);
         try {
             MimeMessage message = mailSender.createMimeMessage();
