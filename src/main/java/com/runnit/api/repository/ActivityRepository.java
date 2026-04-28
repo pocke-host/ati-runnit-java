@@ -31,7 +31,10 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
         @org.springframework.data.repository.query.Param("since") java.time.LocalDateTime since
     );
 
-    @org.springframework.data.jpa.repository.Query("SELECT a FROM Activity a JOIN FETCH a.user WHERE a.user.id IN :userIds ORDER BY a.createdAt DESC")
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT a FROM Activity a JOIN FETCH a.user WHERE a.user.id IN :userIds ORDER BY a.createdAt DESC",
+        countQuery = "SELECT count(a) FROM Activity a WHERE a.user.id IN :userIds"
+    )
     Page<Activity> findFeedByUserIds(@org.springframework.data.repository.query.Param("userIds") java.util.List<Long> userIds, Pageable pageable);
 
     // Haversine formula: find activities within radius km of a point, public profiles only
