@@ -102,6 +102,9 @@ public class User {
     @Column(name = "garmin_last_sync")
     private Instant garminLastSync;
 
+    @Column(name = "hr_zones_json", columnDefinition = "TEXT")
+    private String hrZonesJson;
+
     @Column(name = "push_token", columnDefinition = "TEXT")
     private String pushToken;
 
@@ -183,6 +186,8 @@ public class User {
     public void setGarminRequestTokenSecret(String garminRequestTokenSecret) { this.garminRequestTokenSecret = garminRequestTokenSecret; }
     public Instant getGarminLastSync() { return garminLastSync; }
     public void setGarminLastSync(Instant garminLastSync) { this.garminLastSync = garminLastSync; }
+    public String getHrZonesJson() { return hrZonesJson; }
+    public void setHrZonesJson(String hrZonesJson) { this.hrZonesJson = hrZonesJson; }
     public String getPushToken() { return pushToken; }
     public void setPushToken(String pushToken) { this.pushToken = pushToken; }
     public String getPushPlatform() { return pushPlatform; }

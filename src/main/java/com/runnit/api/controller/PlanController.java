@@ -182,6 +182,138 @@ public class PlanController {
         }
     }
 
+    /** POST /api/plans/{planId}/weeks/{weekNum}/workouts — add a workout to a specific week */
+    @PostMapping("/{planId}/weeks/{weekNum}/workouts")
+    @Transactional
+    public ResponseEntity<?> addWorkoutToWeek(
+            @PathVariable Long planId,
+            @PathVariable Integer weekNum,
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            Plan plan = planRepository.findById(planId)
+                    .orElseThrow(() -> new RuntimeException("Plan not found"));
+            if (!plan.getUser().getId().equals(userId)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
+            }
+            PlanWorkout workout = PlanWorkout.builder()
+                    .plan(plan)
+                    .weekNumber(weekNum)
+                    .day(body.containsKey("day") ? ((Number) body.get("day")).intValue() : 1)
+                    .title((String) body.getOrDefault("title", "Workout"))
+                    .description((String) body.get("description"))
+                    .workoutType(body.containsKey("workoutType") ? (String) body.get("workoutType") : null)
+                    .durationMinutes(body.containsKey("durationMinutes") && body.get("durationMinutes") != null
+                            ? ((Number) body.get("durationMinutes")).intValue() : null)
+                    .distanceMeters(body.containsKey("distanceMeters") && body.get("distanceMeters") != null
+                            ? ((Number) body.get("distanceMeters")).intValue() : null)
+                    .targetPaceSeconds(body.containsKey("targetPaceSeconds") && body.get("targetPaceSeconds") != null
+                            ? ((Number) body.get("targetPaceSeconds")).intValue() : null)
+                    .build();
+            workoutRepository.save(workout);
+            Map<String, Object> result = new HashMap<>();
+            result.put("id", workout.getId());
+            result.put("weekNumber", workout.getWeekNumber());
+            result.put("day", workout.getDay());
+            result.put("title", workout.getTitle());
+            result.put("description", workout.getDescription());
+            result.put("workoutType", workout.getWorkoutType());
+            result.put("durationMinutes", workout.getDurationMinutes());
+            result.put("distanceMeters", workout.getDistanceMeters());
+            result.put("targetPaceSeconds", workout.getTargetPaceSeconds());
+            result.put("completed", workout.isCompleted());
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** PATCH /api/plans/{planId}/workouts/{workoutId} — update any fields on a plan workout */
+    @PatchMapping("/{planId}/workouts/{workoutId}")
+    @Transactional
+    public ResponseEntity<?> updatePlanWorkout(
+            @PathVariable Long planId,
+            @PathVariable Long workoutId,
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            Plan plan = planRepository.findById(planId)
+                    .orElseThrow(() -> new RuntimeException("Plan not found"));
+            if (!plan.getUser().getId().equals(userId)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
+            }
+            PlanWorkout workout = workoutRepository.findById(workoutId)
+                    .orElseThrow(() -> new RuntimeException("Workout not found"));
+            if (body.containsKey("title") && body.get("title") != null) {
+                workout.setTitle((String) body.get("title"));
+            }
+            if (body.containsKey("description")) {
+                workout.setDescription((String) body.get("description"));
+            }
+            if (body.containsKey("workoutType")) {
+                workout.setWorkoutType((String) body.get("workoutType"));
+            }
+            if (body.containsKey("durationMinutes") && body.get("durationMinutes") != null) {
+                workout.setDurationMinutes(((Number) body.get("durationMinutes")).intValue());
+            }
+            if (body.containsKey("distanceMeters") && body.get("distanceMeters") != null) {
+                workout.setDistanceMeters(((Number) body.get("distanceMeters")).intValue());
+            }
+            if (body.containsKey("targetPaceSeconds") && body.get("targetPaceSeconds") != null) {
+                workout.setTargetPaceSeconds(((Number) body.get("targetPaceSeconds")).intValue());
+            }
+            if (body.containsKey("day") && body.get("day") != null) {
+                workout.setDay(((Number) body.get("day")).intValue());
+            }
+            if (body.containsKey("completed")) {
+                workout.setCompleted(Boolean.TRUE.equals(body.get("completed")));
+            }
+            workoutRepository.save(workout);
+            Map<String, Object> result = new HashMap<>();
+            result.put("id", workout.getId());
+            result.put("weekNumber", workout.getWeekNumber());
+            result.put("day", workout.getDay());
+            result.put("title", workout.getTitle());
+            result.put("description", workout.getDescription());
+            result.put("workoutType", workout.getWorkoutType());
+            result.put("durationMinutes", workout.getDurationMinutes());
+            result.put("distanceMeters", workout.getDistanceMeters());
+            result.put("targetPaceSeconds", workout.getTargetPaceSeconds());
+            result.put("completed", workout.isCompleted());
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** DELETE /api/plans/{planId}/workouts/{workoutId} — remove a single workout from a plan */
+    @DeleteMapping("/{planId}/workouts/{workoutId}")
+    @Transactional
+    public ResponseEntity<?> deletePlanWorkout(
+            @PathVariable Long planId,
+            @PathVariable Long workoutId,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            Plan plan = planRepository.findById(planId)
+                    .orElseThrow(() -> new RuntimeException("Plan not found"));
+            if (!plan.getUser().getId().equals(userId)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
+            }
+            PlanWorkout workout = workoutRepository.findById(workoutId)
+                    .orElseThrow(() -> new RuntimeException("Workout not found"));
+            workoutRepository.delete(workout);
+            return ResponseEntity.ok(Map.of("message", "Workout deleted"));
+        } catch (RuntimeException e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PatchMapping("/{planId}/workouts/{workoutId}/complete")
     public ResponseEntity<?> completeWorkout(@PathVariable Long planId, @PathVariable Long workoutId, Authentication auth) {
         return setWorkoutCompleted(planId, workoutId, auth, true);
