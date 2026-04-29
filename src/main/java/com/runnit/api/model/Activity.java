@@ -60,6 +60,9 @@ public class Activity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "coach_annotation", columnDefinition = "TEXT")
+    private String coachAnnotation;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -82,6 +85,7 @@ public class Activity {
     public Source getSource() { return source; }
     public String getExternalId() { return externalId; }
     public String getNotes() { return notes; }
+    public String getCoachAnnotation() { return coachAnnotation; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     public void setId(Long id) { this.id = id; }
@@ -100,6 +104,7 @@ public class Activity {
     public void setSource(Source source) { this.source = source; }
     public void setExternalId(String externalId) { this.externalId = externalId; }
     public void setNotes(String notes) { this.notes = notes; }
+    public void setCoachAnnotation(String coachAnnotation) { this.coachAnnotation = coachAnnotation; }
 
     public static Builder builder() { return new Builder(); }
 
