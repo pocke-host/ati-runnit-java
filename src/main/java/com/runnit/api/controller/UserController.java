@@ -113,10 +113,13 @@ public class UserController {
                     .filter(u -> !u.getId().equals(currentUserId))
                     .map(u -> UserResponse.builder()
                             .id(u.getId())
+                            .user(u.getUser())
                             .displayName(u.getDisplayName())
                             // email intentionally omitted from search results
                             .avatarUrl(u.getAvatarUrl())
                             .sport(u.getSport())
+                            .bio(u.getBio())
+                            .followerCount(followRepository.countByFollowingUserId(u.getId()))
                             .build())
                     .collect(Collectors.toList());
             return ResponseEntity.ok(results);
@@ -190,6 +193,7 @@ public class UserController {
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
+                .user(user.getUser())
                 .displayName(user.getDisplayName())
                 .avatarUrl(user.getAvatarUrl())
                 .location(user.getLocation())
