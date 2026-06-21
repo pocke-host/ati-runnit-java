@@ -87,12 +87,28 @@ public class ActivityController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getActivity(@PathVariable Long id) {
+    public ResponseEntity<?> getActivity(@PathVariable Long id, Authentication auth) {
         try {
+            Long viewerUserId = auth != null ? (Long) auth.getPrincipal() : null;
             Activity activity = activityService.getActivityById(id);
-            return ResponseEntity.ok(activity);
+            FeedActivityDTO dto = FeedActivityDTO.from(activity);
+
+            List<Long> ids = List.of(activity.getId());
+
+            Map<String, Long> reactionCounts = new HashMap<>();
+            activityReactionRepository.countGroupedByActivityIdsAndType(ids)
+                    .forEach(row -> reactionCounts.put(row[1].toString(), (Long) row[2]));
+            dto.setReactionCounts(reactionCounts);
+
+            dto.setCommentCount(commentRepository.countByActivityId(id));
+
+            if (viewerUserId != null) {
+                activityReactionRepository.findByActivityIdAndUserId(id, viewerUserId)
+                        .ifPresent(r -> dto.setUserReaction(r.getType().name()));
+            }
+
+            return ResponseEntity.ok(dto);
         } catch (Exception e) {
-            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.warn("Activity not found: id={}", id);
             return ResponseEntity.notFound().build();
         }

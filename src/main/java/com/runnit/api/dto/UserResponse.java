@@ -5,6 +5,7 @@ import java.time.Instant;
 public class UserResponse {
     private Long id;
     private String email;
+    private String user;        // username handle (e.g. "quinnhuynh")
     private String displayName;
     private String avatarUrl;
     private String location;
@@ -27,6 +28,7 @@ public class UserResponse {
 
     public Long getId() { return id; }
     public String getEmail() { return email; }
+    public String getUser() { return user; }
     public String getDisplayName() { return displayName; }
     public String getAvatarUrl() { return avatarUrl; }
     public String getLocation() { return location; }
@@ -47,6 +49,7 @@ public class UserResponse {
 
     public void setId(Long id) { this.id = id; }
     public void setEmail(String email) { this.email = email; }
+    public void setUser(String user) { this.user = user; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
     public void setLocation(String location) { this.location = location; }
@@ -70,6 +73,7 @@ public class UserResponse {
     public static class Builder {
         private Long id;
         private String email;
+        private String user;
         private String displayName;
         private String avatarUrl;
         private String location;
@@ -90,6 +94,7 @@ public class UserResponse {
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder email(String email) { this.email = email; return this; }
+        public Builder user(String user) { this.user = user; return this; }
         public Builder displayName(String displayName) { this.displayName = displayName; return this; }
         public Builder avatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; return this; }
         public Builder location(String location) { this.location = location; return this; }
@@ -112,6 +117,7 @@ public class UserResponse {
             UserResponse r = new UserResponse();
             r.id = this.id;
             r.email = this.email;
+            r.user = this.user;
             r.displayName = this.displayName;
             r.avatarUrl = this.avatarUrl;
             r.location = this.location;
