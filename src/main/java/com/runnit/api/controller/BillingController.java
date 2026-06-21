@@ -79,10 +79,12 @@ public class BillingController {
             log.info("Checkout session created: userId={} sessionId={}", userId, session.getId());
             return ResponseEntity.ok(Map.of("sessionId", session.getId()));
 
-        } catch (Exception e) {
-            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            log.error("Failed to create checkout session: {}", e.getMessage(), e);
+        } catch (com.stripe.exception.StripeException e) {
+            log.error("Stripe error in createCheckoutSession: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected error in createCheckoutSession", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "An unexpected error occurred"));
         }
     }
 
@@ -106,10 +108,12 @@ public class BillingController {
             Session session = Session.create(params);
             return ResponseEntity.ok(Map.of("url", session.getUrl()));
 
-        } catch (Exception e) {
-            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            log.error("Failed to create billing portal session: {}", e.getMessage(), e);
+        } catch (com.stripe.exception.StripeException e) {
+            log.error("Stripe error in createPortalSession: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected error in createPortalSession", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "An unexpected error occurred"));
         }
     }
 
@@ -143,10 +147,12 @@ public class BillingController {
                     break;
             }
             return ResponseEntity.ok(Map.of("received", true));
+        } catch (com.stripe.exception.SignatureVerificationException e) {
+            log.warn("Stripe webhook signature verification failed: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid webhook signature"));
         } catch (Exception e) {
-            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            log.error("Stripe webhook processing failed: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            log.error("Unexpected error in handleWebhook", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "An unexpected error occurred"));
         }
     }
 

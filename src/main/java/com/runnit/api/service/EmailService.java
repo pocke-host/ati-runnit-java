@@ -33,8 +33,8 @@ public class EmailService {
         String resetLink = frontendUrl + "/reset-password?token=" + token;
 
         if (mailSender == null) {
-            log.warn("[email] SMTP not configured — skipping send. Reset link for {}: {}", toEmail, resetLink);
-            return;
+            log.error("[email] SMTP not configured — cannot deliver password reset email to {}", toEmail);
+            throw new RuntimeException("Email service is not configured. Please contact support.");
         }
 
         String html = buildPasswordResetHtml(resetLink);

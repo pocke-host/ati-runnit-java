@@ -7,6 +7,8 @@ import com.runnit.api.model.Activity;
 import com.runnit.api.model.Moment;
 import com.runnit.api.model.Reaction;
 import com.runnit.api.model.User;
+import com.runnit.api.exception.ConflictException;
+import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.CommentRepository;
 import com.runnit.api.repository.MomentRepository;
@@ -42,12 +44,12 @@ public class MomentService {
         
         // Get User object
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         // Check if already posted today
         momentRepository.findByUserAndDayKey(user, today)
                 .ifPresent(m -> {
-                    throw new RuntimeException("You've already posted a moment today");
+                    throw new ConflictException("You've already posted a moment today");
                 });
         
         // Get Activity object if activityId provided
@@ -83,13 +85,13 @@ public class MomentService {
     
     public MomentResponse getMomentById(Long id, Long currentUserId) {
         Moment moment = momentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Moment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Moment not found"));
         return buildMomentResponse(moment, currentUserId);
     }
     
     public Page<MomentResponse> getUserMoments(Long userId, Long currentUserId, int page, int size) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         Page<Moment> moments = momentRepository.findByUserOrderByCreatedAtDesc(user, PageRequest.of(page, size));
         return moments.map(moment -> buildMomentResponse(moment, currentUserId));

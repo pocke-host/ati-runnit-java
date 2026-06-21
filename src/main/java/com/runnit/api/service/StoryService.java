@@ -7,6 +7,8 @@ import com.runnit.api.dto.StoryUserGroupDTO;
 import com.runnit.api.model.Story;
 import com.runnit.api.model.StoryView;
 import com.runnit.api.model.User;
+import com.runnit.api.exception.ForbiddenException;
+import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.repository.StoryRepository;
 import com.runnit.api.repository.StoryViewRepository;
 import com.runnit.api.repository.UserRepository;
@@ -36,7 +38,7 @@ public class StoryService {
     @Transactional
     public StoryDTO createStory(StoryCreateDTO dto, String userEmail) {
         User user = userRepository.findByEmail(userEmail)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         Story story = new Story();
         story.setUser(user);
@@ -62,7 +64,7 @@ public class StoryService {
     @Transactional(readOnly = true)
     public List<StoryUserGroupDTO> getStoriesFeed(String viewerEmail) {
         User viewer = userRepository.findByEmail(viewerEmail)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         // Get all users with active stories
         List<User> usersWithStories = storyRepository.findUsersWithActiveStories(
@@ -107,13 +109,13 @@ public class StoryService {
     @Transactional(readOnly = true)
     public StoryDTO getStory(Long storyId, String viewerEmail) {
         User viewer = userRepository.findByEmail(viewerEmail)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         Story story = storyRepository.findById(storyId)
-            .orElseThrow(() -> new RuntimeException("Story not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Story not found"));
         
         if (!story.canView(viewer)) {
-            throw new RuntimeException("You don't have permission to view this story");
+            throw new ForbiddenException("You don't have permission to view this story");
         }
         
         return toDTO(story, viewer);
@@ -122,10 +124,10 @@ public class StoryService {
     @Transactional
     public void markAsViewed(Long storyId, String viewerEmail) {
         User viewer = userRepository.findByEmail(viewerEmail)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         Story story = storyRepository.findById(storyId)
-            .orElseThrow(() -> new RuntimeException("Story not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Story not found"));
         
         // Don't mark as viewed if user is the story owner
         if (story.getUser().equals(viewer)) {
@@ -149,13 +151,13 @@ public class StoryService {
     @Transactional
     public void deleteStory(Long storyId, String userEmail) {
         User user = userRepository.findByEmail(userEmail)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         Story story = storyRepository.findById(storyId)
-            .orElseThrow(() -> new RuntimeException("Story not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Story not found"));
         
         if (!story.getUser().equals(user)) {
-            throw new RuntimeException("You can only delete your own stories");
+            throw new ForbiddenException("You can only delete your own stories");
         }
         
         // Soft delete
@@ -168,7 +170,7 @@ public class StoryService {
     @Transactional(readOnly = true)
     public List<StoryDTO> getMyStories(String userEmail) {
         User user = userRepository.findByEmail(userEmail)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         List<Story> stories = storyRepository
             .findByUserAndIsActiveTrueAndExpiresAtAfterOrderByCreatedAtDesc(
@@ -184,13 +186,13 @@ public class StoryService {
     @Transactional(readOnly = true)
     public List<User> getStoryViewers(Long storyId, String userEmail) {
         User user = userRepository.findByEmail(userEmail)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         Story story = storyRepository.findById(storyId)
-            .orElseThrow(() -> new RuntimeException("Story not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Story not found"));
         
         if (!story.getUser().equals(user)) {
-            throw new RuntimeException("You can only view your own story viewers");
+            throw new ForbiddenException("You can only view your own story viewers");
         }
         
         return storyViewRepository.findByStoryOrderByViewedAtDesc(story).stream()

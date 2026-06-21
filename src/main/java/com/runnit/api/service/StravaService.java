@@ -2,9 +2,12 @@ package com.runnit.api.service;
 
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.User;
+import com.runnit.api.exception.BadRequestException;
+import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
@@ -20,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StravaService {
@@ -49,7 +53,7 @@ public class StravaService {
     @Transactional
     public String buildAuthorizationUrl(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         String state = UUID.randomUUID().toString();
         user.setStravaOauthState(state);
@@ -68,7 +72,7 @@ public class StravaService {
     @Transactional
     public String handleCallback(String code, String state) {
         User user = userRepository.findByStravaOauthState(state)
-                .orElseThrow(() -> new RuntimeException("Invalid OAuth state"));
+                .orElseThrow(() -> new BadRequestException("Invalid OAuth state"));
 
         // Exchange code for tokens
         Map<String, Object> tokenResponse = exchangeCodeForToken(code);
@@ -88,11 +92,11 @@ public class StravaService {
         }
         userRepository.save(user);
 
-        // Sync recent activities in background
+        // Sync recent activities in background — non-fatal if it fails
         try {
             syncActivities(user);
         } catch (Exception e) {
-            // Don't fail the OAuth flow if sync fails
+            log.warn("Post-OAuth Strava activity sync failed for user {}: {}", user.getId(), e.getMessage());
         }
 
         return frontendUrl + "/devices?strava=connected";
@@ -102,7 +106,7 @@ public class StravaService {
     @Transactional
     public int syncActivities(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return syncActivities(user);
     }
 
@@ -139,7 +143,7 @@ public class StravaService {
     @Transactional
     public void disconnect(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setStravaAthleteId(null);
         user.setStravaAccessToken(null);
         user.setStravaRefreshToken(null);
@@ -177,7 +181,9 @@ public class StravaService {
                     user.setStravaLastSync(Instant.now());
                     userRepository.save(user);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Failed to import Strava webhook activity {} for athlete {}: {}", activityId, stravaAthleteId, e.getMessage());
+            }
         });
     }
 

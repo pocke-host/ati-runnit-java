@@ -3,6 +3,9 @@ package com.runnit.api.service;
 import com.runnit.api.dto.UserResponse;
 import com.runnit.api.model.Follow;
 import com.runnit.api.model.User;
+import com.runnit.api.exception.BadRequestException;
+import com.runnit.api.exception.ConflictException;
+import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,15 +25,15 @@ public class FollowService {
     @Transactional
     public void followUser(Long followerId, Long followingId) {
         if (followerId.equals(followingId)) {
-            throw new RuntimeException("Cannot follow yourself");
+            throw new BadRequestException("Cannot follow yourself");
         }
         
         if (!userRepository.existsById(followingId)) {
-            throw new RuntimeException("User not found");
+            throw new ResourceNotFoundException("User not found");
         }
         
         if (followRepository.existsByFollowerUserIdAndFollowingUserId(followerId, followingId)) {
-            throw new RuntimeException("Already following this user");
+            throw new ConflictException("Already following this user");
         }
         
         Follow follow = Follow.builder()

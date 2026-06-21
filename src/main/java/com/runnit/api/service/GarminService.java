@@ -4,7 +4,9 @@ import com.runnit.api.model.Activity;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.UserRepository;
+import com.runnit.api.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import oauth.signpost.OAuthConsumer;
 import oauth.signpost.OAuthProvider;
 import oauth.signpost.basic.DefaultOAuthConsumer;
@@ -25,6 +27,7 @@ import java.util.Map;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GarminService {
@@ -54,7 +57,7 @@ public class GarminService {
     @Transactional
     public String buildAuthorizationUrl(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         OAuthConsumer consumer = new DefaultOAuthConsumer(consumerKey, consumerSecret);
         OAuthProvider provider = new DefaultOAuthProvider(REQUEST_TOKEN_URL, ACCESS_TOKEN_URL, AUTHORIZE_URL);
@@ -74,7 +77,7 @@ public class GarminService {
     @Transactional
     public String handleCallback(String oauthToken, String oauthVerifier) {
         User user = userRepository.findByGarminRequestToken(oauthToken)
-                .orElseThrow(() -> new RuntimeException("No user found for Garmin request token"));
+                .orElseThrow(() -> new ResourceNotFoundException("No user found for Garmin request token"));
 
         OAuthConsumer consumer = new DefaultOAuthConsumer(consumerKey, consumerSecret);
         consumer.setTokenWithSecret(user.getGarminRequestToken(), user.getGarminRequestTokenSecret());
@@ -91,10 +94,12 @@ public class GarminService {
             return frontendUrl + "/devices?error=garmin_token_failed";
         }
 
-        // Sync recent activities in background
+        // Sync recent activities in background — non-fatal if it fails
         try {
             syncActivities(user);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Post-OAuth Garmin activity sync failed for user {}: {}", user.getId(), e.getMessage());
+        }
 
         return frontendUrl + "/devices?garmin=connected";
     }
@@ -103,7 +108,7 @@ public class GarminService {
     @Transactional
     public int syncActivities(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return syncActivities(user);
     }
 
@@ -146,6 +151,7 @@ public class GarminService {
             return imported;
 
         } catch (Exception e) {
+            log.warn("Garmin activity sync failed for user {}: {}", user.getId(), e.getMessage());
             return 0;
         }
     }
@@ -154,7 +160,7 @@ public class GarminService {
     @Transactional
     public void disconnect(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setGarminAccessToken(null);
         user.setGarminAccessTokenSecret(null);
         user.setGarminRequestToken(null);
