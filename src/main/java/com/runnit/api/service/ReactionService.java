@@ -3,6 +3,7 @@ package com.runnit.api.service;
 import com.runnit.api.model.Moment;
 import com.runnit.api.model.Reaction;
 import com.runnit.api.model.User;
+import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.repository.MomentRepository;
 import com.runnit.api.repository.ReactionRepository;
 import com.runnit.api.repository.UserRepository;
@@ -28,9 +29,9 @@ public class ReactionService {
                     },
                     () -> {
                         User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
                         Moment moment = momentRepository.findById(momentId)
-                                .orElseThrow(() -> new RuntimeException("Moment not found"));
+                                .orElseThrow(() -> new ResourceNotFoundException("Moment not found"));
                         Reaction reaction = Reaction.builder()
                                 .user(user)
                                 .moment(moment)

@@ -55,6 +55,25 @@ public class StravaIntegrationController {
         return ResponseEntity.status(302).location(URI.create(redirectUrl)).build();
     }
 
+    /** POST /api/integrations/strava/mobile-callback
+     *  Mobile (iOS) — sends code + state in JSON body instead of GET redirect params. */
+    @PostMapping("/mobile-callback")
+    public ResponseEntity<?> mobileCallback(@RequestBody Map<String, String> body) {
+        String code  = body.get("code");
+        String state = body.get("state");
+
+        if (code == null || state == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "code and state are required"));
+        }
+        try {
+            stravaService.handleCallback(code, state);
+            return ResponseEntity.ok(Map.of("connected", true));
+        } catch (Exception e) {
+            log.error("Mobile Strava callback failed: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", "Strava connection failed"));
+        }
+    }
+
     /** GET /api/integrations/strava/status */
     @GetMapping("/status")
     public ResponseEntity<?> status(Authentication auth) {

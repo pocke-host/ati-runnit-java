@@ -4,6 +4,7 @@ import com.runnit.api.dto.ActivityRequest;
 import com.runnit.api.dto.FeedActivityDTO;
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.User;
+import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.repository.ActivityReactionRepository;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.CommentRepository;
@@ -34,7 +35,7 @@ public class ActivityService {
     @Transactional
     public Activity createActivity(Long userId, ActivityRequest request) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Activity activity = Activity.builder()
                 .user(user)
@@ -100,7 +101,7 @@ public class ActivityService {
     @Transactional(readOnly = true)
     public Activity getActivityById(Long id) {
         return activityRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Activity not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Activity not found"));
     }
 
     @Transactional(readOnly = true)

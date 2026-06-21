@@ -40,7 +40,3 @@ logging:
   level:
     com.runnit.api: DEBUG
 
-kpring:
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
