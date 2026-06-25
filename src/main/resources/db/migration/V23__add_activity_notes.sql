@@ -1,1 +1,1 @@
-ALTER TABLE activities ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE activities ADD COLUMN notes TEXT;
