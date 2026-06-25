@@ -3,11 +3,15 @@ package com.runnit.api.controller;
 import com.runnit.api.dto.LoginRequest;
 import com.runnit.api.dto.RegisterRequest;
 import com.runnit.api.dto.UserResponse;
+import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.FollowRepository;
+import com.runnit.api.repository.UserRepository;
 import com.runnit.api.security.AppleTokenValidator;
 import com.runnit.api.security.GoogleTokenValidator;
+import com.runnit.api.service.AthleteArchetypeService;
+import com.runnit.api.service.AthleteArchetypeService.Archetype;
 import com.runnit.api.service.AuthService;
 import com.runnit.api.service.RefreshTokenService;
 import jakarta.servlet.http.Cookie;
@@ -38,6 +42,8 @@ public class AuthController {
     private final ActivityRepository activityRepository;
     private final GoogleTokenValidator googleTokenValidator;
     private final AppleTokenValidator appleTokenValidator;
+    private final UserRepository userRepository;
+    private final AthleteArchetypeService archetypeService;
 
     @Value("${jwt.expiration}")
     private Long jwtExpiration;
@@ -266,6 +272,61 @@ public class AuthController {
         }
         authService.resetPassword(token, newPassword);
         return ResponseEntity.ok(Map.of("message", "Password updated. You can now sign in."));
+    }
+
+    // -------------------------------------------------------------------------
+    // Onboarding
+    // -------------------------------------------------------------------------
+
+    /**
+     * POST /api/auth/onboarding
+     *
+     * Completes the user's onboarding flow by persisting their city, sport, and
+     * optional bio, then computing and storing their athlete archetype.
+     * Body: { "city": "Austin", "sport": "RUN", "bio": "Optional bio" }
+     */
+    @PostMapping("/onboarding")
+    public ResponseEntity<?> completeOnboarding(
+            @RequestBody Map<String, String> body,
+            Authentication auth) {
+
+        Long userId = (Long) auth.getPrincipal();
+        log.info("Onboarding request for userId={}", userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        String city = body.get("city");
+        String sport = body.get("sport");
+        String bio = body.get("bio");
+
+        if (StringUtils.hasText(city)) {
+            user.setLocation(city);
+        }
+        if (StringUtils.hasText(sport)) {
+            user.setSport(sport);
+        }
+        if (StringUtils.hasText(bio)) {
+            user.setBio(bio);
+        }
+
+        user.setOnboardingComplete(true);
+
+        // Compute archetype from activity history; persist result if available
+        try {
+            Archetype computed = archetypeService.compute(userId);
+            if (computed != null) {
+                user.setArchetype(computed.name());
+                log.info("Computed archetype for userId={}: {}", userId, computed.name());
+            }
+        } catch (Exception e) {
+            log.warn("Archetype computation failed for userId={} during onboarding: {}", userId, e.getMessage());
+        }
+
+        user = userRepository.save(user);
+        log.info("Onboarding complete for userId={}", userId);
+
+        return ResponseEntity.ok(buildUserResponse(user, userId));
     }
 
     // -------------------------------------------------------------------------

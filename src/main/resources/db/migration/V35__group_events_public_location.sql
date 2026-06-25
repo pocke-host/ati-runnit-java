@@ -1,0 +1,5 @@
+ALTER TABLE group_events ADD COLUMN latitude DOUBLE NULL;
+ALTER TABLE group_events ADD COLUMN longitude DOUBLE NULL;
+ALTER TABLE group_events ADD COLUMN city VARCHAR(100) NULL;
+ALTER TABLE group_events ADD COLUMN is_public TINYINT(1) NOT NULL DEFAULT 1;
+ALTER TABLE group_events ADD COLUMN max_attendees INT NULL;

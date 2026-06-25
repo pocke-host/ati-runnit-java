@@ -1,5 +1,6 @@
 package com.runnit.api.controller;
 
+import com.runnit.api.exception.BadRequestException;
 import com.runnit.api.model.Club;
 import com.runnit.api.model.ClubMember;
 import com.runnit.api.model.ClubMessage;
@@ -161,6 +162,71 @@ public class ClubController {
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/clubs/search?q=QUERY&city=CITY&sport=SPORT
+     * At least one param is required. When city alone is provided, returns clubs ordered by
+     * member count. Otherwise falls back to a full-text contains search across name/city/sport.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<?> searchClubs(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) String sport) {
+        try {
+            boolean hasQ = q != null && !q.isBlank();
+            boolean hasCity = city != null && !city.isBlank();
+            boolean hasSport = sport != null && !sport.isBlank();
+
+            if (!hasQ && !hasCity && !hasSport) {
+                throw new BadRequestException("At least one search parameter (q, city, sport) is required");
+            }
+
+            List<Club> results;
+            if (hasCity && !hasQ && !hasSport) {
+                // City-only search: return sorted by member count descending
+                results = clubRepository.findByCityIgnoreCaseOrderByMemberCountDesc(city);
+            } else {
+                // General search: use the query text or fall back to city/sport as search terms
+                String term = hasQ ? q : (hasCity ? city : sport);
+                String cityTerm = hasCity ? city : term;
+                String sportTerm = hasSport ? sport : term;
+                results = clubRepository
+                        .findByNameContainingIgnoreCaseOrCityContainingIgnoreCaseOrSportContainingIgnoreCase(
+                                term, cityTerm, sportTerm);
+            }
+
+            return ResponseEntity.ok(results.stream().map(this::toMap).collect(Collectors.toList()));
+        } catch (BadRequestException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/clubs/nearby?lat=LAT&lng=LNG&radiusKm=RADIUS
+     * Returns clubs within radiusKm (default 25 km) sorted by distance ascending.
+     */
+    @GetMapping("/nearby")
+    public ResponseEntity<?> getNearbyClubs(
+            @RequestParam Double lat,
+            @RequestParam Double lng,
+            @RequestParam(defaultValue = "25") double radiusKm) {
+        try {
+            if (lat == null || lng == null) {
+                throw new BadRequestException("lat and lng are required");
+            }
+            List<Club> nearby = clubRepository.findNearby(lat, lng, radiusKm);
+            return ResponseEntity.ok(nearby.stream().map(this::toMap).collect(Collectors.toList()));
+        } catch (BadRequestException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 

@@ -1,5 +1,8 @@
 package com.runnit.api.controller;
 
+import com.runnit.api.exception.BadRequestException;
+import com.runnit.api.exception.ForbiddenException;
+import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.model.GroupEvent;
 import com.runnit.api.model.GroupEventInvite;
 import com.runnit.api.model.User;
@@ -33,15 +36,15 @@ public class GroupEventController {
         try {
             Long userId = (Long) auth.getPrincipal();
             User creator = userRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
             String title = (String) body.get("title");
             if (title == null || title.isBlank()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "title is required"));
+                throw new BadRequestException("title is required");
             }
             String eventDatetimeRaw = (String) body.get("eventDatetime");
             if (eventDatetimeRaw == null || eventDatetimeRaw.isBlank()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "eventDatetime is required"));
+                throw new BadRequestException("eventDatetime is required");
             }
 
             GroupEvent event = new GroupEvent();
@@ -51,6 +54,16 @@ public class GroupEventController {
             event.setEventDatetime(LocalDateTime.parse(eventDatetimeRaw));
             event.setLocationName((String) body.get("locationName"));
             event.setDescription((String) body.get("description"));
+            if (body.get("latitude") != null)
+                event.setLatitude(((Number) body.get("latitude")).doubleValue());
+            if (body.get("longitude") != null)
+                event.setLongitude(((Number) body.get("longitude")).doubleValue());
+            if (body.get("city") != null)
+                event.setCity((String) body.get("city"));
+            if (body.get("isPublic") != null)
+                event.setPublic(Boolean.TRUE.equals(body.get("isPublic")));
+            if (body.get("maxAttendees") != null)
+                event.setMaxAttendees(((Number) body.get("maxAttendees")).intValue());
 
             GroupEvent saved = eventRepository.save(event);
 
@@ -70,10 +83,11 @@ public class GroupEventController {
             }
 
             return ResponseEntity.ok(toMap(saved, userId));
+        } catch (ResourceNotFoundException | BadRequestException e) {
+            throw e;
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            log.error("Failed to create group event: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -108,36 +122,175 @@ public class GroupEventController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            log.error("Failed to fetch group events for user: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
+    /**
+     * GET /api/group-events/discover?city=CITY
+     * Returns upcoming public events in the next 30 days sorted by date ascending.
+     * If city param is omitted, returns all upcoming public events regardless of city.
+     */
+    @GetMapping("/discover")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> discoverEvents(
+            @RequestParam(required = false) String city,
+            Authentication auth) {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime ceiling = now.plusDays(30);
+
+            List<GroupEvent> events;
+            if (city != null && !city.isBlank()) {
+                events = eventRepository
+                        .findByCityIgnoreCaseAndEventDatetimeAfterAndIsPublicTrueOrderByEventDatetimeAsc(city, now);
+            } else {
+                events = eventRepository
+                        .findByEventDatetimeAfterAndIsPublicTrueOrderByEventDatetimeAsc(now);
+            }
+
+            // Cap at 30 days window
+            events = events.stream()
+                    .filter(e -> e.getEventDatetime().isBefore(ceiling))
+                    .collect(Collectors.toList());
+
+            // Resolve currentUserId for RSVP status — may be null if endpoint called without auth
+            Long currentUserId = (auth != null) ? (Long) auth.getPrincipal() : null;
+
+            List<Map<String, Object>> result = events.stream()
+                    .map(e -> toMap(e, currentUserId))
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/group-events/{id}
+     * Returns detail for a single event. Public events are readable without auth;
+     * private events require the requesting user to be the creator or an invitee.
+     */
+    @GetMapping("/{id}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getEvent(@PathVariable Long id, Authentication auth) {
+        try {
+            GroupEvent event = eventRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+            Long currentUserId = (auth != null) ? (Long) auth.getPrincipal() : null;
+
+            if (!event.isPublic()) {
+                if (currentUserId == null) {
+                    return ResponseEntity.status(401).body(Map.of("error", "Authentication required"));
+                }
+                boolean isCreator = event.getCreator().getId().equals(currentUserId);
+                boolean isInvitee = inviteRepository.findByEventIdAndInviteeId(id, currentUserId).isPresent();
+                if (!isCreator && !isInvitee) {
+                    throw new ForbiddenException("Access denied to private event");
+                }
+            }
+
+            return ResponseEntity.ok(toMap(event, currentUserId));
+        } catch (ResourceNotFoundException | ForbiddenException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /api/group-events/{id}/rsvp
+     * Body: { "status": "GOING" | "INTERESTED" | "NOT_GOING" }
+     * Any authenticated user can RSVP to a public event. For private events, the user
+     * must already have an invite. If an invite record already exists for this user,
+     * its status is updated; otherwise a new invite record is created.
+     */
+    @PostMapping("/{id}/rsvp")
+    @Transactional
+    public ResponseEntity<?> rsvpToEvent(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+
+            GroupEvent event = eventRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
+
+            String status = (String) body.get("status");
+            if (status == null || status.isBlank()) {
+                throw new BadRequestException("status is required");
+            }
+
+            List<String> validStatuses = List.of("GOING", "INTERESTED", "NOT_GOING");
+            if (!validStatuses.contains(status)) {
+                throw new BadRequestException("status must be one of: GOING, INTERESTED, NOT_GOING");
+            }
+
+            if (!event.isPublic()) {
+                // Private event: user must already have an invite
+                inviteRepository.findByEventIdAndInviteeId(id, userId)
+                        .orElseThrow(() -> new ForbiddenException("You are not invited to this private event"));
+            }
+
+            // Find existing invite or create a new one
+            GroupEventInvite invite = inviteRepository.findByEventIdAndInviteeId(id, userId)
+                    .orElseGet(() -> {
+                        User invitee = userRepository.findById(userId)
+                                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                        GroupEventInvite newInvite = new GroupEventInvite();
+                        newInvite.setEventId(id);
+                        newInvite.setInvitee(invitee);
+                        return newInvite;
+                    });
+
+            invite.setStatus(status);
+            inviteRepository.save(invite);
+
+            return ResponseEntity.ok(Map.of("id", invite.getId(), "eventId", id, "status", invite.getStatus()));
+        } catch (ResourceNotFoundException | BadRequestException | ForbiddenException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * PATCH /api/group-events/invites/{id}
+     * Original invite-based RSVP — updates an existing invite record by its own ID.
+     * Only the invitee may update their own invite.
+     */
     @PatchMapping("/invites/{id}")
-    public ResponseEntity<?> rsvp(
+    public ResponseEntity<?> updateInvite(
             @PathVariable Long id,
             @RequestBody Map<String, Object> body,
             Authentication auth) {
         try {
             Long userId = (Long) auth.getPrincipal();
             GroupEventInvite invite = inviteRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Invite not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Invite not found"));
 
             if (!invite.getInvitee().getId().equals(userId)) {
-                return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
+                throw new ForbiddenException("Not authorized to update this invite");
             }
 
             String status = (String) body.get("status");
             if (status == null || status.isBlank()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "status is required"));
+                throw new BadRequestException("status is required");
             }
             invite.setStatus(status);
             inviteRepository.save(invite);
             return ResponseEntity.ok(Map.of("id", invite.getId(), "status", invite.getStatus()));
+        } catch (ResourceNotFoundException | BadRequestException | ForbiddenException e) {
+            throw e;
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            log.error("Failed to RSVP invite id={}: {}", id, e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -147,18 +300,19 @@ public class GroupEventController {
         try {
             Long userId = (Long) auth.getPrincipal();
             GroupEvent event = eventRepository.findById(id)
-                    .orElseThrow(() -> new RuntimeException("Event not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
             if (!event.getCreator().getId().equals(userId)) {
-                return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
+                throw new ForbiddenException("Not authorized to delete this event");
             }
 
             inviteRepository.deleteAll(inviteRepository.findByEventId(id));
             eventRepository.delete(event);
             return ResponseEntity.ok(Map.of("deleted", true));
+        } catch (ResourceNotFoundException | ForbiddenException e) {
+            throw e;
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            log.error("Failed to delete group event id={}: {}", id, e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -166,12 +320,14 @@ public class GroupEventController {
         List<GroupEventInvite> invites = inviteRepository.findByEventId(event.getId());
 
         long attendeeCount = invites.stream()
-                .filter(i -> "ACCEPTED".equals(i.getStatus()))
+                .filter(i -> "GOING".equals(i.getStatus()) || "ACCEPTED".equals(i.getStatus()))
                 .count();
 
-        GroupEventInvite myInvite = invites.stream()
-                .filter(i -> i.getInvitee().getId().equals(currentUserId))
-                .findFirst().orElse(null);
+        GroupEventInvite myInvite = (currentUserId != null)
+                ? invites.stream()
+                        .filter(i -> i.getInvitee().getId().equals(currentUserId))
+                        .findFirst().orElse(null)
+                : null;
 
         List<Map<String, Object>> inviteeList = invites.stream().map(i -> {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -188,6 +344,11 @@ public class GroupEventController {
         result.put("sportType", event.getSportType());
         result.put("eventDatetime", event.getEventDatetime() != null ? event.getEventDatetime().toString() : null);
         result.put("locationName", event.getLocationName());
+        result.put("latitude", event.getLatitude());
+        result.put("longitude", event.getLongitude());
+        result.put("city", event.getCity());
+        result.put("isPublic", event.isPublic());
+        result.put("maxAttendees", event.getMaxAttendees());
         result.put("description", event.getDescription());
         result.put("creatorId", event.getCreator().getId());
         result.put("creatorName", event.getCreator().getDisplayName());
