@@ -66,6 +66,10 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
 
+        if (user.getPasswordHash() == null) {
+            log.warn("[auth] Email login attempted on OAuth-only account: userId={}", user.getId());
+            throw new UnauthorizedException("Invalid credentials");
+        }
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new UnauthorizedException("Invalid credentials");
         }
