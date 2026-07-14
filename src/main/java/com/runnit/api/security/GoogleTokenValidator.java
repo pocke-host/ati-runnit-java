@@ -1,6 +1,5 @@
 package com.runnit.api.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.runnit.api.exception.UnauthorizedException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -17,11 +16,11 @@ import java.security.PublicKey;
 import java.security.spec.RSAPublicKeySpec;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Validates Google ID tokens locally using JWKS public key verification.
@@ -42,14 +41,16 @@ public class GoogleTokenValidator {
     );
 
     private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
 
     @Value("${google.client.id:}")
     private String googleClientId;
 
-    // kid -> RSA public key, refreshed hourly
-    private final ConcurrentHashMap<String, PublicKey> jwksCache = new ConcurrentHashMap<>();
-    private final AtomicLong jwksCachedAt = new AtomicLong(0);
+    private record JwksSnapshot(Map<String, PublicKey> keys, long cachedAt) {
+        static final JwksSnapshot EMPTY = new JwksSnapshot(Map.of(), 0L);
+    }
+
+    // Atomic snapshot so the key map and its timestamp always swap together
+    private final AtomicReference<JwksSnapshot> jwksSnapshot = new AtomicReference<>(JwksSnapshot.EMPTY);
 
     /**
      * Validates a Google ID token using JWKS cryptographic verification.
@@ -116,11 +117,11 @@ public class GoogleTokenValidator {
 
     private PublicKey getPublicKey(String kid) {
         refreshJwksIfStale();
-        PublicKey key = jwksCache.get(kid);
+        PublicKey key = jwksSnapshot.get().keys().get(kid);
         if (key == null) {
             // Key may have rotated — force a fresh fetch and retry once
             loadJwks();
-            key = jwksCache.get(kid);
+            key = jwksSnapshot.get().keys().get(kid);
         }
         if (key == null) {
             throw new UnauthorizedException("Unknown Google signing key: " + kid);
@@ -129,20 +130,26 @@ public class GoogleTokenValidator {
     }
 
     private void refreshJwksIfStale() {
+        JwksSnapshot snap = jwksSnapshot.get();
         long now = System.currentTimeMillis();
-        if (jwksCache.isEmpty() || now - jwksCachedAt.get() > JWKS_CACHE_TTL_MS) {
+        if (snap.keys().isEmpty() || now - snap.cachedAt() > JWKS_CACHE_TTL_MS) {
             loadJwks();
         }
     }
 
     @SuppressWarnings("unchecked")
     private synchronized void loadJwks() {
+        // Double-checked: another thread may have refreshed while we were waiting on the lock
+        JwksSnapshot current = jwksSnapshot.get();
+        if (!current.keys().isEmpty() && System.currentTimeMillis() - current.cachedAt() <= JWKS_CACHE_TTL_MS) {
+            return;
+        }
         try {
             Map<String, Object> response = restTemplate.getForObject(JWKS_URL, Map.class);
             if (response == null) throw new IllegalStateException("Empty JWKS response from Google");
 
             List<Map<String, String>> keys = (List<Map<String, String>>) response.get("keys");
-            ConcurrentHashMap<String, PublicKey> fresh = new ConcurrentHashMap<>();
+            Map<String, PublicKey> fresh = new HashMap<>();
             for (Map<String, String> jwk : keys) {
                 String kid = jwk.get("kid");
                 String n   = jwk.get("n");
@@ -151,14 +158,12 @@ public class GoogleTokenValidator {
                     fresh.put(kid, buildRsaPublicKey(n, e));
                 }
             }
-            jwksCache.clear();
-            jwksCache.putAll(fresh);
-            jwksCachedAt.set(System.currentTimeMillis());
-            log.info("[google] JWKS refreshed: {} keys cached", jwksCache.size());
+            jwksSnapshot.set(new JwksSnapshot(Map.copyOf(fresh), System.currentTimeMillis()));
+            log.info("[google] JWKS refreshed: {} keys cached", fresh.size());
         } catch (Exception ex) {
             log.error("[google] JWKS refresh failed: {}", ex.getMessage());
-            // If cache is populated, continue using stale keys rather than hard-failing
-            if (jwksCache.isEmpty()) {
+            // If we have stale keys, continue using them rather than hard-failing
+            if (jwksSnapshot.get().keys().isEmpty()) {
                 throw new UnauthorizedException("Google token validation unavailable — JWKS fetch failed");
             }
         }
