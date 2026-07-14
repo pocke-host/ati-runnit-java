@@ -188,7 +188,9 @@ public class UserController {
 
     private UserResponse toFullResponse(User user) {
         String subscriptionStatus = user.getSubscriptionStatus();
-        String subscriptionTier = deriveSubscriptionTier(subscriptionStatus);
+        String subscriptionTier = user.getSubscriptionTier() != null
+                ? user.getSubscriptionTier()
+                : deriveSubscriptionTier(subscriptionStatus);
 
         return UserResponse.builder()
                 .id(user.getId())
@@ -214,14 +216,10 @@ public class UserController {
                 .build();
     }
 
-    /**
-     * Maps a Stripe subscription status to a human-readable tier.
-     * "active" and "trialing" indicate an active paid plan.
-     */
     private String deriveSubscriptionTier(String subscriptionStatus) {
         if (subscriptionStatus == null) return "free";
         return switch (subscriptionStatus) {
-            case "active", "trialing" -> "pro";
+            case "active", "trialing" -> "premium";
             default -> "free";
         };
     }
