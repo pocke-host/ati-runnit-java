@@ -9,6 +9,7 @@ import org.springframework.http.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,6 +23,10 @@ class MomentTest {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    // Each register call gets a unique X-Forwarded-For IP so the in-memory
+    // AuthRateLimitFilter (5/hour per IP) never trips during the test suite.
+    private static final AtomicInteger ipSeq = new AtomicInteger(1);
 
     private String token;
     private String token2;
@@ -295,6 +300,7 @@ class MomentTest {
     private String registerAndGetToken(String email) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Forwarded-For", "10.0.0." + ipSeq.getAndIncrement());
         String body = String.format("""
                 {"email":"%s","password":"SecurePass1!","displayName":"Test User","role":"athlete"}
                 """, email);
