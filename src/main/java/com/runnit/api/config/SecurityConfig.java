@@ -45,7 +45,8 @@ public class SecurityConfig {
                     "/api/strava/webhook",
                     "/api/garmin/oauth/callback",
                     "/api/garmin/oauth/webhook",
-                    "/api/billing/webhook"
+                    "/api/billing/webhook",
+                    "/api/billing/revenuecat-webhook"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/live-shares/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/moments/*/comments").permitAll()

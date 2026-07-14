@@ -62,12 +62,11 @@ public class User {
     @Column(name = "stripe_customer_id", length = 100)
     private String stripeCustomerId;
 
-    /**
-     * Reflects the Stripe subscription status: active, trialing, past_due,
-     * canceled, etc. Null means no subscription has ever been created.
-     */
     @Column(name = "subscription_status", length = 50)
     private String subscriptionStatus;
+
+    @Column(name = "subscription_tier", length = 50)
+    private String subscriptionTier;
 
     @Column(name = "strava_athlete_id")
     private Long stravaAthleteId;
@@ -143,6 +142,7 @@ public class User {
     public String getArchetype() { return archetype; }
     public String getStripeCustomerId() { return stripeCustomerId; }
     public String getSubscriptionStatus() { return subscriptionStatus; }
+    public String getSubscriptionTier() { return subscriptionTier; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
@@ -164,6 +164,7 @@ public class User {
     public void setArchetype(String archetype) { this.archetype = archetype; }
     public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
+    public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
     public Long getStravaAthleteId() { return stravaAthleteId; }
     public String getStravaAccessToken() { return stravaAccessToken; }
     public String getStravaRefreshToken() { return stravaRefreshToken; }

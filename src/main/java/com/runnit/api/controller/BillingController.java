@@ -37,6 +37,9 @@ public class BillingController {
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
+    @Value("${revenuecat.webhook.secret:}")
+    private String revenuecatWebhookSecret;
+
     /** POST /api/billing/checkout-session */
     @PostMapping("/checkout-session")
     public ResponseEntity<?> createCheckoutSession(
@@ -156,6 +159,80 @@ public class BillingController {
         }
     }
 
+    /** POST /api/billing/revenuecat-webhook — no auth, verified by shared secret header */
+    @PostMapping("/revenuecat-webhook")
+    @Transactional
+    public ResponseEntity<?> handleRevenueCatWebhook(
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        try {
+            if (revenuecatWebhookSecret != null && !revenuecatWebhookSecret.isBlank()) {
+                String expected = "Bearer " + revenuecatWebhookSecret;
+                if (!expected.equals(authHeader)) {
+                    log.warn("RevenueCat webhook: invalid authorization header");
+                    return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+                }
+            }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> event = (Map<String, Object>) body.get("event");
+            if (event == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Missing event"));
+            }
+
+            String type = (String) event.get("type");
+            String appUserId = (String) event.get("app_user_id");
+            String productId = (String) event.get("product_id");
+            log.info("RevenueCat webhook: type={} appUserId={} productId={}", type, appUserId, productId);
+
+            if (appUserId == null) {
+                return ResponseEntity.ok(Map.of("received", true));
+            }
+
+            Long userId;
+            try {
+                userId = Long.parseLong(appUserId);
+            } catch (NumberFormatException e) {
+                log.warn("RevenueCat webhook: unparseable appUserId={}", appUserId);
+                return ResponseEntity.ok(Map.of("received", true));
+            }
+
+            String status = mapRevenueCatEventToStatus(type);
+            String tier = extractTierFromProductId(productId);
+
+            userRepository.findById(userId).ifPresent(user -> {
+                if (status != null) user.setSubscriptionStatus(status);
+                if (tier != null) user.setSubscriptionTier(tier);
+                userRepository.save(user);
+                log.info("RevenueCat: updated userId={} status={} tier={}", userId, status, tier);
+            });
+
+            return ResponseEntity.ok(Map.of("received", true));
+        } catch (Exception e) {
+            log.error("Unexpected error in handleRevenueCatWebhook", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "An unexpected error occurred"));
+        }
+    }
+
+    /** POST /api/billing/revenuecat-sync — called by iOS after purchase to pull latest status */
+    @PostMapping("/revenuecat-sync")
+    @Transactional
+    public ResponseEntity<?> syncRevenueCat(Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            log.info("RevenueCat sync requested: userId={} currentStatus={}", userId, user.getSubscriptionStatus());
+            return ResponseEntity.ok(Map.of(
+                    "subscriptionStatus", user.getSubscriptionStatus() != null ? user.getSubscriptionStatus() : "none",
+                    "subscriptionTier", user.getSubscriptionTier() != null ? user.getSubscriptionTier() : "free"
+            ));
+        } catch (Exception e) {
+            log.error("Unexpected error in syncRevenueCat", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "An unexpected error occurred"));
+        }
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     /**
@@ -192,6 +269,24 @@ public class BillingController {
         userRepository.save(user);
 
         return customerId;
+    }
+
+    private String mapRevenueCatEventToStatus(String eventType) {
+        if (eventType == null) return null;
+        return switch (eventType) {
+            case "INITIAL_PURCHASE", "RENEWAL", "UNCANCELLATION" -> "active";
+            case "TRIAL_STARTED" -> "trialing";
+            case "CANCELLATION", "EXPIRATION" -> "canceled";
+            case "BILLING_ISSUE" -> "past_due";
+            default -> null;
+        };
+    }
+
+    private String extractTierFromProductId(String productId) {
+        if (productId == null) return null;
+        if (productId.contains("duo")) return "duo";
+        if (productId.contains("premium")) return "premium";
+        return null;
     }
 
     /**

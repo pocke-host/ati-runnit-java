@@ -42,11 +42,11 @@ class AuthControllerTest {
     @MockBean private JwtUtil jwtUtil;
     @MockBean private AuthService authService;
     @MockBean private RefreshTokenService refreshTokenService;
+    @MockBean private UserRepository userRepository;
     @MockBean private FollowRepository followRepository;
     @MockBean private ActivityRepository activityRepository;
     @MockBean private GoogleTokenValidator googleTokenValidator;
     @MockBean private AppleTokenValidator appleTokenValidator;
-    @MockBean private UserRepository userRepository;
     @MockBean private AthleteArchetypeService archetypeService;
 
     @Test

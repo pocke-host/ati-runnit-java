@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -23,6 +24,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 public class AuthRateLimitFilter extends OncePerRequestFilter {
+
+    @Value("${auth.rate-limit.enabled:true}")
+    private boolean rateLimitEnabled;
 
     // [maxRequests, windowSeconds] per endpoint
     private static final Map<String, int[]> LIMITS = Map.of(
@@ -43,7 +47,7 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         String path = req.getServletPath();
         int[] config = LIMITS.get(path);
 
-        if (config == null || !HttpMethod.POST.matches(req.getMethod())) {
+        if (!rateLimitEnabled || config == null || !HttpMethod.POST.matches(req.getMethod())) {
             chain.doFilter(req, res);
             return;
         }
