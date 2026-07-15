@@ -163,5 +163,5 @@ public class Activity {
     }
 
     public enum SportType { RUN, BIKE, SWIM, HIKE, WALK, OTHER }
-    public enum Source { MANUAL, GARMIN, STRAVA, APPLE_WATCH }
+    public enum Source { MANUAL, GARMIN, STRAVA, APPLE_WATCH, COROS, APPLE_HEALTH }
 }
