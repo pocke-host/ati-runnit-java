@@ -101,6 +101,24 @@ public class User {
     @Column(name = "garmin_last_sync")
     private Instant garminLastSync;
 
+    @Column(name = "coros_access_token", columnDefinition = "TEXT")
+    private String corosAccessToken;
+
+    @Column(name = "coros_refresh_token", columnDefinition = "TEXT")
+    private String corosRefreshToken;
+
+    @Column(name = "coros_token_expires_at")
+    private Long corosTokenExpiresAt;
+
+    @Column(name = "coros_oauth_state", length = 100)
+    private String corosOauthState;
+
+    @Column(name = "coros_user_id", length = 100)
+    private String corosUserId;
+
+    @Column(name = "coros_last_sync")
+    private Instant corosLastSync;
+
     @Column(name = "hr_zones_json", columnDefinition = "TEXT")
     private String hrZonesJson;
 
@@ -187,6 +205,18 @@ public class User {
     public void setGarminRequestTokenSecret(String garminRequestTokenSecret) { this.garminRequestTokenSecret = garminRequestTokenSecret; }
     public Instant getGarminLastSync() { return garminLastSync; }
     public void setGarminLastSync(Instant garminLastSync) { this.garminLastSync = garminLastSync; }
+    public String getCorosAccessToken() { return corosAccessToken; }
+    public void setCorosAccessToken(String corosAccessToken) { this.corosAccessToken = corosAccessToken; }
+    public String getCorosRefreshToken() { return corosRefreshToken; }
+    public void setCorosRefreshToken(String corosRefreshToken) { this.corosRefreshToken = corosRefreshToken; }
+    public Long getCorosTokenExpiresAt() { return corosTokenExpiresAt; }
+    public void setCorosTokenExpiresAt(Long corosTokenExpiresAt) { this.corosTokenExpiresAt = corosTokenExpiresAt; }
+    public String getCorosOauthState() { return corosOauthState; }
+    public void setCorosOauthState(String corosOauthState) { this.corosOauthState = corosOauthState; }
+    public String getCorosUserId() { return corosUserId; }
+    public void setCorosUserId(String corosUserId) { this.corosUserId = corosUserId; }
+    public Instant getCorosLastSync() { return corosLastSync; }
+    public void setCorosLastSync(Instant corosLastSync) { this.corosLastSync = corosLastSync; }
     public String getHrZonesJson() { return hrZonesJson; }
     public void setHrZonesJson(String hrZonesJson) { this.hrZonesJson = hrZonesJson; }
     public String getPushToken() { return pushToken; }
