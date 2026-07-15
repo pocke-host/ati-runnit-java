@@ -45,6 +45,8 @@ public class SecurityConfig {
                     "/api/strava/webhook",
                     "/api/garmin/oauth/callback",
                     "/api/garmin/oauth/webhook",
+                    "/api/integrations/coros/callback",
+                    "/api/coros/webhook",
                     "/api/billing/webhook",
                     "/api/billing/revenuecat-webhook"
                 ).permitAll()
