@@ -80,7 +80,7 @@ public class BillingController {
             com.stripe.model.checkout.Session session =
                     com.stripe.model.checkout.Session.create(params);
             log.info("Checkout session created: userId={} sessionId={}", userId, session.getId());
-            return ResponseEntity.ok(Map.of("sessionId", session.getId()));
+            return ResponseEntity.ok(Map.of("sessionId", session.getId(), "url", session.getUrl()));
 
         } catch (com.stripe.exception.StripeException e) {
             log.error("Stripe error in createCheckoutSession: {}", e.getMessage());
