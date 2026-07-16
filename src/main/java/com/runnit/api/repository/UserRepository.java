@@ -20,4 +20,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByStravaAthleteId(Long stravaAthleteId);
     Optional<User> findByStravaOauthState(String state);
     Optional<User> findByGarminRequestToken(String requestToken);
+    Optional<User> findByGarminAccessToken(String accessToken);
 }
