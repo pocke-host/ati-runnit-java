@@ -7,7 +7,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.util.Map;
 
 /**
  * Handles the OAuth 1.0a callback redirect from Garmin Connect.
@@ -42,10 +41,4 @@ public class GarminOAuthController {
         return ResponseEntity.status(302).location(URI.create(redirectUrl)).build();
     }
 
-    /** POST /api/garmin/webhook — Garmin Health API pushes activity events here */
-    @PostMapping("/webhook")
-    public ResponseEntity<Void> webhook(@RequestBody Map<String, Object> payload) {
-        // Reserved for Garmin Health API push notifications (future use)
-        return ResponseEntity.ok().build();
-    }
 }

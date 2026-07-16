@@ -101,9 +101,11 @@ public class AuthService {
                         }
                     }
                     // Brand-new user via OAuth
+                    String name = displayName != null ? displayName : email;
                     return userRepository.save(User.builder()
                             .email(email)
-                            .displayName(displayName != null ? displayName : email)
+                            .displayName(name)
+                            .user(name)
                             .avatarUrl(avatarUrl)
                             .authProvider(provider)
                             .providerId(providerId)
