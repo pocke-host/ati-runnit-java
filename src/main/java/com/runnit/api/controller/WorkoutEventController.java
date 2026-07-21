@@ -61,6 +61,7 @@ public class WorkoutEventController {
             if (body.get("distanceMeters")   != null) ev.setDistanceMeters(((Number) body.get("distanceMeters")).intValue());
             if (body.get("durationMinutes")  != null) ev.setDurationMinutes(((Number) body.get("durationMinutes")).intValue());
             if (body.get("targetPaceSeconds")!= null) ev.setTargetPaceSeconds(((Number) body.get("targetPaceSeconds")).intValue());
+            if (body.get("googleEventId")    != null) ev.setGoogleEventId((String) body.get("googleEventId"));
 
             return ResponseEntity.ok(toMap(eventRepository.save(ev)));
         } catch (Exception e) {
@@ -89,6 +90,7 @@ public class WorkoutEventController {
             if (body.get("distanceMeters")    != null) ev.setDistanceMeters(((Number) body.get("distanceMeters")).intValue());
             if (body.get("durationMinutes")   != null) ev.setDurationMinutes(((Number) body.get("durationMinutes")).intValue());
             if (body.get("targetPaceSeconds") != null) ev.setTargetPaceSeconds(((Number) body.get("targetPaceSeconds")).intValue());
+            if (body.containsKey("googleEventId")) ev.setGoogleEventId((String) body.get("googleEventId"));
 
             return ResponseEntity.ok(toMap(eventRepository.save(ev)));
         } catch (Exception e) {
@@ -126,6 +128,7 @@ public class WorkoutEventController {
         m.put("notes",             ev.getNotes());
         m.put("source",            ev.getSource());
         m.put("completed",         ev.isCompleted());
+        m.put("googleEventId",     ev.getGoogleEventId());
         m.put("createdAt",         ev.getCreatedAt() != null ? ev.getCreatedAt().toString() : null);
         return m;
     }

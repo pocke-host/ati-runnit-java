@@ -47,6 +47,9 @@ public class WorkoutEvent {
     @Column(name = "completed")
     private boolean completed = false;
 
+    @Column(name = "google_event_id", length = 255)
+    private String googleEventId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -66,6 +69,7 @@ public class WorkoutEvent {
     public String getSource() { return source; }
     public boolean isCompleted() { return completed; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getGoogleEventId() { return googleEventId; }
 
     public void setUser(User user) { this.user = user; }
     public void setPlannedDate(LocalDate plannedDate) { this.plannedDate = plannedDate; }
@@ -78,4 +82,5 @@ public class WorkoutEvent {
     public void setNotes(String notes) { this.notes = notes; }
     public void setSource(String source) { this.source = source; }
     public void setCompleted(boolean completed) { this.completed = completed; }
+    public void setGoogleEventId(String googleEventId) { this.googleEventId = googleEventId; }
 }
