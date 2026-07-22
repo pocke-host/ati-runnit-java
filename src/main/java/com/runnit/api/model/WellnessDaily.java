@@ -50,6 +50,18 @@ public class WellnessDaily {
     @Column(name = "total_sleep_minutes")
     private Integer totalSleepMinutes;
 
+    @Column(name = "light_sleep_minutes")
+    private Integer lightSleepMinutes;
+
+    @Column(name = "deep_sleep_minutes")
+    private Integer deepSleepMinutes;
+
+    @Column(name = "rem_sleep_minutes")
+    private Integer remSleepMinutes;
+
+    @Column(name = "awake_minutes")
+    private Integer awakeMinutes;
+
     @Column(name = "strain")
     private Double strain;
 
@@ -70,6 +82,10 @@ public class WellnessDaily {
     public Integer getSleepPerformancePct() { return sleepPerformancePct; }
     public Double getSleepEfficiencyPct() { return sleepEfficiencyPct; }
     public Integer getTotalSleepMinutes() { return totalSleepMinutes; }
+    public Integer getLightSleepMinutes() { return lightSleepMinutes; }
+    public Integer getDeepSleepMinutes() { return deepSleepMinutes; }
+    public Integer getRemSleepMinutes() { return remSleepMinutes; }
+    public Integer getAwakeMinutes() { return awakeMinutes; }
     public Double getStrain() { return strain; }
     public Instant getCreatedAt() { return createdAt; }
 
@@ -84,5 +100,9 @@ public class WellnessDaily {
     public void setSleepPerformancePct(Integer sleepPerformancePct) { this.sleepPerformancePct = sleepPerformancePct; }
     public void setSleepEfficiencyPct(Double sleepEfficiencyPct) { this.sleepEfficiencyPct = sleepEfficiencyPct; }
     public void setTotalSleepMinutes(Integer totalSleepMinutes) { this.totalSleepMinutes = totalSleepMinutes; }
+    public void setLightSleepMinutes(Integer lightSleepMinutes) { this.lightSleepMinutes = lightSleepMinutes; }
+    public void setDeepSleepMinutes(Integer deepSleepMinutes) { this.deepSleepMinutes = deepSleepMinutes; }
+    public void setRemSleepMinutes(Integer remSleepMinutes) { this.remSleepMinutes = remSleepMinutes; }
+    public void setAwakeMinutes(Integer awakeMinutes) { this.awakeMinutes = awakeMinutes; }
     public void setStrain(Double strain) { this.strain = strain; }
 }

@@ -297,7 +297,12 @@ public class WhoopService {
                     long lightMs = getLong(stageSummary, "total_light_sleep_time_milli");
                     long swsMs = getLong(stageSummary, "total_slow_wave_sleep_time_milli");
                     long remMs = getLong(stageSummary, "total_rem_sleep_time_milli");
+                    long awakeMs = getLong(stageSummary, "total_awake_time_milli");
                     row.setTotalSleepMinutes((int) ((lightMs + swsMs + remMs) / 60000));
+                    row.setLightSleepMinutes((int) (lightMs / 60000));
+                    row.setDeepSleepMinutes((int) (swsMs / 60000));
+                    row.setRemSleepMinutes((int) (remMs / 60000));
+                    row.setAwakeMinutes((int) (awakeMs / 60000));
                 }
             }
         }
