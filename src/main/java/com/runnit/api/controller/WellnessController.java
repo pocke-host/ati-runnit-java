@@ -68,6 +68,10 @@ public class WellnessController {
         m.put("sleepPerformancePct", w.getSleepPerformancePct());
         m.put("sleepEfficiencyPct", w.getSleepEfficiencyPct());
         m.put("totalSleepMinutes", w.getTotalSleepMinutes());
+        m.put("lightSleepMinutes", w.getLightSleepMinutes());
+        m.put("deepSleepMinutes", w.getDeepSleepMinutes());
+        m.put("remSleepMinutes", w.getRemSleepMinutes());
+        m.put("awakeMinutes", w.getAwakeMinutes());
         m.put("strain", w.getStrain());
         return m;
     }
