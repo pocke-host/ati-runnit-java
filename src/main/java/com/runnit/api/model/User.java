@@ -152,6 +152,9 @@ public class User {
     @Column(name = "whoop_last_sync")
     private Instant whoopLastSync;
 
+    @Column(name = "invite_code", length = 20)
+    private String inviteCode;
+
     @Column(name = "push_token", columnDefinition = "TEXT")
     private String pushToken;
 
@@ -269,6 +272,8 @@ public class User {
     public void setWhoopUserId(Long whoopUserId) { this.whoopUserId = whoopUserId; }
     public Instant getWhoopLastSync() { return whoopLastSync; }
     public void setWhoopLastSync(Instant whoopLastSync) { this.whoopLastSync = whoopLastSync; }
+    public String getInviteCode() { return inviteCode; }
+    public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
     public String getPushToken() { return pushToken; }
     public void setPushToken(String pushToken) { this.pushToken = pushToken; }
     public String getPushPlatform() { return pushPlatform; }

@@ -12,6 +12,7 @@ import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.WorkoutEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,9 @@ public class CoachController {
     private final WorkoutEventRepository workoutEventRepository;
     private final ActivityRepository activityRepository;
     private final RaceBookmarkRepository raceBookmarkRepository;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     // ─── Coach perspective ───────────────────────────────────────────────────
 
@@ -110,6 +114,94 @@ public class CoachController {
             Long coachId = (Long) auth.getPrincipal();
             coachRequestRepository.deleteByCoachIdAndAthleteId(coachId, athleteId);
             return ResponseEntity.ok(Map.of("message", "Athlete removed"));
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/coach/invite-link — returns (generating on first call) a shareable
+     * link that auto-approves any athlete who opens it, bypassing the request/
+     * approve flow. Lets a coach bring their existing roster over in bulk instead
+     * of waiting for each athlete to individually find and request them.
+     */
+    @GetMapping("/api/coach/invite-link")
+    @Transactional
+    public ResponseEntity<?> getInviteLink(Authentication auth) {
+        try {
+            Long coachId = (Long) auth.getPrincipal();
+            User coach = userRepository.findById(coachId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (coach.getInviteCode() == null) {
+                String code;
+                do {
+                    code = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+                } while (userRepository.findByInviteCode(code).isPresent());
+                coach.setInviteCode(code);
+                userRepository.save(coach);
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "code", coach.getInviteCode(),
+                    "url", frontendUrl + "/join-coach/" + coach.getInviteCode()
+            ));
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/coach/invite/{code} — public lookup so the join page can show
+     * the coach's name before the athlete signs in.
+     */
+    @GetMapping("/api/coach/invite/{code}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> previewInvite(@PathVariable String code) {
+        return userRepository.findByInviteCode(code)
+                .map(coach -> {
+                    // Public, unauthenticated endpoint — only expose what the join page needs to display,
+                    // not toUserMap's full fields (email, etc.)
+                    Map<String, Object> preview = new HashMap<>();
+                    preview.put("displayName", coach.getDisplayName());
+                    preview.put("avatarUrl", coach.getAvatarUrl());
+                    return ResponseEntity.ok((Object) preview);
+                })
+                .orElse(ResponseEntity.status(404).body(Map.of("error", "Invite link not found")));
+    }
+
+    /**
+     * POST /api/coach/invite/{code}/accept — authenticated athlete accepts a
+     * coach's invite link. Creates an already-APPROVED relationship directly,
+     * since the coach explicitly generated this link (no separate approval step).
+     */
+    @PostMapping("/api/coach/invite/{code}/accept")
+    @Transactional
+    public ResponseEntity<?> acceptInvite(@PathVariable String code, Authentication auth) {
+        try {
+            Long athleteId = (Long) auth.getPrincipal();
+            User coach = userRepository.findByInviteCode(code)
+                    .orElseThrow(() -> new RuntimeException("Invite link not found"));
+
+            if (coach.getId().equals(athleteId)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "You can't join your own roster"));
+            }
+            if (coachRequestRepository.findByAthleteIdAndStatus(athleteId, "APPROVED").isPresent()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "You already have a coach — leave them first to switch"));
+            }
+
+            // Clear out any stale pending/rejected request to this same coach before creating the approved one
+            coachRequestRepository.deleteByCoachIdAndAthleteId(coach.getId(), athleteId);
+
+            CoachRequest req = new CoachRequest();
+            req.setCoachId(coach.getId());
+            req.setAthleteId(athleteId);
+            req.setStatus("APPROVED");
+            coachRequestRepository.save(req);
+
+            return ResponseEntity.ok(Map.of("coach", toUserMap(coach)));
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
