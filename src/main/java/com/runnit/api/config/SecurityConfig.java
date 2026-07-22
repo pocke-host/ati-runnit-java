@@ -47,6 +47,7 @@ public class SecurityConfig {
                     "/api/garmin/oauth/webhook",
                     "/api/integrations/coros/callback",
                     "/api/coros/webhook",
+                    "/api/integrations/google-calendar/callback",
                     "/api/billing/webhook",
                     "/api/billing/revenuecat-webhook"
                 ).permitAll()
