@@ -122,6 +122,18 @@ public class User {
     @Column(name = "hr_zones_json", columnDefinition = "TEXT")
     private String hrZonesJson;
 
+    @Column(name = "google_calendar_access_token", columnDefinition = "TEXT")
+    private String googleCalendarAccessToken;
+
+    @Column(name = "google_calendar_refresh_token", columnDefinition = "TEXT")
+    private String googleCalendarRefreshToken;
+
+    @Column(name = "google_calendar_token_expires_at")
+    private Long googleCalendarTokenExpiresAt;
+
+    @Column(name = "google_calendar_oauth_state", length = 255)
+    private String googleCalendarOauthState;
+
     @Column(name = "push_token", columnDefinition = "TEXT")
     private String pushToken;
 
@@ -219,6 +231,14 @@ public class User {
     public void setCorosLastSync(Instant corosLastSync) { this.corosLastSync = corosLastSync; }
     public String getHrZonesJson() { return hrZonesJson; }
     public void setHrZonesJson(String hrZonesJson) { this.hrZonesJson = hrZonesJson; }
+    public String getGoogleCalendarAccessToken() { return googleCalendarAccessToken; }
+    public void setGoogleCalendarAccessToken(String googleCalendarAccessToken) { this.googleCalendarAccessToken = googleCalendarAccessToken; }
+    public String getGoogleCalendarRefreshToken() { return googleCalendarRefreshToken; }
+    public void setGoogleCalendarRefreshToken(String googleCalendarRefreshToken) { this.googleCalendarRefreshToken = googleCalendarRefreshToken; }
+    public Long getGoogleCalendarTokenExpiresAt() { return googleCalendarTokenExpiresAt; }
+    public void setGoogleCalendarTokenExpiresAt(Long googleCalendarTokenExpiresAt) { this.googleCalendarTokenExpiresAt = googleCalendarTokenExpiresAt; }
+    public String getGoogleCalendarOauthState() { return googleCalendarOauthState; }
+    public void setGoogleCalendarOauthState(String googleCalendarOauthState) { this.googleCalendarOauthState = googleCalendarOauthState; }
     public String getPushToken() { return pushToken; }
     public void setPushToken(String pushToken) { this.pushToken = pushToken; }
     public String getPushPlatform() { return pushPlatform; }
