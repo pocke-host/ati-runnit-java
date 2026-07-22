@@ -134,6 +134,24 @@ public class User {
     @Column(name = "google_calendar_oauth_state", length = 255)
     private String googleCalendarOauthState;
 
+    @Column(name = "whoop_access_token", columnDefinition = "TEXT")
+    private String whoopAccessToken;
+
+    @Column(name = "whoop_refresh_token", columnDefinition = "TEXT")
+    private String whoopRefreshToken;
+
+    @Column(name = "whoop_token_expires_at")
+    private Long whoopTokenExpiresAt;
+
+    @Column(name = "whoop_oauth_state", length = 255)
+    private String whoopOauthState;
+
+    @Column(name = "whoop_user_id")
+    private Long whoopUserId;
+
+    @Column(name = "whoop_last_sync")
+    private Instant whoopLastSync;
+
     @Column(name = "push_token", columnDefinition = "TEXT")
     private String pushToken;
 
@@ -239,6 +257,18 @@ public class User {
     public void setGoogleCalendarTokenExpiresAt(Long googleCalendarTokenExpiresAt) { this.googleCalendarTokenExpiresAt = googleCalendarTokenExpiresAt; }
     public String getGoogleCalendarOauthState() { return googleCalendarOauthState; }
     public void setGoogleCalendarOauthState(String googleCalendarOauthState) { this.googleCalendarOauthState = googleCalendarOauthState; }
+    public String getWhoopAccessToken() { return whoopAccessToken; }
+    public void setWhoopAccessToken(String whoopAccessToken) { this.whoopAccessToken = whoopAccessToken; }
+    public String getWhoopRefreshToken() { return whoopRefreshToken; }
+    public void setWhoopRefreshToken(String whoopRefreshToken) { this.whoopRefreshToken = whoopRefreshToken; }
+    public Long getWhoopTokenExpiresAt() { return whoopTokenExpiresAt; }
+    public void setWhoopTokenExpiresAt(Long whoopTokenExpiresAt) { this.whoopTokenExpiresAt = whoopTokenExpiresAt; }
+    public String getWhoopOauthState() { return whoopOauthState; }
+    public void setWhoopOauthState(String whoopOauthState) { this.whoopOauthState = whoopOauthState; }
+    public Long getWhoopUserId() { return whoopUserId; }
+    public void setWhoopUserId(Long whoopUserId) { this.whoopUserId = whoopUserId; }
+    public Instant getWhoopLastSync() { return whoopLastSync; }
+    public void setWhoopLastSync(Instant whoopLastSync) { this.whoopLastSync = whoopLastSync; }
     public String getPushToken() { return pushToken; }
     public void setPushToken(String pushToken) { this.pushToken = pushToken; }
     public String getPushPlatform() { return pushPlatform; }
