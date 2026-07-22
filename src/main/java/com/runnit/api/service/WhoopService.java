@@ -4,8 +4,10 @@ import com.runnit.api.exception.BadRequestException;
 import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.User;
+import com.runnit.api.model.WellnessDaily;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.UserRepository;
+import com.runnit.api.repository.WellnessDailyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,11 +21,9 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -32,6 +32,7 @@ public class WhoopService {
 
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
+    private final WellnessDailyRepository wellnessDailyRepository;
 
     @Value("${whoop.client.id}")
     private String clientId;
@@ -48,6 +49,9 @@ public class WhoopService {
     private static final String AUTH_URL = "https://api.prod.whoop.com/oauth/oauth2/auth";
     private static final String TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token";
     private static final String WORKOUT_URL = "https://api.prod.whoop.com/developer/v2/activity/workout";
+    private static final String SLEEP_URL = "https://api.prod.whoop.com/developer/v2/activity/sleep";
+    private static final String RECOVERY_URL = "https://api.prod.whoop.com/developer/v2/recovery";
+    private static final String CYCLE_URL = "https://api.prod.whoop.com/developer/v2/cycle";
     private static final String SCOPE = "read:workout read:sleep read:recovery read:cycles read:profile read:body_measurement offline";
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -94,6 +98,11 @@ public class WhoopService {
         } catch (Exception e) {
             log.warn("Post-OAuth WHOOP activity sync failed for user {}: {}", user.getId(), e.getMessage());
         }
+        try {
+            syncWellness(user);
+        } catch (Exception e) {
+            log.warn("Post-OAuth WHOOP wellness sync failed for user {}: {}", user.getId(), e.getMessage());
+        }
 
         return frontendUrl + "/devices?whoop=connected";
     }
@@ -105,8 +114,7 @@ public class WhoopService {
         return syncActivities(user);
     }
 
-    @SuppressWarnings("unchecked")
-    private static final int MAX_SYNC_PAGES = 20; // 20 * 25 = 500 workouts per sync — safety cap, not an expected ceiling
+    private static final int MAX_SYNC_PAGES = 20; // 20 * 25 = 500 records per sync — safety cap, not an expected ceiling
 
     @Transactional
     public int syncActivities(User user) {
@@ -114,16 +122,66 @@ public class WhoopService {
         if (token == null) return 0;
 
         Instant start = Instant.now().minusSeconds(90L * 24 * 3600);
+        List<Map<String, Object>> workouts = fetchAllPages(WORKOUT_URL, token, start);
 
+        int imported = 0;
+        for (Map<String, Object> workout : workouts) {
+            if (saveWhoopWorkout(user, workout)) imported++;
+        }
+
+        user.setWhoopLastSync(Instant.now());
+        userRepository.save(user);
+        return imported;
+    }
+
+    @Transactional
+    public int syncWellness(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return syncWellness(user);
+    }
+
+    @Transactional
+    public int syncWellness(User user) {
+        String token = getValidAccessToken(user);
+        if (token == null) return 0;
+
+        Instant start = Instant.now().minusSeconds(30L * 24 * 3600); // daily-cadence data — 30 days is plenty
+
+        List<Map<String, Object>> cycles = fetchAllPages(CYCLE_URL, token, start);
+        List<Map<String, Object>> recoveries = fetchAllPages(RECOVERY_URL, token, start);
+        List<Map<String, Object>> sleeps = fetchAllPages(SLEEP_URL, token, start);
+
+        Map<Object, Map<String, Object>> recoveryByCycle = new HashMap<>();
+        for (Map<String, Object> r : recoveries) {
+            if ("SCORED".equals(r.get("score_state"))) recoveryByCycle.put(r.get("cycle_id"), r);
+        }
+        Map<Object, Map<String, Object>> sleepByCycle = new HashMap<>();
+        for (Map<String, Object> s : sleeps) {
+            if ("SCORED".equals(s.get("score_state")) && Boolean.FALSE.equals(s.get("nap"))) {
+                sleepByCycle.put(s.get("cycle_id"), s);
+            }
+        }
+
+        int saved = 0;
+        for (Map<String, Object> cycle : cycles) {
+            if (!"SCORED".equals(cycle.get("score_state"))) continue;
+            if (saveWellnessDay(user, cycle, recoveryByCycle.get(cycle.get("id")), sleepByCycle.get(cycle.get("id")))) saved++;
+        }
+        return saved;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> fetchAllPages(String baseUrl, String token, Instant start) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-        int imported = 0;
+        List<Map<String, Object>> all = new ArrayList<>();
         String nextToken = null;
 
         for (int page = 0; page < MAX_SYNC_PAGES; page++) {
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(WORKOUT_URL)
+            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl)
                     .queryParam("limit", 25)
                     .queryParam("start", start.toString());
             if (nextToken != null) builder.queryParam("nextToken", nextToken);
@@ -135,18 +193,12 @@ public class WhoopService {
 
             List<Map<String, Object>> records = (List<Map<String, Object>>) response.getBody().get("records");
             if (records == null || records.isEmpty()) break;
-
-            for (Map<String, Object> workout : records) {
-                if (saveWhoopWorkout(user, workout)) imported++;
-            }
+            all.addAll(records);
 
             nextToken = (String) response.getBody().get("next_token");
             if (nextToken == null) break;
         }
-
-        user.setWhoopLastSync(Instant.now());
-        userRepository.save(user);
-        return imported;
+        return all;
     }
 
     @Transactional
@@ -204,6 +256,53 @@ public class WhoopService {
                 .build();
 
         activityRepository.save(activity);
+        return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean saveWellnessDay(User user, Map<String, Object> cycle,
+                                     Map<String, Object> recovery, Map<String, Object> sleep) {
+        Object startRaw = cycle.get("start");
+        if (startRaw == null) return false;
+        LocalDate date = OffsetDateTime.parse((String) startRaw).toLocalDate();
+
+        WellnessDaily row = wellnessDailyRepository.findByUserIdAndDate(user.getId(), date)
+                .orElseGet(WellnessDaily::new);
+        row.setUserId(user.getId());
+        row.setDate(date);
+        row.setSource("WHOOP");
+        row.setExternalCycleId(String.valueOf(cycle.get("id")));
+
+        Map<String, Object> cycleScore = (Map<String, Object>) cycle.get("score");
+        if (cycleScore != null) row.setStrain(getDouble(cycleScore, "strain"));
+
+        if (recovery != null) {
+            Map<String, Object> recScore = (Map<String, Object>) recovery.get("score");
+            if (recScore != null) {
+                row.setRecoveryScore(getInt(recScore, "recovery_score"));
+                row.setHrvMilli(getDouble(recScore, "hrv_rmssd_milli"));
+                row.setRestingHeartRate(getInt(recScore, "resting_heart_rate"));
+            }
+        }
+
+        if (sleep != null) {
+            Map<String, Object> sleepScore = (Map<String, Object>) sleep.get("score");
+            if (sleepScore != null) {
+                row.setSleepPerformancePct(getInt(sleepScore, "sleep_performance_percentage"));
+                Double efficiency = getDouble(sleepScore, "sleep_efficiency_percentage");
+                row.setSleepEfficiencyPct(efficiency);
+
+                Map<String, Object> stageSummary = (Map<String, Object>) sleepScore.get("stage_summary");
+                if (stageSummary != null) {
+                    long lightMs = getLong(stageSummary, "total_light_sleep_time_milli");
+                    long swsMs = getLong(stageSummary, "total_slow_wave_sleep_time_milli");
+                    long remMs = getLong(stageSummary, "total_rem_sleep_time_milli");
+                    row.setTotalSleepMinutes((int) ((lightMs + swsMs + remMs) / 60000));
+                }
+            }
+        }
+
+        wellnessDailyRepository.save(row);
         return true;
     }
 
@@ -292,5 +391,10 @@ public class WhoopService {
     private Double getDouble(Map<String, Object> map, String key) {
         Object val = map.get(key);
         return val instanceof Number ? ((Number) val).doubleValue() : null;
+    }
+
+    private long getLong(Map<String, Object> map, String key) {
+        Object val = map.get(key);
+        return val instanceof Number ? ((Number) val).longValue() : 0L;
     }
 }

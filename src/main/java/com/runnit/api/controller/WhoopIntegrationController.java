@@ -81,13 +81,18 @@ public class WhoopIntegrationController {
         }
     }
 
-    /** POST /api/integrations/whoop/sync — manual sync */
+    /** POST /api/integrations/whoop/sync — manual sync (workouts + recovery/sleep/strain) */
     @PostMapping("/sync")
     public ResponseEntity<?> sync(Authentication auth) {
         try {
             Long userId = (Long) auth.getPrincipal();
-            int count = whoopService.syncActivities(userId);
-            return ResponseEntity.ok(Map.of("imported", count, "message", count + " workouts synced"));
+            int workouts = whoopService.syncActivities(userId);
+            int wellnessDays = whoopService.syncWellness(userId);
+            return ResponseEntity.ok(Map.of(
+                    "imported", workouts,
+                    "wellnessDays", wellnessDays,
+                    "message", workouts + " workouts synced"
+            ));
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
