@@ -106,6 +106,8 @@ public class WhoopService {
     }
 
     @SuppressWarnings("unchecked")
+    private static final int MAX_SYNC_PAGES = 20; // 20 * 25 = 500 workouts per sync — safety cap, not an expected ceiling
+
     @Transactional
     public int syncActivities(User user) {
         String token = getValidAccessToken(user);
@@ -117,22 +119,29 @@ public class WhoopService {
         headers.setBearerAuth(token);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-        String url = UriComponentsBuilder.fromHttpUrl(WORKOUT_URL)
-                .queryParam("limit", 25)
-                .queryParam("start", start.toString())
-                .build().toUriString();
-
-        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                url, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
-
-        if (response.getBody() == null) return 0;
-
-        List<Map<String, Object>> records = (List<Map<String, Object>>) response.getBody().get("records");
-        if (records == null) return 0;
-
         int imported = 0;
-        for (Map<String, Object> workout : records) {
-            if (saveWhoopWorkout(user, workout)) imported++;
+        String nextToken = null;
+
+        for (int page = 0; page < MAX_SYNC_PAGES; page++) {
+            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(WORKOUT_URL)
+                    .queryParam("limit", 25)
+                    .queryParam("start", start.toString());
+            if (nextToken != null) builder.queryParam("nextToken", nextToken);
+
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    builder.build().toUriString(), HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
+
+            if (response.getBody() == null) break;
+
+            List<Map<String, Object>> records = (List<Map<String, Object>>) response.getBody().get("records");
+            if (records == null || records.isEmpty()) break;
+
+            for (Map<String, Object> workout : records) {
+                if (saveWhoopWorkout(user, workout)) imported++;
+            }
+
+            nextToken = (String) response.getBody().get("next_token");
+            if (nextToken == null) break;
         }
 
         user.setWhoopLastSync(Instant.now());
@@ -170,8 +179,9 @@ public class WhoopService {
         String externalId = "whoop_" + workout.get("id");
         if (activityRepository.existsByUserIdAndExternalId(user.getId(), externalId)) return false;
 
+        if (!"SCORED".equals(workout.get("score_state"))) return false; // PENDING_SCORE/UNSCORABLE — skip until scored
         Map<String, Object> score = (Map<String, Object>) workout.get("score");
-        if (score == null) return false; // score_state may be PENDING/UNSCORABLE — skip until scored
+        if (score == null) return false;
 
         OffsetDateTime start = OffsetDateTime.parse((String) workout.get("start"));
         OffsetDateTime end = OffsetDateTime.parse((String) workout.get("end"));
