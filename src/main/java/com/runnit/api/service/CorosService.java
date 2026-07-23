@@ -19,6 +19,8 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -273,6 +275,9 @@ public class CorosService {
         activity.setCalories(sport.getCalorie());
         activity.setAverageHeartRate(sport.getAvgHr());
         activity.setMaxHeartRate(sport.getMaxHr());
+        if (sport.getStartTime() != null) {
+            activity.setPerformedAt(LocalDateTime.ofInstant(Instant.ofEpochSecond(sport.getStartTime()), ZoneOffset.UTC));
+        }
         activityRepository.save(activity);
         return true;
     }

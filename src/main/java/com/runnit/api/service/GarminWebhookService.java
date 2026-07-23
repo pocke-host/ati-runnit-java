@@ -9,6 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
@@ -64,8 +67,24 @@ public class GarminWebhookService {
         activity.setAverageHeartRate(getInt(act, "averageHeartRateInBeatsPerMinute"));
         activity.setMaxHeartRate(getInt(act, "maxHeartRateInBeatsPerMinute"));
         activity.setAveragePace(getDouble(act, "averageSpeedInMetersPerSecond"));
+        activity.setPerformedAt(parseGarminStart(act));
         activityRepository.save(activity);
         return true;
+    }
+
+    /**
+     * startTimeInSeconds/startTimeOffsetInSeconds follow Garmin Health API's documented naming
+     * convention (matches durationInSeconds/distanceInMeters already used in this payload) — not
+     * verified against a live payload capture, so if the field name is actually different this
+     * just falls back to null (activity still saves, performedAt defaults to sync time as before).
+     */
+    private LocalDateTime parseGarminStart(Map<String, Object> act) {
+        Object startRaw = act.get("startTimeInSeconds");
+        if (!(startRaw instanceof Number)) return null;
+        long offsetSeconds = 0;
+        Object offsetRaw = act.get("startTimeOffsetInSeconds");
+        if (offsetRaw instanceof Number n) offsetSeconds = n.longValue();
+        return LocalDateTime.ofEpochSecond(((Number) startRaw).longValue(), 0, ZoneOffset.ofTotalSeconds((int) offsetSeconds));
     }
 
     private Activity.SportType mapSportType(String type) {

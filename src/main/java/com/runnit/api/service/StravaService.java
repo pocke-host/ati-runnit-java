@@ -18,6 +18,8 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -205,6 +207,7 @@ public class StravaService {
                 .maxHeartRate(getInt(stravaActivity, "max_heartrate"))
                 .averagePace(getDouble(stravaActivity, "average_speed"))
                 .routePolyline(extractPolyline(stravaActivity))
+                .performedAt(parseStravaDate(stravaActivity))
                 .build();
 
         activityRepository.save(activity);
@@ -315,6 +318,22 @@ public class StravaService {
     private Integer getInt(Map<String, Object> map, String key) {
         Object val = map.get(key);
         return val instanceof Number ? ((Number) val).intValue() : null;
+    }
+
+    /**
+     * Strava's "start_date_local" is wall-clock local time despite the trailing 'Z'
+     * (a documented Strava API quirk — it's NOT actually UTC). Falls back to
+     * start_date (real UTC) only if start_date_local is missing.
+     */
+    private LocalDateTime parseStravaDate(Map<String, Object> stravaActivity) {
+        String dateStr = (String) stravaActivity.get("start_date_local");
+        if (dateStr == null) dateStr = (String) stravaActivity.get("start_date");
+        if (dateStr == null) return null;
+        try {
+            return OffsetDateTime.parse(dateStr).toLocalDateTime();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Double getDouble(Map<String, Object> map, String key) {

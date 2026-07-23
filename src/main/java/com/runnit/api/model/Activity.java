@@ -63,6 +63,14 @@ public class Activity {
     @Column(name = "coach_annotation", columnDefinition = "TEXT")
     private String coachAnnotation;
 
+    // When the workout actually happened — distinct from createdAt (row-insertion time, via
+    // @CreationTimestamp, not overridable). For manual/live-tracked activities these are the same
+    // moment so it's a non-issue; for device-synced activities (Strava/Garmin/Coros/WHOOP) a bulk
+    // history sync can insert 90 days of rows in one batch, and without this field every single one
+    // gets stamped with the sync moment instead of its real date.
+    @Column(name = "performed_at")
+    private LocalDateTime performedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -86,8 +94,10 @@ public class Activity {
     public String getExternalId() { return externalId; }
     public String getNotes() { return notes; }
     public String getCoachAnnotation() { return coachAnnotation; }
+    public LocalDateTime getPerformedAt() { return performedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 
+    public void setPerformedAt(LocalDateTime performedAt) { this.performedAt = performedAt; }
     public void setId(Long id) { this.id = id; }
     public void setUser(User user) { this.user = user; }
     public void setSportType(SportType sportType) { this.sportType = sportType; }
@@ -124,6 +134,7 @@ public class Activity {
         private Source source;
         private String externalId;
         private String notes;
+        private LocalDateTime performedAt;
 
         public Builder user(User user) { this.user = user; return this; }
         public Builder sportType(SportType sportType) { this.sportType = sportType; return this; }
@@ -140,6 +151,7 @@ public class Activity {
         public Builder source(Source source) { this.source = source; return this; }
         public Builder externalId(String externalId) { this.externalId = externalId; return this; }
         public Builder notes(String notes) { this.notes = notes; return this; }
+        public Builder performedAt(LocalDateTime performedAt) { this.performedAt = performedAt; return this; }
 
         public Activity build() {
             Activity a = new Activity();
@@ -154,6 +166,9 @@ public class Activity {
             a.averagePace = this.averagePace;
             a.routePolyline = this.routePolyline;
             a.startLat = this.startLat;
+            // Default to "now" — correct for manual/live-tracked activities (the common builder() caller).
+            // Device-sync services override this with the workout's actual historical timestamp.
+            a.performedAt = this.performedAt != null ? this.performedAt : LocalDateTime.now();
             a.startLng = this.startLng;
             a.source = this.source;
             a.externalId = this.externalId;
