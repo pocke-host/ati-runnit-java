@@ -242,17 +242,26 @@ public class WhoopService {
         Double kilojoule = getDouble(score, "kilojoule");
         Integer calories = kilojoule != null ? (int) Math.round(kilojoule / 4.184) : null;
 
+        String whoopSportName = (String) workout.get("sport_name");
+        Activity.SportType mappedType = mapSportType(whoopSportName);
+
         Activity activity = Activity.builder()
                 .user(user)
                 .externalId(externalId)
                 .source(Activity.Source.WHOOP)
-                .sportType(mapSportType((String) workout.get("sport_name")))
+                .sportType(mappedType)
                 .durationSeconds(durationSeconds)
                 .distanceMeters(getInt(score, "distance_meter"))
                 .calories(calories)
                 .averageHeartRate(getInt(score, "average_heart_rate"))
                 .maxHeartRate(getInt(score, "max_heart_rate"))
                 .elevationGain(getInt(score, "altitude_gain_meter"))
+                .performedAt(start.toLocalDateTime())
+                // sport_type is a fixed DB enum (RUN/BIKE/SWIM/HIKE/WALK/OTHER) — WHOOP supports ~100
+                // named activities, most of which correctly fall to OTHER (no STRENGTH/YOGA/etc. category
+                // exists yet). Without this, the specific WHOOP activity name is silently discarded the
+                // moment it's bucketed as OTHER — always preserve it so nothing's actually lost.
+                .notes(whoopSportName != null ? "WHOOP: " + titleCase(whoopSportName) : null)
                 .build();
 
         activityRepository.save(activity);
@@ -319,7 +328,20 @@ public class WhoopService {
         if (s.contains("swim"))                return Activity.SportType.SWIM;
         if (s.contains("hik"))                 return Activity.SportType.HIKE;
         if (s.contains("walk"))                return Activity.SportType.WALK;
+        if (s.contains("jog"))                 return Activity.SportType.RUN;
         return Activity.SportType.OTHER;
+    }
+
+    private String titleCase(String s) {
+        if (s == null || s.isEmpty()) return s;
+        String[] words = s.replace('_', ' ').split(" ");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (w.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1).toLowerCase());
+        }
+        return sb.toString();
     }
 
     private String getValidAccessToken(User user) {

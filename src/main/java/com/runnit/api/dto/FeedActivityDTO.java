@@ -39,6 +39,7 @@ public class FeedActivityDTO {
     private Double startLng;
     private String notes;
     private String source;
+    private LocalDateTime performedAt;
     private LocalDateTime createdAt;
     private long commentCount;
     // Per-reaction-type counts: { "LIKE": 3, "FIRE": 1, "CLAP": 0 }
@@ -66,6 +67,9 @@ public class FeedActivityDTO {
         dto.startLng = a.getStartLng();
         dto.notes = a.getNotes();
         dto.source = a.getSource() != null ? a.getSource().name() : null;
+        // performedAt is when the workout actually happened; falls back to createdAt for activities
+        // synced before this field existed (that data is genuinely unrecoverable — see V46 migration)
+        dto.performedAt = a.getPerformedAt() != null ? a.getPerformedAt() : a.getCreatedAt();
         dto.createdAt = a.getCreatedAt();
         return dto;
     }
@@ -84,6 +88,7 @@ public class FeedActivityDTO {
     public Double getStartLng() { return startLng; }
     public String getNotes() { return notes; }
     public String getSource() { return source; }
+    public LocalDateTime getPerformedAt() { return performedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public long getCommentCount() { return commentCount; }
     public Map<String, Long> getReactionCounts() { return reactionCounts; }
