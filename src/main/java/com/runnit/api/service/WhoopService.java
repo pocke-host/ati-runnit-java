@@ -114,6 +114,24 @@ public class WhoopService {
         return syncActivities(user);
     }
 
+    /**
+     * Deletes this user's existing WHOOP-sourced activities and re-syncs from scratch.
+     * Needed for anyone who synced before performedAt existed — those rows are all
+     * stamped with whatever moment the original sync ran, and re-running /sync alone
+     * won't fix them since existing externalIds are skipped as already-imported.
+     */
+    @Transactional
+    public Map<String, Object> resyncActivities(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        long deleted = activityRepository.deleteByUserIdAndSource(user.getId(), Activity.Source.WHOOP);
+        int imported = syncActivities(user);
+        Map<String, Object> result = new HashMap<>();
+        result.put("deleted", deleted);
+        result.put("imported", imported);
+        return result;
+    }
+
     private static final int MAX_SYNC_PAGES = 20; // 20 * 25 = 500 records per sync — safety cap, not an expected ceiling
 
     @Transactional

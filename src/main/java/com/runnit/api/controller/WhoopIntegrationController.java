@@ -99,6 +99,23 @@ public class WhoopIntegrationController {
         }
     }
 
+    /**
+     * POST /api/integrations/whoop/resync — deletes and re-imports this user's WHOOP
+     * activities from scratch. For anyone who synced before performedAt existed, since
+     * a plain /sync won't touch already-imported (now wrongly-dated) rows.
+     */
+    @PostMapping("/resync")
+    public ResponseEntity<?> resync(Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            Map<String, Object> result = whoopService.resyncActivities(userId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     /** DELETE /api/integrations/whoop/disconnect */
     @DeleteMapping("/disconnect")
     public ResponseEntity<?> disconnect(Authentication auth) {
