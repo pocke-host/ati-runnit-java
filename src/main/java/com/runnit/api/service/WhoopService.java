@@ -33,6 +33,7 @@ public class WhoopService {
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
     private final WellnessDailyRepository wellnessDailyRepository;
+    private final AdaptivePlanService adaptivePlanService;
 
     @Value("${whoop.client.id}")
     private String clientId;
@@ -283,6 +284,14 @@ public class WhoopService {
                 .build();
 
         activityRepository.save(activity);
+        // BACKFILL_CUTOFF_HOURS in AdaptivePlanService keeps this cheap for the up-to-500-workout
+        // initial-connect backfill loop — only workouts from the last ~2 days actually run the
+        // ACWR-computation-and-rule-evaluation path, everything older short-circuits immediately.
+        try {
+            adaptivePlanService.onActivityRecorded(activity);
+        } catch (Exception e) {
+            log.warn("Adaptive plan evaluation failed for WHOOP workout {}: {}", externalId, e.getMessage());
+        }
         return true;
     }
 

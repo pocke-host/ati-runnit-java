@@ -41,6 +41,30 @@ public class PlanWorkout {
     @Column(name = "target_pace_seconds")
     private Integer targetPaceSeconds;
 
+    @Column(name = "linked_activity_id")
+    private Long linkedActivityId;
+
+    @Column(name = "target_heart_rate")
+    private Integer targetHeartRate;
+
+    @Column(name = "target_rpe")
+    private Integer targetRpe;
+
+    @Column(name = "adapted_at")
+    private java.time.LocalDateTime adaptedAt;
+
+    @Column(name = "original_target_pace_seconds")
+    private Integer originalTargetPaceSeconds;
+
+    @Column(name = "original_duration_minutes")
+    private Integer originalDurationMinutes;
+
+    @Column(name = "original_distance_meters")
+    private Integer originalDistanceMeters;
+
+    @Column(name = "original_workout_type", length = 50)
+    private String originalWorkoutType;
+
     public PlanWorkout() {}
 
     public Long getId() { return id; }
@@ -54,6 +78,14 @@ public class PlanWorkout {
     public String getWorkoutType() { return workoutType; }
     public Integer getWeekNumber() { return weekNumber; }
     public Integer getTargetPaceSeconds() { return targetPaceSeconds; }
+    public Long getLinkedActivityId() { return linkedActivityId; }
+    public Integer getTargetHeartRate() { return targetHeartRate; }
+    public Integer getTargetRpe() { return targetRpe; }
+    public java.time.LocalDateTime getAdaptedAt() { return adaptedAt; }
+    public Integer getOriginalTargetPaceSeconds() { return originalTargetPaceSeconds; }
+    public Integer getOriginalDurationMinutes() { return originalDurationMinutes; }
+    public Integer getOriginalDistanceMeters() { return originalDistanceMeters; }
+    public String getOriginalWorkoutType() { return originalWorkoutType; }
 
     public void setId(Long id) { this.id = id; }
     public void setPlan(Plan plan) { this.plan = plan; }
@@ -66,6 +98,14 @@ public class PlanWorkout {
     public void setWorkoutType(String workoutType) { this.workoutType = workoutType; }
     public void setWeekNumber(Integer weekNumber) { this.weekNumber = weekNumber; }
     public void setTargetPaceSeconds(Integer targetPaceSeconds) { this.targetPaceSeconds = targetPaceSeconds; }
+    public void setLinkedActivityId(Long linkedActivityId) { this.linkedActivityId = linkedActivityId; }
+    public void setTargetHeartRate(Integer targetHeartRate) { this.targetHeartRate = targetHeartRate; }
+    public void setTargetRpe(Integer targetRpe) { this.targetRpe = targetRpe; }
+    public void setAdaptedAt(java.time.LocalDateTime adaptedAt) { this.adaptedAt = adaptedAt; }
+    public void setOriginalTargetPaceSeconds(Integer v) { this.originalTargetPaceSeconds = v; }
+    public void setOriginalDurationMinutes(Integer v) { this.originalDurationMinutes = v; }
+    public void setOriginalDistanceMeters(Integer v) { this.originalDistanceMeters = v; }
+    public void setOriginalWorkoutType(String v) { this.originalWorkoutType = v; }
 
     public static Builder builder() { return new Builder(); }
 

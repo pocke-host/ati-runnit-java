@@ -34,6 +34,7 @@ public class CorosService {
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
     private final ObjectMapper objectMapper;
+    private final AdaptivePlanService adaptivePlanService;
 
     @Value("${coros.client.id:}")
     private String clientId;
@@ -279,6 +280,11 @@ public class CorosService {
             activity.setPerformedAt(LocalDateTime.ofInstant(Instant.ofEpochSecond(sport.getStartTime()), ZoneOffset.UTC));
         }
         activityRepository.save(activity);
+        try {
+            adaptivePlanService.onActivityRecorded(activity);
+        } catch (Exception e) {
+            log.warn("Adaptive plan evaluation failed for Coros activity {}: {}", externalId, e.getMessage());
+        }
         return true;
     }
 

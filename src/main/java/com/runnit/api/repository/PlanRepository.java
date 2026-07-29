@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface PlanRepository extends JpaRepository<Plan, Long> {
     List<Plan> findByUserIdOrderByCreatedAtDesc(Long userId);
     Optional<Plan> findByUserIdAndActiveTrue(Long userId);
+    List<Plan> findAllByActiveTrue();
 }
