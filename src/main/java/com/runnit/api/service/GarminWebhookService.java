@@ -27,6 +27,7 @@ public class GarminWebhookService {
 
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
+    private final AdaptivePlanService adaptivePlanService;
 
     @Transactional
     public int processActivities(List<Map<String, Object>> activities) {
@@ -69,6 +70,11 @@ public class GarminWebhookService {
         activity.setAveragePace(getDouble(act, "averageSpeedInMetersPerSecond"));
         activity.setPerformedAt(parseGarminStart(act));
         activityRepository.save(activity);
+        try {
+            adaptivePlanService.onActivityRecorded(activity);
+        } catch (Exception e) {
+            log.warn("Adaptive plan evaluation failed for Garmin activity {}: {}", externalId, e.getMessage());
+        }
         return true;
     }
 

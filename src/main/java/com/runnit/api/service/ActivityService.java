@@ -11,6 +11,7 @@ import com.runnit.api.repository.CommentRepository;
 import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ActivityService {
@@ -31,6 +33,7 @@ public class ActivityService {
     private final FollowRepository followRepository;
     private final ActivityReactionRepository activityReactionRepository;
     private final CommentRepository commentRepository;
+    private final AdaptivePlanService adaptivePlanService;
 
     @Transactional
     public Activity createActivity(Long userId, ActivityRequest request) {
@@ -54,7 +57,13 @@ public class ActivityService {
                 .source(Activity.Source.MANUAL)
                 .build();
 
-        return activityRepository.save(activity);
+        Activity saved = activityRepository.save(activity);
+        try {
+            adaptivePlanService.onActivityRecorded(saved);
+        } catch (Exception e) {
+            log.warn("Adaptive plan evaluation failed for activity {}: {}", saved.getId(), e.getMessage());
+        }
+        return saved;
     }
 
     @Transactional(readOnly = true)
