@@ -3,9 +3,11 @@ package com.runnit.api.service;
 import com.runnit.api.exception.BadRequestException;
 import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.model.Activity;
+import com.runnit.api.model.Notification;
 import com.runnit.api.model.User;
 import com.runnit.api.model.WellnessDaily;
 import com.runnit.api.repository.ActivityRepository;
+import com.runnit.api.repository.NotificationRepository;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.WellnessDailyRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,9 +19,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -33,6 +41,7 @@ public class WhoopService {
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
     private final WellnessDailyRepository wellnessDailyRepository;
+    private final NotificationRepository notificationRepository;
     private final AdaptivePlanService adaptivePlanService;
 
     @Value("${whoop.client.id}")
@@ -53,6 +62,7 @@ public class WhoopService {
     private static final String SLEEP_URL = "https://api.prod.whoop.com/developer/v2/activity/sleep";
     private static final String RECOVERY_URL = "https://api.prod.whoop.com/developer/v2/recovery";
     private static final String CYCLE_URL = "https://api.prod.whoop.com/developer/v2/cycle";
+    private static final String PROFILE_URL = "https://api.prod.whoop.com/developer/v2/user/profile/basic";
     private static final String SCOPE = "read:workout read:sleep read:recovery read:cycles read:profile read:body_measurement offline";
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -93,6 +103,15 @@ public class WhoopService {
         user.setWhoopTokenExpiresAt(Instant.now().getEpochSecond() + expiresIn);
         user.setWhoopOauthState(null);
         userRepository.save(user);
+
+        // Needed so incoming webhook events (keyed by WHOOP's own user_id) can be
+        // mapped back to a Runnit user — without this the webhook has no way to
+        // find who a workout.updated/sleep.updated event belongs to.
+        try {
+            fetchAndStoreWhoopUserId(user);
+        } catch (Exception e) {
+            log.warn("Failed to fetch WHOOP profile user_id for user {}: {}", user.getId(), e.getMessage());
+        }
 
         try {
             syncActivities(user);
@@ -242,6 +261,22 @@ public class WhoopService {
     }
 
     public String getFrontendUrl() { return frontendUrl; }
+
+    @SuppressWarnings("unchecked")
+    private void fetchAndStoreWhoopUserId(User user) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(user.getWhoopAccessToken());
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                PROFILE_URL, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
+        Map<String, Object> body = response.getBody();
+        if (body == null || body.get("user_id") == null) return;
+
+        Long whoopUserId = ((Number) body.get("user_id")).longValue();
+        user.setWhoopUserId(whoopUserId);
+        userRepository.save(user);
+    }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -409,10 +444,36 @@ public class WhoopService {
                 userRepository.save(user);
                 return user.getWhoopAccessToken();
             }
+        } catch (HttpClientErrorException e) {
+            // 4xx from WHOOP's token endpoint (e.g. invalid_grant) means the refresh token
+            // itself is dead — WHOOP won't accept it again on a later retry. Clearing the
+            // tokens here (rather than leaving them in place, as before) makes getStatus()
+            // correctly report connected=false instead of silently claiming the connection
+            // is still good while every sync quietly no-ops. A one-time reconnect
+            // notification beats the user finding out days later that nothing's been syncing.
+            log.warn("WHOOP token refresh rejected for user {} (needs reconnect): {}", user.getId(), e.getMessage());
+            markNeedsReconnect(user);
         } catch (Exception e) {
-            log.warn("WHOOP token refresh failed for user {}: {}", user.getId(), e.getMessage());
+            // Network blip / WHOOP 5xx — transient, don't destroy working tokens over it.
+            // getValidAccessToken() will just retry on the next sync attempt.
+            log.warn("WHOOP token refresh failed for user {} (will retry): {}", user.getId(), e.getMessage());
         }
         return null;
+    }
+
+    private void markNeedsReconnect(User user) {
+        user.setWhoopAccessToken(null);
+        user.setWhoopRefreshToken(null);
+        user.setWhoopTokenExpiresAt(null);
+        userRepository.save(user);
+
+        notificationRepository.save(Notification.builder()
+                .user(user)
+                .type("WHOOP_NEEDS_RECONNECT")
+                .message("Your WHOOP connection expired. Reconnect it in Devices to keep syncing recovery and workout data.")
+                .actor(null)
+                .referenceType("WHOOP")
+                .build());
     }
 
     private Map<String, Object> exchangeCodeForToken(String code) {
@@ -450,5 +511,85 @@ public class WhoopService {
     private long getLong(Map<String, Object> map, String key) {
         Object val = map.get(key);
         return val instanceof Number ? ((Number) val).longValue() : 0L;
+    }
+
+    // ─── Recurring backstop sync ───────────────────────────────────────────────
+
+    /**
+     * Backstop for every connected user, run on a schedule. Two jobs at once:
+     * catches anything a missed/failed webhook delivery would otherwise lose,
+     * and — just as important — exercises the refresh token regularly so it
+     * never goes stale purely from disuse (the original "silent disconnect"
+     * risk this whole feature exists to close). Each user is isolated so one
+     * failure can't block the rest of the batch.
+     */
+    public void syncAllConnectedUsers() {
+        List<User> connected = userRepository.findByWhoopAccessTokenIsNotNull();
+        int synced = 0;
+        for (User user : connected) {
+            try {
+                syncActivities(user);
+                syncWellness(user);
+                synced++;
+            } catch (Exception e) {
+                log.warn("WHOOP backstop sync failed for user {}: {}", user.getId(), e.getMessage());
+            }
+        }
+        log.info("WHOOP backstop sync: {}/{} connected users synced", synced, connected.size());
+    }
+
+    // ─── Webhooks ────────────────────────────────────────────────────────────
+
+    /**
+     * Verifies WHOOP's webhook signature: base64Encode(HMACSHA256(timestamp + rawBody, client_secret)),
+     * per https://developer.whoop.com/docs/developing/webhooks/. Constant-time compare to avoid
+     * leaking timing information about how much of the signature matched.
+     */
+    public boolean verifyWebhookSignature(String timestamp, String rawBody, String signatureHeader) {
+        if (timestamp == null || rawBody == null || signatureHeader == null) return false;
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(clientSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] computed = mac.doFinal((timestamp + rawBody).getBytes(StandardCharsets.UTF_8));
+            String expected = Base64.getEncoder().encodeToString(computed);
+            return MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), signatureHeader.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            log.warn("WHOOP webhook signature verification failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Dispatches a verified webhook event. Runs async since WHOOP expects a 2XX
+     * within ~1s and a full sync can take longer — the controller acks immediately,
+     * this does the actual work. Not a targeted single-record fetch (WHOOP's payload
+     * only gives us an id, not the full resource) — reactively re-running the existing
+     * incremental sync is simpler and still correct, since already-imported records are
+     * skipped by externalId; it's just not bandwidth-optimal. .deleted events aren't
+     * handled (no delete path exists in our sync today) — logged and skipped.
+     */
+    @Async
+    public void handleWebhookEvent(Long whoopUserId, String eventType) {
+        if (eventType != null && eventType.endsWith(".deleted")) {
+            log.info("WHOOP webhook: {} events aren't synced (no delete path yet) — skipping", eventType);
+            return;
+        }
+
+        Optional<User> userOpt = userRepository.findByWhoopUserId(whoopUserId);
+        if (userOpt.isEmpty()) {
+            log.warn("WHOOP webhook: no user found for whoop user_id {}", whoopUserId);
+            return;
+        }
+        User user = userOpt.get();
+
+        try {
+            if (eventType != null && eventType.startsWith("workout.")) {
+                syncActivities(user);
+            } else if (eventType != null && (eventType.startsWith("sleep.") || eventType.startsWith("recovery."))) {
+                syncWellness(user);
+            }
+        } catch (Exception e) {
+            log.warn("WHOOP webhook: sync failed for user {} event {}: {}", user.getId(), eventType, e.getMessage());
+        }
     }
 }

@@ -49,6 +49,7 @@ public class SecurityConfig {
                     "/api/coros/webhook",
                     "/api/integrations/google-calendar/callback",
                     "/api/integrations/whoop/callback",
+                    "/api/integrations/whoop/webhook",
                     "/api/billing/webhook",
                     "/api/billing/revenuecat-webhook"
                 ).permitAll()
