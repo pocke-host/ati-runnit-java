@@ -25,5 +25,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByCorosUserId(String corosUserId);
     Optional<User> findByGoogleCalendarOauthState(String state);
     Optional<User> findByWhoopOauthState(String state);
+    Optional<User> findByWhoopUserId(Long whoopUserId);
+    java.util.List<User> findByWhoopAccessTokenIsNotNull();
     Optional<User> findByInviteCode(String inviteCode);
 }
