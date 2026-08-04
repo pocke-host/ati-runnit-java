@@ -26,6 +26,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByGoogleCalendarOauthState(String state);
     Optional<User> findByWhoopOauthState(String state);
     Optional<User> findByWhoopUserId(Long whoopUserId);
-    java.util.List<User> findByWhoopAccessTokenIsNotNull();
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT u FROM User u WHERE u.whoopAccessToken IS NOT NULL " +
+        "AND (u.whoopLastSync IS NULL OR u.whoopLastSync < :cutoff)"
+    )
+    java.util.List<User> findWhoopConnectedUsersNeedingSync(
+        @org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff
+    );
     Optional<User> findByInviteCode(String inviteCode);
 }
