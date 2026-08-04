@@ -515,18 +515,27 @@ public class WhoopService {
 
     // ─── Recurring backstop sync ───────────────────────────────────────────────
 
+    // Matches WhoopSyncScheduler's own 4-hour cadence — a user synced (via
+    // webhook, manual sync, or a prior backstop run) within this window is
+    // skipped this cycle. Without this, every run pulled full activity+wellness
+    // history for EVERY connected user regardless of whether anything was
+    // actually stale, which spiked memory hard enough to OOM-crash a 512MB
+    // Render instance every time this scheduler fired.
+    private static final long STALENESS_HOURS = 4;
+
     /**
-     * Backstop for every connected user, run on a schedule. Two jobs at once:
-     * catches anything a missed/failed webhook delivery would otherwise lose,
-     * and — just as important — exercises the refresh token regularly so it
-     * never goes stale purely from disuse (the original "silent disconnect"
-     * risk this whole feature exists to close). Each user is isolated so one
-     * failure can't block the rest of the batch.
+     * Backstop for connected users who actually need it, run on a schedule.
+     * Two jobs at once: catches anything a missed/failed webhook delivery
+     * would otherwise lose, and — just as important — exercises the refresh
+     * token regularly so it never goes stale purely from disuse (the original
+     * "silent disconnect" risk this whole feature exists to close). Each user
+     * is isolated so one failure can't block the rest of the batch.
      */
     public void syncAllConnectedUsers() {
-        List<User> connected = userRepository.findByWhoopAccessTokenIsNotNull();
+        Instant cutoff = Instant.now().minus(STALENESS_HOURS, java.time.temporal.ChronoUnit.HOURS);
+        List<User> stale = userRepository.findWhoopConnectedUsersNeedingSync(cutoff);
         int synced = 0;
-        for (User user : connected) {
+        for (User user : stale) {
             try {
                 syncActivities(user);
                 syncWellness(user);
@@ -535,7 +544,7 @@ public class WhoopService {
                 log.warn("WHOOP backstop sync failed for user {}: {}", user.getId(), e.getMessage());
             }
         }
-        log.info("WHOOP backstop sync: {}/{} connected users synced", synced, connected.size());
+        log.info("WHOOP backstop sync: {}/{} stale connected users synced", synced, stale.size());
     }
 
     // ─── Webhooks ────────────────────────────────────────────────────────────
