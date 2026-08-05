@@ -109,6 +109,10 @@ public class CorosService {
         return syncActivities(user);
     }
 
+    // 20 pages * 50 = 1000 activities per sync — safety cap, not an expected ceiling.
+    private static final int MAX_SYNC_PAGES = 20;
+    private static final int PAGE_SIZE = 50;
+
     @Transactional
     public int syncActivities(User user) {
         if (user.getCorosAccessToken() == null) return 0;
@@ -116,33 +120,41 @@ public class CorosService {
         try {
             ensureTokenFresh(user);
 
-            // Fetch up to 50 activities from the last 90 days
+            // Fetch activities from the last 90 days, paging until a page comes back
+            // short (end of data) or the safety cap is hit — previously hardcoded to
+            // pageNumber=1 only, silently dropping anything past the first 50 activities
+            // in the window.
             long since = Instant.now().minusSeconds(90L * 24 * 3600).getEpochSecond();
-            String urlStr = ACTIVITY_LIST + "?size=50&pageNumber=1&startTime=" + since;
-
-            URL url = new URL(urlStr);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Authorization", "Bearer " + user.getCorosAccessToken());
-            conn.setRequestProperty("Accept", "application/json");
-            conn.connect();
-
-            if (conn.getResponseCode() != 200) {
-                log.warn("COROS activity list returned HTTP {}", conn.getResponseCode());
-                return 0;
-            }
-
-            CorosActivityDTO response = objectMapper.readValue(
-                    conn.getInputStream(), CorosActivityDTO.class);
-
-            if (!"0000".equals(response.getResult()) || response.getData() == null) return 0;
-
-            List<CorosActivityDTO.SportData> sports = response.getData().getSportDataList();
-            if (sports == null) return 0;
-
             int imported = 0;
-            for (CorosActivityDTO.SportData sport : sports) {
-                if (saveCorosActivity(user, sport)) imported++;
+
+            for (int page = 1; page <= MAX_SYNC_PAGES; page++) {
+                String urlStr = ACTIVITY_LIST + "?size=" + PAGE_SIZE + "&pageNumber=" + page + "&startTime=" + since;
+
+                URL url = new URL(urlStr);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Authorization", "Bearer " + user.getCorosAccessToken());
+                conn.setRequestProperty("Accept", "application/json");
+                conn.connect();
+
+                if (conn.getResponseCode() != 200) {
+                    log.warn("COROS activity list returned HTTP {}", conn.getResponseCode());
+                    break;
+                }
+
+                CorosActivityDTO response = objectMapper.readValue(
+                        conn.getInputStream(), CorosActivityDTO.class);
+
+                if (!"0000".equals(response.getResult()) || response.getData() == null) break;
+
+                List<CorosActivityDTO.SportData> sports = response.getData().getSportDataList();
+                if (sports == null || sports.isEmpty()) break;
+
+                for (CorosActivityDTO.SportData sport : sports) {
+                    if (saveCorosActivity(user, sport)) imported++;
+                }
+
+                if (sports.size() < PAGE_SIZE) break; // short page — no more data
             }
 
             user.setCorosLastSync(Instant.now());
