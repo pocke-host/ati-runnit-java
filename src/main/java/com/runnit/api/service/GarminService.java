@@ -35,6 +35,7 @@ public class GarminService {
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
     private final ObjectMapper objectMapper;
+    private final AutoMomentService autoMomentService;
 
     @Value("${garmin.consumer.key:}")
     private String consumerKey;
@@ -201,6 +202,11 @@ public class GarminService {
                 .build();
 
         activityRepository.save(activity);
+        try {
+            autoMomentService.onActivityRecorded(activity);
+        } catch (Exception e) {
+            log.warn("Auto-moment creation failed for Garmin activity {}: {}", externalId, e.getMessage());
+        }
         return true;
     }
 

@@ -118,6 +118,10 @@ public class MomentService {
                         .avatarUrl(user.getAvatarUrl())
                         .build())
                 .activityId(moment.getActivity() != null ? moment.getActivity().getId() : null)
+                .activitySportType(moment.getActivity() != null && moment.getActivity().getSportType() != null
+                        ? moment.getActivity().getSportType().name() : null)
+                .activityDistanceMeters(moment.getActivity() != null ? moment.getActivity().getDistanceMeters() : null)
+                .activityDurationSeconds(moment.getActivity() != null ? moment.getActivity().getDurationSeconds() : null)
                 .photoUrl(moment.getPhotoUrl())
                 .routeSnapshotUrl(moment.getRouteSnapshotUrl())
                 .songTitle(moment.getSongTitle())

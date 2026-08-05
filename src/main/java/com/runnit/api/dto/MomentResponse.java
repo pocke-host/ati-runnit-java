@@ -20,6 +20,14 @@ public class MomentResponse {
     private Reaction.ReactionType currentUserReaction;
     private Long commentCount;
 
+    // Flat embedded activity summary — populated only when this moment is linked
+    // to an activity, so a photo-less (e.g. auto-created) moment still has
+    // something concrete to render besides the caption. No extra query needed:
+    // the Activity is already loaded via moment.getActivity() when this is built.
+    private String activitySportType;
+    private Integer activityDistanceMeters;
+    private Integer activityDurationSeconds;
+
     public MomentResponse() {}
 
     public Long getId() { return id; }
@@ -36,6 +44,9 @@ public class MomentResponse {
     public Map<Reaction.ReactionType, Long> getReactionsByType() { return reactionsByType; }
     public Reaction.ReactionType getCurrentUserReaction() { return currentUserReaction; }
     public Long getCommentCount() { return commentCount; }
+    public String getActivitySportType() { return activitySportType; }
+    public Integer getActivityDistanceMeters() { return activityDistanceMeters; }
+    public Integer getActivityDurationSeconds() { return activityDurationSeconds; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -54,6 +65,9 @@ public class MomentResponse {
         private Map<Reaction.ReactionType, Long> reactionsByType;
         private Reaction.ReactionType currentUserReaction;
         private Long commentCount;
+        private String activitySportType;
+        private Integer activityDistanceMeters;
+        private Integer activityDurationSeconds;
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder user(UserInfo user) { this.user = user; return this; }
@@ -69,6 +83,9 @@ public class MomentResponse {
         public Builder reactionsByType(Map<Reaction.ReactionType, Long> reactionsByType) { this.reactionsByType = reactionsByType; return this; }
         public Builder currentUserReaction(Reaction.ReactionType currentUserReaction) { this.currentUserReaction = currentUserReaction; return this; }
         public Builder commentCount(Long commentCount) { this.commentCount = commentCount; return this; }
+        public Builder activitySportType(String activitySportType) { this.activitySportType = activitySportType; return this; }
+        public Builder activityDistanceMeters(Integer activityDistanceMeters) { this.activityDistanceMeters = activityDistanceMeters; return this; }
+        public Builder activityDurationSeconds(Integer activityDurationSeconds) { this.activityDurationSeconds = activityDurationSeconds; return this; }
 
         public MomentResponse build() {
             MomentResponse r = new MomentResponse();
@@ -86,6 +103,9 @@ public class MomentResponse {
             r.reactionsByType = this.reactionsByType;
             r.currentUserReaction = this.currentUserReaction;
             r.commentCount = this.commentCount;
+            r.activitySportType = this.activitySportType;
+            r.activityDistanceMeters = this.activityDistanceMeters;
+            r.activityDurationSeconds = this.activityDurationSeconds;
             return r;
         }
     }
