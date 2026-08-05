@@ -20,6 +20,8 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -198,10 +200,28 @@ public class GarminService {
                 .averageHeartRate(getInt(act, "averageHR"))
                 .maxHeartRate(getInt(act, "maxHR"))
                 .averagePace(getDouble(act, "averageSpeed"))
+                .performedAt(parseGarminStart(act))
                 .build();
 
         activityRepository.save(activity);
         return true;
+    }
+
+    /**
+     * Without this, every activity pulled by this REST sync path (initial
+     * OAuth-connect backfill and the manual "Sync Now" button) got stamped
+     * with the sync moment instead of its real workout date — the whole
+     * 90-day backlog would show up "Just now" and bury everything else in
+     * the feed. GarminWebhookService's real-time push path already does
+     * this correctly; this was the one path that got missed.
+     */
+    private LocalDateTime parseGarminStart(Map<String, Object> act) {
+        Object startRaw = act.get("startTimeInSeconds");
+        if (!(startRaw instanceof Number)) return null;
+        long offsetSeconds = 0;
+        Object offsetRaw = act.get("startTimeOffsetInSeconds");
+        if (offsetRaw instanceof Number n) offsetSeconds = n.longValue();
+        return LocalDateTime.ofEpochSecond(((Number) startRaw).longValue(), 0, ZoneOffset.ofTotalSeconds((int) offsetSeconds));
     }
 
     private Activity.SportType mapSportType(String type) {
