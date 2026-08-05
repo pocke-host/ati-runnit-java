@@ -296,6 +296,10 @@ public class CorosService {
             case 300, 301      -> Activity.SportType.SWIM;  // Open Water, Pool
             case 103           -> Activity.SportType.WALK;
             case 104           -> Activity.SportType.HIKE;
+            // TODO: verify against a real Coros sync payload for a strength/gym workout
+            // before adding a case here — no public docs or a captured payload confirm
+            // the actual mode code for strength training, and guessing one risks
+            // silently misclassifying a real activity type. Falls to OTHER until verified.
             default            -> Activity.SportType.OTHER;
         };
     }
