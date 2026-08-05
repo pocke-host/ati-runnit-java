@@ -2,13 +2,21 @@ package com.runnit.api.service;
 
 import com.runnit.api.dto.ActivityRequest;
 import com.runnit.api.dto.FeedActivityDTO;
+import com.runnit.api.dto.StrengthActivityRequest;
+import com.runnit.api.dto.StrengthExerciseDTO;
+import com.runnit.api.dto.StrengthExerciseRequest;
+import com.runnit.api.dto.StrengthSetRequest;
 import com.runnit.api.model.Activity;
+import com.runnit.api.model.StrengthExercise;
+import com.runnit.api.model.StrengthSet;
 import com.runnit.api.model.User;
 import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.repository.ActivityReactionRepository;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.CommentRepository;
 import com.runnit.api.repository.FollowRepository;
+import com.runnit.api.repository.StrengthExerciseRepository;
+import com.runnit.api.repository.StrengthSetRepository;
 import com.runnit.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +42,8 @@ public class ActivityService {
     private final ActivityReactionRepository activityReactionRepository;
     private final CommentRepository commentRepository;
     private final AdaptivePlanService adaptivePlanService;
+    private final StrengthExerciseRepository strengthExerciseRepository;
+    private final StrengthSetRepository strengthSetRepository;
 
     @Transactional
     public Activity createActivity(Long userId, ActivityRequest request) {
@@ -64,6 +74,76 @@ public class ActivityService {
             log.warn("Adaptive plan evaluation failed for activity {}: {}", saved.getId(), e.getMessage());
         }
         return saved;
+    }
+
+    /**
+     * A separate endpoint/method rather than overloading createActivity+ActivityRequest —
+     * that DTO is tightly bound to endurance semantics (distance/pace), and bolting a
+     * nested exercises list onto it would mean sport-conditional validation inside one
+     * flat request shape. This keeps the existing run/bike/swim flow completely
+     * unaffected.
+     */
+    @Transactional
+    public Activity createStrengthActivity(Long userId, StrengthActivityRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Activity activity = Activity.builder()
+                .user(user)
+                .sportType(Activity.SportType.STRENGTH)
+                .durationSeconds(request.getDurationSeconds())
+                .calories(request.getCalories())
+                .notes(request.getNotes())
+                .source(Activity.Source.MANUAL)
+                .build();
+        activity = activityRepository.save(activity);
+
+        int exerciseOrder = 0;
+        for (StrengthExerciseRequest exerciseReq : request.getExercises()) {
+            StrengthExercise exercise = StrengthExercise.builder()
+                    .activity(activity)
+                    .exerciseName(exerciseReq.getExerciseName().trim())
+                    .sequenceOrder(exerciseReq.getSequenceOrder() != null ? exerciseReq.getSequenceOrder() : exerciseOrder++)
+                    .notes(exerciseReq.getNotes())
+                    .build();
+            exercise = strengthExerciseRepository.save(exercise);
+
+            int setNumber = 1;
+            for (StrengthSetRequest setReq : exerciseReq.getSets()) {
+                strengthSetRepository.save(StrengthSet.builder()
+                        .exercise(exercise)
+                        .setNumber(setReq.getSetNumber() != null ? setReq.getSetNumber() : setNumber++)
+                        .reps(setReq.getReps())
+                        .weightKg(setReq.getWeightKg())
+                        .isWarmup(Boolean.TRUE.equals(setReq.getIsWarmup()))
+                        .rpe(setReq.getRpe())
+                        .build());
+            }
+        }
+
+        try {
+            adaptivePlanService.onActivityRecorded(activity);
+        } catch (Exception e) {
+            log.warn("Adaptive plan evaluation failed for strength activity {}: {}", activity.getId(), e.getMessage());
+        }
+        return activity;
+    }
+
+    /** Batched two-query load (all exercises, then all their sets in one IN query) — same
+     * pattern getUserActivities/getFeed already use for reaction/comment counts, avoids N+1. */
+    @Transactional(readOnly = true)
+    public List<StrengthExerciseDTO> getStrengthExercises(Long activityId) {
+        List<StrengthExercise> exercises = strengthExerciseRepository.findByActivityIdOrderBySequenceOrderAsc(activityId);
+        if (exercises.isEmpty()) return List.of();
+
+        List<Long> exerciseIds = exercises.stream().map(StrengthExercise::getId).collect(Collectors.toList());
+        Map<Long, List<StrengthSet>> setsByExercise = strengthSetRepository
+                .findByExerciseIdInOrderBySetNumberAsc(exerciseIds)
+                .stream().collect(Collectors.groupingBy(s -> s.getExercise().getId()));
+
+        return exercises.stream()
+                .map(e -> StrengthExerciseDTO.from(e, setsByExercise.getOrDefault(e.getId(), List.of())))
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
