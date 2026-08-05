@@ -43,6 +43,7 @@ public class WhoopService {
     private final WellnessDailyRepository wellnessDailyRepository;
     private final NotificationRepository notificationRepository;
     private final AdaptivePlanService adaptivePlanService;
+    private final AutoMomentService autoMomentService;
 
     @Value("${whoop.client.id}")
     private String clientId;
@@ -326,6 +327,11 @@ public class WhoopService {
             adaptivePlanService.onActivityRecorded(activity);
         } catch (Exception e) {
             log.warn("Adaptive plan evaluation failed for WHOOP workout {}: {}", externalId, e.getMessage());
+        }
+        try {
+            autoMomentService.onActivityRecorded(activity);
+        } catch (Exception e) {
+            log.warn("Auto-moment creation failed for WHOOP workout {}: {}", externalId, e.getMessage());
         }
         return true;
     }

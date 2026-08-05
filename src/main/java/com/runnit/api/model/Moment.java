@@ -21,7 +21,10 @@ public class Moment {
     @JoinColumn(name = "activity_id")
     private Activity activity;
 
-    @Column(name = "photo_url", nullable = false)
+    // Nullable so AutoMomentService can create a system-generated "activity summary"
+    // moment with no photo — the user-facing manual creation flow still requires one
+    // (MomentRequest.photoUrl is @NotBlank), this only relaxes it for the system path.
+    @Column(name = "photo_url")
     private String photoUrl;
 
     @Column(name = "route_snapshot_url")

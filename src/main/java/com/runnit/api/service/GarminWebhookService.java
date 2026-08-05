@@ -28,6 +28,7 @@ public class GarminWebhookService {
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
     private final AdaptivePlanService adaptivePlanService;
+    private final AutoMomentService autoMomentService;
 
     @Transactional
     public int processActivities(List<Map<String, Object>> activities) {
@@ -74,6 +75,11 @@ public class GarminWebhookService {
             adaptivePlanService.onActivityRecorded(activity);
         } catch (Exception e) {
             log.warn("Adaptive plan evaluation failed for Garmin activity {}: {}", externalId, e.getMessage());
+        }
+        try {
+            autoMomentService.onActivityRecorded(activity);
+        } catch (Exception e) {
+            log.warn("Auto-moment creation failed for Garmin activity {}: {}", externalId, e.getMessage());
         }
         return true;
     }
