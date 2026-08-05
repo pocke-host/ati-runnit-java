@@ -114,6 +114,10 @@ public class GarminService {
         return syncActivities(user);
     }
 
+    // 20 pages * 50 = 1000 activities per sync — safety cap, not an expected ceiling.
+    private static final int MAX_SYNC_PAGES = 20;
+    private static final int PAGE_SIZE = 50;
+
     @Transactional
     public int syncActivities(User user) {
         if (user.getGarminAccessToken() == null) return 0;
@@ -122,30 +126,44 @@ public class GarminService {
             OAuthConsumer consumer = new DefaultOAuthConsumer(consumerKey, consumerSecret);
             consumer.setTokenWithSecret(user.getGarminAccessToken(), user.getGarminAccessTokenSecret());
 
-            // Fetch activities from the last 90 days (limit 50)
-            long start = Instant.now().minusSeconds(90L * 24 * 3600).getEpochSecond();
-            String urlStr = ACTIVITIES_URL + "?start=" + start + "&limit=50";
-
-            URL url = new URL(urlStr);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            consumer.sign(conn);
-            conn.connect();
-
-            if (conn.getResponseCode() != 200) return 0;
-
-            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) sb.append(line);
-            reader.close();
-
-            List<Map<String, Object>> activities = objectMapper.readValue(
-                    sb.toString(), new TypeReference<>() {});
-
+            // This endpoint's `start` is a pagination OFFSET (index into the user's full
+            // activity list), not a date filter — passing an epoch-seconds value here (as
+            // this code previously did) meant "skip ~1.7 billion activities," which is
+            // almost certainly not what was intended and likely returned nothing useful
+            // beyond whatever the server tolerated. There's no date-range param on this
+            // endpoint, so this loop just pages through everything, newest first, until a
+            // page comes back short (end of data) or the safety cap is hit — activities
+            // older than 90 days will still get pulled in if a user has fewer than
+            // MAX_SYNC_PAGES*PAGE_SIZE total activities, which is an acceptable trade
+            // for actually fetching the recent ones correctly.
             int imported = 0;
-            for (Map<String, Object> act : activities) {
-                if (saveGarminActivity(user, act)) imported++;
+            for (int page = 0; page < MAX_SYNC_PAGES; page++) {
+                int offset = page * PAGE_SIZE;
+                String urlStr = ACTIVITIES_URL + "?start=" + offset + "&limit=" + PAGE_SIZE;
+
+                URL url = new URL(urlStr);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                consumer.sign(conn);
+                conn.connect();
+
+                if (conn.getResponseCode() != 200) break;
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) sb.append(line);
+                reader.close();
+
+                List<Map<String, Object>> activities = objectMapper.readValue(
+                        sb.toString(), new TypeReference<>() {});
+                if (activities.isEmpty()) break;
+
+                for (Map<String, Object> act : activities) {
+                    if (saveGarminActivity(user, act)) imported++;
+                }
+
+                if (activities.size() < PAGE_SIZE) break; // short page — no more data
             }
 
             user.setGarminLastSync(Instant.now());
