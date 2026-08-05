@@ -4,6 +4,7 @@ import com.runnit.api.model.Activity;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class FeedActivityDTO {
@@ -46,6 +47,9 @@ public class FeedActivityDTO {
     private Map<String, Long> reactionCounts = new HashMap<>();
     // The current authenticated user's reaction type, or null if none
     private String userReaction;
+    // Only populated for sportType == STRENGTH detail fetches (ActivityController.getActivity) —
+    // null/omitted everywhere else, including the feed list, to avoid an N+1 on every list item.
+    private List<StrengthExerciseDTO> strengthExercises;
 
     public static FeedActivityDTO from(Activity a) {
         FeedActivityDTO dto = new FeedActivityDTO();
@@ -97,4 +101,6 @@ public class FeedActivityDTO {
     public void setCommentCount(long commentCount) { this.commentCount = commentCount; }
     public void setReactionCounts(Map<String, Long> reactionCounts) { this.reactionCounts = reactionCounts; }
     public void setUserReaction(String userReaction) { this.userReaction = userReaction; }
+    public List<StrengthExerciseDTO> getStrengthExercises() { return strengthExercises; }
+    public void setStrengthExercises(List<StrengthExerciseDTO> strengthExercises) { this.strengthExercises = strengthExercises; }
 }

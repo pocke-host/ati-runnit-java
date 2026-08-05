@@ -3,6 +3,7 @@ package com.runnit.api.controller;
 import com.runnit.api.dto.ActivityRequest;
 import com.runnit.api.dto.CommentResponse;
 import com.runnit.api.dto.FeedActivityDTO;
+import com.runnit.api.dto.StrengthActivityRequest;
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.ActivityReaction;
 import com.runnit.api.model.Comment;
@@ -55,6 +56,22 @@ public class ActivityController {
         }
     }
 
+    @PostMapping("/strength")
+    public ResponseEntity<?> createStrengthActivity(
+            @Valid @RequestBody StrengthActivityRequest request,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            Activity activity = activityService.createStrengthActivity(userId, request);
+            FeedActivityDTO dto = FeedActivityDTO.from(activity);
+            dto.setStrengthExercises(activityService.getStrengthExercises(activity.getId()));
+            return ResponseEntity.ok(dto);
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @GetMapping
     public ResponseEntity<?> getActivities(
             @RequestParam(defaultValue = "0") int page,
@@ -101,6 +118,10 @@ public class ActivityController {
             dto.setReactionCounts(reactionCounts);
 
             dto.setCommentCount(commentRepository.countByActivityId(id));
+
+            if (activity.getSportType() == Activity.SportType.STRENGTH) {
+                dto.setStrengthExercises(activityService.getStrengthExercises(activity.getId()));
+            }
 
             if (viewerUserId != null) {
                 activityReactionRepository.findByActivityIdAndUserId(id, viewerUserId)
