@@ -33,8 +33,12 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
         @org.springframework.data.repository.query.Param("since") java.time.LocalDateTime since
     );
 
+    // Sorted by performedAt (actual workout time), not createdAt (row-insert time) — a bulk
+    // device sync inserts many historical rows back-to-back, all with nearly identical
+    // createdAt but genuinely different performedAt. COALESCE falls back to createdAt only
+    // for legacy rows synced before performedAt existed and never resynced since.
     @org.springframework.data.jpa.repository.Query(
-        value = "SELECT a FROM Activity a JOIN FETCH a.user WHERE a.user.id IN :userIds ORDER BY a.createdAt DESC",
+        value = "SELECT a FROM Activity a JOIN FETCH a.user WHERE a.user.id IN :userIds ORDER BY COALESCE(a.performedAt, a.createdAt) DESC",
         countQuery = "SELECT count(a) FROM Activity a WHERE a.user.id IN :userIds"
     )
     Page<Activity> findFeedByUserIds(@org.springframework.data.repository.query.Param("userIds") java.util.List<Long> userIds, Pageable pageable);
