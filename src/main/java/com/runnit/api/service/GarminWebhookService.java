@@ -57,11 +57,12 @@ public class GarminWebhookService {
         String externalId = "garmin_" + act.get("activityId");
         if (activityRepository.existsByUserIdAndExternalId(user.getId(), externalId)) return false;
 
+        String rawType = getString(act, "activityType");
         Activity activity = new Activity();
         activity.setUser(user);
         activity.setExternalId(externalId);
         activity.setSource(Activity.Source.GARMIN);
-        activity.setSportType(mapSportType(getString(act, "activityType")));
+        activity.setSportType(mapSportType(rawType));
         activity.setDurationSeconds(getInt(act, "durationInSeconds"));
         activity.setDistanceMeters(getMeters(act, "distanceInMeters"));
         activity.setElevationGain(getMeters(act, "elevationGainInMeters"));
@@ -70,6 +71,9 @@ public class GarminWebhookService {
         activity.setMaxHeartRate(getInt(act, "maxHeartRateInBeatsPerMinute"));
         activity.setAveragePace(getDouble(act, "averageSpeedInMetersPerSecond"));
         activity.setPerformedAt(parseGarminStart(act));
+        // sport_type is a fixed DB enum — preserve the raw label so nothing's silently lost when
+        // it falls to OTHER, matching the same convention WhoopService uses for its ~100 sport names.
+        activity.setNotes(rawType != null ? "GARMIN: " + titleCase(rawType) : null);
         activityRepository.save(activity);
         try {
             adaptivePlanService.onActivityRecorded(activity);
@@ -85,18 +89,33 @@ public class GarminWebhookService {
     }
 
     /**
-     * startTimeInSeconds/startTimeOffsetInSeconds follow Garmin Health API's documented naming
-     * convention (matches durationInSeconds/distanceInMeters already used in this payload) — not
-     * verified against a live payload capture, so if the field name is actually different this
-     * just falls back to null (activity still saves, performedAt defaults to sync time as before).
+     * startTimeInSeconds/startTimeOffsetInSeconds are confirmed against Garmin's Health API
+     * "Activity Summary" webhook spec — correct for this payload. Some activity types
+     * (e.g. manually-logged wellness entries with no captured start time) omit the field though,
+     * so this still needs a real fallback instead of leaving performedAt null — a null previously
+     * surfaced as "Invalid Date" in the UI instead of "just now".
      */
     private LocalDateTime parseGarminStart(Map<String, Object> act) {
         Object startRaw = act.get("startTimeInSeconds");
-        if (!(startRaw instanceof Number)) return null;
-        long offsetSeconds = 0;
-        Object offsetRaw = act.get("startTimeOffsetInSeconds");
-        if (offsetRaw instanceof Number n) offsetSeconds = n.longValue();
-        return LocalDateTime.ofEpochSecond(((Number) startRaw).longValue(), 0, ZoneOffset.ofTotalSeconds((int) offsetSeconds));
+        if (startRaw instanceof Number n) {
+            long offsetSeconds = 0;
+            Object offsetRaw = act.get("startTimeOffsetInSeconds");
+            if (offsetRaw instanceof Number o) offsetSeconds = o.longValue();
+            return LocalDateTime.ofEpochSecond(n.longValue(), 0, ZoneOffset.ofTotalSeconds((int) offsetSeconds));
+        }
+        return LocalDateTime.now();
+    }
+
+    private String titleCase(String s) {
+        if (s == null || s.isEmpty()) return s;
+        String[] words = s.replace('_', ' ').split(" ");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (w.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1).toLowerCase());
+        }
+        return sb.toString();
     }
 
     private Activity.SportType mapSportType(String type) {
