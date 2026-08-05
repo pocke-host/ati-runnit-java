@@ -24,12 +24,20 @@ public class TrainingLoadService {
 
     private final ActivityRepository activityRepository;
 
-    // Rough RPE-equivalent weighting per minute, running = 1.0 baseline.
+    // Rough RPE-equivalent weighting per minute, running = 1.0 baseline. STRENGTH is a
+    // known simplification: this model weights by clock duration, but a heavy lifting
+    // session's actual load doesn't track duration the way continuous cardio does (a
+    // typical hour includes significant rest between sets at low load, diluting the
+    // high-effort working sets) — 0.7 reflects average effort across total session time
+    // including rest, not peak per-rep RPE. The more accurate fix (compute load from
+    // strength_sets' reps*weight instead of duration) needs this service to join into
+    // strength data it doesn't touch today — out of scope here, flagged for later.
     private static final Map<Activity.SportType, Double> SPORT_INTENSITY = Map.of(
             Activity.SportType.RUN, 1.0,
             Activity.SportType.BIKE, 0.75,
             Activity.SportType.SWIM, 1.1,
             Activity.SportType.HIKE, 0.6,
+            Activity.SportType.STRENGTH, 0.7,
             Activity.SportType.WALK, 0.3,
             Activity.SportType.OTHER, 0.8
     );

@@ -256,6 +256,7 @@ public class GarminService {
         if (lower.contains("swim")) return Activity.SportType.SWIM;
         if (lower.contains("hike")) return Activity.SportType.HIKE;
         if (lower.contains("walk")) return Activity.SportType.WALK;
+        if (lower.contains("strength")) return Activity.SportType.STRENGTH;
         return Activity.SportType.OTHER;
     }
 

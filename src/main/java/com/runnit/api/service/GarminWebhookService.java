@@ -107,6 +107,7 @@ public class GarminWebhookService {
         if (t.contains("swim"))                        return Activity.SportType.SWIM;
         if (t.contains("hike"))                        return Activity.SportType.HIKE;
         if (t.contains("walk"))                        return Activity.SportType.WALK;
+        if (t.contains("strength"))                    return Activity.SportType.STRENGTH;
         return Activity.SportType.OTHER;
     }
 

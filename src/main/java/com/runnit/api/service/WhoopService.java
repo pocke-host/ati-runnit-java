@@ -397,6 +397,9 @@ public class WhoopService {
         if (s.contains("hik"))                 return Activity.SportType.HIKE;
         if (s.contains("walk"))                return Activity.SportType.WALK;
         if (s.contains("jog"))                 return Activity.SportType.RUN;
+        if (s.contains("strength") || s.contains("weight") || s.contains("powerlift")
+                || s.contains("crossfit") || s.contains("functional") || s.contains("bootcamp"))
+            return Activity.SportType.STRENGTH;
         return Activity.SportType.OTHER;
     }
 
