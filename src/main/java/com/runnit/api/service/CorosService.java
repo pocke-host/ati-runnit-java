@@ -289,9 +289,14 @@ public class CorosService {
         activity.setCalories(sport.getCalorie());
         activity.setAverageHeartRate(sport.getAvgHr());
         activity.setMaxHeartRate(sport.getMaxHr());
-        if (sport.getStartTime() != null) {
-            activity.setPerformedAt(LocalDateTime.ofInstant(Instant.ofEpochSecond(sport.getStartTime()), ZoneOffset.UTC));
-        }
+        // Missing startTime previously left performedAt null, which surfaced as "Invalid Date"
+        // in the UI instead of falling back to something sane.
+        activity.setPerformedAt(sport.getStartTime() != null
+                ? LocalDateTime.ofInstant(Instant.ofEpochSecond(sport.getStartTime()), ZoneOffset.UTC)
+                : LocalDateTime.now());
+        // sport_type is a fixed DB enum — preserve the raw label so nothing's silently lost when
+        // it falls to OTHER, matching the same convention WhoopService uses for its ~100 sport names.
+        activity.setNotes(sport.getName() != null ? "COROS: " + sport.getName() : null);
         activityRepository.save(activity);
         try {
             adaptivePlanService.onActivityRecorded(activity);

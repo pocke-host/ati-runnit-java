@@ -21,7 +21,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -207,11 +206,12 @@ public class GarminService {
         String externalId = "garmin_" + act.get("activityId");
         if (activityRepository.existsByUserIdAndExternalId(user.getId(), externalId)) return false;
 
+        String rawType = getActivityTypeKey(act);
         Activity activity = Activity.builder()
                 .user(user)
                 .externalId(externalId)
                 .source(Activity.Source.GARMIN)
-                .sportType(mapSportType(getString(act, "activityType")))
+                .sportType(mapSportType(rawType))
                 .durationSeconds(getInt(act, "duration"))
                 .distanceMeters(getInt(act, "distance"))
                 .elevationGain(getInt(act, "elevationGain"))
@@ -220,6 +220,10 @@ public class GarminService {
                 .maxHeartRate(getInt(act, "maxHR"))
                 .averagePace(getDouble(act, "averageSpeed"))
                 .performedAt(parseGarminStart(act))
+                // sport_type is a fixed DB enum — Garmin has many more activity type strings than
+                // we bucket into. Preserve the raw label so nothing's silently lost when it falls
+                // to OTHER, matching the same convention WhoopService uses for its ~100 sport names.
+                .notes(rawType != null ? "GARMIN: " + titleCase(rawType) : null)
                 .build();
 
         activityRepository.save(activity);
@@ -231,21 +235,50 @@ public class GarminService {
         return true;
     }
 
+    private static final java.time.format.DateTimeFormatter GARMIN_TIMESTAMP_FORMAT =
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     /**
-     * Without this, every activity pulled by this REST sync path (initial
-     * OAuth-connect backfill and the manual "Sync Now" button) got stamped
-     * with the sync moment instead of its real workout date — the whole
-     * 90-day backlog would show up "Just now" and bury everything else in
-     * the feed. GarminWebhookService's real-time push path already does
-     * this correctly; this was the one path that got missed.
+     * This REST search endpoint (activitylist-service/activities/search/activities) returns
+     * startTimeGMT as a "yyyy-MM-dd HH:mm:ss" string — a different shape than the Health API
+     * webhook's startTimeInSeconds/startTimeOffsetInSeconds, which this method used to assume.
+     * That mismatch meant every activity pulled through this path (initial OAuth-connect backfill
+     * and the manual "Sync Now" button) silently got a null performedAt instead of falling back to
+     * anything — which surfaced as "Invalid Date" in the UI rather than "just now".
      */
     private LocalDateTime parseGarminStart(Map<String, Object> act) {
-        Object startRaw = act.get("startTimeInSeconds");
-        if (!(startRaw instanceof Number)) return null;
-        long offsetSeconds = 0;
-        Object offsetRaw = act.get("startTimeOffsetInSeconds");
-        if (offsetRaw instanceof Number n) offsetSeconds = n.longValue();
-        return LocalDateTime.ofEpochSecond(((Number) startRaw).longValue(), 0, ZoneOffset.ofTotalSeconds((int) offsetSeconds));
+        Object raw = act.get("startTimeGMT");
+        if (raw instanceof String s && !s.isBlank()) {
+            try {
+                return LocalDateTime.parse(s, GARMIN_TIMESTAMP_FORMAT);
+            } catch (java.time.format.DateTimeParseException e) {
+                log.warn("Garmin sync: unparseable startTimeGMT '{}': {}", s, e.getMessage());
+            }
+        }
+        return LocalDateTime.now();
+    }
+
+    /** activityType comes back as a nested {typeKey, typeId, ...} object, not a flat string. */
+    @SuppressWarnings("unchecked")
+    private String getActivityTypeKey(Map<String, Object> act) {
+        Object raw = act.get("activityType");
+        if (raw instanceof Map<?, ?> m) {
+            Object typeKey = m.get("typeKey");
+            return typeKey != null ? typeKey.toString() : null;
+        }
+        return raw != null ? raw.toString() : null;
+    }
+
+    private String titleCase(String s) {
+        if (s == null || s.isEmpty()) return s;
+        String[] words = s.replace('_', ' ').split(" ");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (w.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1).toLowerCase());
+        }
+        return sb.toString();
     }
 
     private Activity.SportType mapSportType(String type) {
