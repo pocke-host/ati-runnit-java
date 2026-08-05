@@ -104,6 +104,7 @@ public class PlaceholderImageService {
             case SWIM -> new Color(74, 158, 204); // Blue
             case HIKE -> new Color(139, 115, 85); // Brown
             case WALK -> new Color(163, 166, 159); // Gray
+            case STRENGTH -> new Color(88, 88, 88); // Charcoal
             default -> new Color(107, 91, 149);   // Purple
         };
     }
@@ -124,7 +125,8 @@ public class PlaceholderImageService {
             case SWIM -> "🏊";
             case HIKE -> "🥾";
             case WALK -> "🚶";
-            default -> "🏋️";
+            case STRENGTH -> "🏋️";
+            default -> "💪";
         };
     }
     

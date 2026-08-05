@@ -75,6 +75,13 @@ public class Activity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // Only populated for sportType == STRENGTH, and only for manually-logged sessions —
+    // no device integration (WHOOP/Garmin/Coros) exposes per-exercise/per-set data, only
+    // a session-level summary, so a synced STRENGTH activity has an empty list here.
+    @OneToMany(mappedBy = "activity", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("sequenceOrder ASC")
+    private java.util.List<StrengthExercise> strengthExercises = new java.util.ArrayList<>();
+
     public Activity() {}
 
     public Long getId() { return id; }
@@ -96,6 +103,7 @@ public class Activity {
     public String getCoachAnnotation() { return coachAnnotation; }
     public LocalDateTime getPerformedAt() { return performedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
+    public java.util.List<StrengthExercise> getStrengthExercises() { return strengthExercises; }
 
     public void setPerformedAt(LocalDateTime performedAt) { this.performedAt = performedAt; }
     public void setId(Long id) { this.id = id; }
@@ -177,6 +185,6 @@ public class Activity {
         }
     }
 
-    public enum SportType { RUN, BIKE, SWIM, HIKE, WALK, OTHER }
+    public enum SportType { RUN, BIKE, SWIM, HIKE, WALK, STRENGTH, OTHER }
     public enum Source { MANUAL, GARMIN, STRAVA, APPLE_WATCH, COROS, APPLE_HEALTH, WHOOP }
 }
