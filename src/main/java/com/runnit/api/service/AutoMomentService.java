@@ -77,6 +77,7 @@ public class AutoMomentService {
             case SWIM -> "Swim";
             case HIKE -> "Hike";
             case WALK -> "Walk";
+            case STRENGTH -> "Strength";
             case OTHER -> "Workout";
         };
     }
