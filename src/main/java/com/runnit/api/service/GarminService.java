@@ -37,6 +37,7 @@ public class GarminService {
     private final ActivityRepository activityRepository;
     private final ObjectMapper objectMapper;
     private final AutoMomentService autoMomentService;
+    private final AsyncTaskRunner asyncTaskRunner;
 
     @Value("${garmin.consumer.key:}")
     private String consumerKey;
@@ -96,12 +97,17 @@ public class GarminService {
             return frontendUrl + "/devices?error=garmin_token_failed";
         }
 
-        // Sync recent activities in background — non-fatal if it fails
-        try {
-            syncActivities(user);
-        } catch (Exception e) {
-            log.warn("Post-OAuth Garmin activity sync failed for user {}: {}", user.getId(), e.getMessage());
-        }
+        // Historical sync can involve many paginated round-trips to Garmin — routed
+        // through AsyncTaskRunner (a separate bean) so it doesn't block this redirect,
+        // and so a slow/failing sync can't roll back the token save above.
+        Long userId = user.getId();
+        asyncTaskRunner.run(() -> {
+            try {
+                syncActivities(userId);
+            } catch (Exception e) {
+                log.warn("Post-OAuth Garmin activity sync failed for user {}: {}", userId, e.getMessage());
+            }
+        });
 
         return frontendUrl + "/devices?garmin=connected";
     }

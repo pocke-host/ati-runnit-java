@@ -15,6 +15,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -22,6 +23,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -61,14 +63,19 @@ public class GoogleCalendarService {
         user.setGoogleCalendarOauthState(state);
         userRepository.save(user);
 
-        return "https://accounts.google.com/o/oauth2/v2/auth" +
-                "?client_id=" + clientId +
-                "&redirect_uri=" + redirectUri +
-                "&response_type=code" +
-                "&scope=" + SCOPE +
-                "&access_type=offline" +
-                "&prompt=consent" +
-                "&state=" + state;
+        // Unlike WHOOP/Strava/COROS in this codebase, this used to build the URL via raw
+        // string concatenation instead of a proper query-param encoder — harmless with
+        // today's values (no reserved characters in client_id/redirect_uri/scope) but a
+        // real inconsistency, and unsafe if any of those values ever change.
+        return UriComponentsBuilder.fromHttpUrl("https://accounts.google.com/o/oauth2/v2/auth")
+                .queryParam("client_id", clientId)
+                .queryParam("redirect_uri", redirectUri)
+                .queryParam("response_type", "code")
+                .queryParam("scope", SCOPE)
+                .queryParam("access_type", "offline")
+                .queryParam("prompt", "consent")
+                .queryParam("state", state)
+                .build().toUriString();
     }
 
     @Transactional
@@ -196,15 +203,29 @@ public class GoogleCalendarService {
         return body;
     }
 
+    // Google's refresh tokens aren't single-use the way WHOOP/Strava/COROS's are, so a
+    // losing race here wouldn't reject anything — but locking still avoids redundant
+    // concurrent refresh calls, and keeps this consistent with the other integrations.
+    private final Map<Long, Object> googleCalendarRefreshLocks = new ConcurrentHashMap<>();
+
     private String getValidAccessToken(User user) {
         if (user.getGoogleCalendarAccessToken() == null) {
             throw new BadRequestException("Not connected to Google Calendar");
         }
         long now = Instant.now().getEpochSecond();
-        if (user.getGoogleCalendarTokenExpiresAt() != null && user.getGoogleCalendarTokenExpiresAt() <= now + 300) {
-            return refreshToken(user);
+        if (user.getGoogleCalendarTokenExpiresAt() == null || user.getGoogleCalendarTokenExpiresAt() > now + 300) {
+            return user.getGoogleCalendarAccessToken();
         }
-        return user.getGoogleCalendarAccessToken();
+
+        Object lock = googleCalendarRefreshLocks.computeIfAbsent(user.getId(), k -> new Object());
+        synchronized (lock) {
+            User fresh = userRepository.findById(user.getId()).orElse(user);
+            long recheckedNow = Instant.now().getEpochSecond();
+            if (fresh.getGoogleCalendarTokenExpiresAt() == null || fresh.getGoogleCalendarTokenExpiresAt() > recheckedNow + 300) {
+                return fresh.getGoogleCalendarAccessToken();
+            }
+            return refreshToken(fresh);
+        }
     }
 
     private String refreshToken(User user) {

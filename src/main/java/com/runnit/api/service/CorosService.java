@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -36,6 +37,12 @@ public class CorosService {
     private final ObjectMapper objectMapper;
     private final AdaptivePlanService adaptivePlanService;
     private final AutoMomentService autoMomentService;
+    private final AsyncTaskRunner asyncTaskRunner;
+
+    // COROS refresh tokens are single-use/rotating — two concurrent callers refreshing
+    // the same user's token at once means one gets rejected with an already-consumed
+    // refresh_token. Per-user locking in ensureTokenFresh() avoids that race.
+    private final Map<Long, Object> corosRefreshLocks = new ConcurrentHashMap<>();
 
     @Value("${coros.client.id:}")
     private String clientId;
@@ -92,11 +99,17 @@ public class CorosService {
             return frontendUrl + "/devices?error=coros_token_failed";
         }
 
-        try {
-            syncActivities(user);
-        } catch (Exception e) {
-            log.warn("Post-OAuth COROS sync failed for user {}: {}", user.getId(), e.getMessage());
-        }
+        // Routed through AsyncTaskRunner (a separate bean) so the paginated historical
+        // sync doesn't block this redirect, and a slow/failing sync can't roll back the
+        // token save above.
+        Long userId = user.getId();
+        asyncTaskRunner.run(() -> {
+            try {
+                syncActivities(userId);
+            } catch (Exception e) {
+                log.warn("Post-OAuth COROS sync failed for user {}: {}", userId, e.getMessage());
+            }
+        });
 
         return frontendUrl + "/devices?coros=connected";
     }
@@ -228,14 +241,38 @@ public class CorosService {
 
     private void ensureTokenFresh(User user) throws Exception {
         Long expiresAt = user.getCorosTokenExpiresAt();
-        if (expiresAt == null || Instant.now().getEpochSecond() < expiresAt - 300) return;
+        if (expiresAt != null && Instant.now().getEpochSecond() < expiresAt - 300) return;
 
-        Map<String, String> tokens = refreshToken(user.getCorosRefreshToken());
-        user.setCorosAccessToken(tokens.get("access_token"));
-        if (tokens.containsKey("refresh_token")) user.setCorosRefreshToken(tokens.get("refresh_token"));
-        long expiresIn = Long.parseLong(tokens.getOrDefault("expires_in", "86400"));
-        user.setCorosTokenExpiresAt(Instant.now().getEpochSecond() + expiresIn);
-        userRepository.save(user);
+        Object lock = corosRefreshLocks.computeIfAbsent(user.getId(), k -> new Object());
+        synchronized (lock) {
+            // Re-fetch after acquiring the lock — another thread may have already
+            // refreshed (and rotated the single-use refresh token) while we were
+            // waiting. Without this re-check we'd retry with an already-consumed
+            // refresh_token and fail this sync for no reason.
+            User fresh = userRepository.findById(user.getId()).orElse(user);
+            Long recheckedExpiresAt = fresh.getCorosTokenExpiresAt();
+            if (recheckedExpiresAt != null && Instant.now().getEpochSecond() < recheckedExpiresAt - 300) {
+                copyCorosTokens(fresh, user);
+                return;
+            }
+
+            Map<String, String> tokens = refreshToken(fresh.getCorosRefreshToken());
+            fresh.setCorosAccessToken(tokens.get("access_token"));
+            if (tokens.containsKey("refresh_token")) fresh.setCorosRefreshToken(tokens.get("refresh_token"));
+            long expiresIn = Long.parseLong(tokens.getOrDefault("expires_in", "86400"));
+            fresh.setCorosTokenExpiresAt(Instant.now().getEpochSecond() + expiresIn);
+            userRepository.save(fresh);
+            copyCorosTokens(fresh, user);
+        }
+    }
+
+    // The caller's `user` may be a different in-memory instance than the one we just
+    // refreshed/re-fetched inside the lock (e.g. its own transaction's managed entity) —
+    // copy the fields it actually reads after this call so it sees the current token.
+    private void copyCorosTokens(User from, User to) {
+        to.setCorosAccessToken(from.getCorosAccessToken());
+        to.setCorosRefreshToken(from.getCorosRefreshToken());
+        to.setCorosTokenExpiresAt(from.getCorosTokenExpiresAt());
     }
 
     private Map<String, String> exchangeCode(String code) throws Exception {
