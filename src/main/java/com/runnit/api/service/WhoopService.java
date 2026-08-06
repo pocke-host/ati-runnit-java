@@ -32,6 +32,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -67,6 +68,12 @@ public class WhoopService {
     private static final String SCOPE = "read:workout read:sleep read:recovery read:cycles read:profile read:body_measurement offline";
 
     private final RestTemplate restTemplate = new RestTemplate();
+
+    // WHOOP refresh tokens are single-use/rotating — two concurrent callers refreshing
+    // the same user's token at once means one succeeds and the other gets rejected with
+    // an already-consumed refresh_token. Per-user locking in getValidAccessToken() avoids
+    // that race instead of treating the second caller's rejection as a dead connection.
+    private final Map<Long, Object> whoopRefreshLocks = new ConcurrentHashMap<>();
 
     @Transactional
     public String buildAuthorizationUrl(Long userId) {
@@ -114,18 +121,30 @@ public class WhoopService {
             log.warn("Failed to fetch WHOOP profile user_id for user {}: {}", user.getId(), e.getMessage());
         }
 
-        try {
-            syncActivities(user);
-        } catch (Exception e) {
-            log.warn("Post-OAuth WHOOP activity sync failed for user {}: {}", user.getId(), e.getMessage());
-        }
-        try {
-            syncWellness(user);
-        } catch (Exception e) {
-            log.warn("Post-OAuth WHOOP wellness sync failed for user {}: {}", user.getId(), e.getMessage());
-        }
+        // The historical backfill (90 days of workouts + 30 days of wellness, many
+        // paginated round-trips to WHOOP) used to run synchronously right here, inside
+        // this same @Transactional method. That held the OAuth redirect open long enough
+        // to time out in the browser, and a slow failure deep in the sync could roll back
+        // this whole transaction — including the token save above. Firing it async means
+        // the redirect returns immediately and the connection is durably saved regardless
+        // of how long the backfill takes.
+        kickOffInitialSync(user.getId());
 
         return frontendUrl + "/devices?whoop=connected";
+    }
+
+    @Async
+    public void kickOffInitialSync(Long userId) {
+        try {
+            syncActivities(userId);
+        } catch (Exception e) {
+            log.warn("Post-OAuth WHOOP activity sync failed for user {}: {}", userId, e.getMessage());
+        }
+        try {
+            syncWellness(userId);
+        } catch (Exception e) {
+            log.warn("Post-OAuth WHOOP wellness sync failed for user {}: {}", userId, e.getMessage());
+        }
     }
 
     @Transactional
@@ -419,10 +438,24 @@ public class WhoopService {
         if (user.getWhoopAccessToken() == null) return null;
 
         long now = Instant.now().getEpochSecond();
-        if (user.getWhoopTokenExpiresAt() != null && user.getWhoopTokenExpiresAt() <= now + 300) {
-            return refreshToken(user);
+        if (user.getWhoopTokenExpiresAt() == null || user.getWhoopTokenExpiresAt() > now + 300) {
+            return user.getWhoopAccessToken();
         }
-        return user.getWhoopAccessToken();
+
+        Object lock = whoopRefreshLocks.computeIfAbsent(user.getId(), k -> new Object());
+        synchronized (lock) {
+            // Re-fetch after acquiring the lock — another thread may have already
+            // refreshed (and rotated the single-use refresh token) while we were
+            // waiting. Without this re-check we'd retry with an already-consumed
+            // refresh_token, get rejected by WHOOP, and markNeedsReconnect() would
+            // wipe a connection that's actually still fine.
+            User fresh = userRepository.findById(user.getId()).orElse(user);
+            long recheckedNow = Instant.now().getEpochSecond();
+            if (fresh.getWhoopTokenExpiresAt() == null || fresh.getWhoopTokenExpiresAt() > recheckedNow + 300) {
+                return fresh.getWhoopAccessToken();
+            }
+            return refreshToken(fresh);
+        }
     }
 
     private String refreshToken(User user) {
