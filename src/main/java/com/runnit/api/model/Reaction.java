@@ -62,6 +62,6 @@ public class Reaction {
     }
 
     public enum ReactionType {
-        LIKE, FIRE, CLAP
+        LIKE, KUDOS
     }
 }

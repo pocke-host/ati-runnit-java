@@ -43,7 +43,7 @@ public class FeedActivityDTO {
     private LocalDateTime performedAt;
     private LocalDateTime createdAt;
     private long commentCount;
-    // Per-reaction-type counts: { "LIKE": 3, "FIRE": 1, "CLAP": 0 }
+    // Per-reaction-type counts: { "LIKE": 3, "KUDOS": 1 }
     private Map<String, Long> reactionCounts = new HashMap<>();
     // The current authenticated user's reaction type, or null if none
     private String userReaction;

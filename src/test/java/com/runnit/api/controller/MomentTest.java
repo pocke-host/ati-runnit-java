@@ -262,7 +262,7 @@ class MomentTest {
 
         // Add reaction as user2
         HttpEntity<String> reactReq = new HttpEntity<>("""
-                {"type":"FIRE"}
+                {"type":"KUDOS"}
                 """, authHeaders(token2));
         ResponseEntity<Map> reaction = restTemplate.postForEntity(
                 "/api/moments/" + momentId + "/reaction", reactReq, Map.class);
