@@ -43,6 +43,7 @@ public class WhoopService {
     private final ActivityRepository activityRepository;
     private final WellnessDailyRepository wellnessDailyRepository;
     private final NotificationRepository notificationRepository;
+    private final AsyncTaskRunner asyncTaskRunner;
     private final AdaptivePlanService adaptivePlanService;
     private final AutoMomentService autoMomentService;
 
@@ -125,16 +126,17 @@ public class WhoopService {
         // paginated round-trips to WHOOP) used to run synchronously right here, inside
         // this same @Transactional method. That held the OAuth redirect open long enough
         // to time out in the browser, and a slow failure deep in the sync could roll back
-        // this whole transaction — including the token save above. Firing it async means
-        // the redirect returns immediately and the connection is durably saved regardless
-        // of how long the backfill takes.
-        kickOffInitialSync(user.getId());
+        // this whole transaction — including the token save above. Routed through
+        // AsyncTaskRunner (a separate bean) rather than an @Async method on this class —
+        // self-invoking an @Async method silently runs it synchronously, since @Async only
+        // takes effect on a call that goes through the Spring proxy.
+        Long userId = user.getId();
+        asyncTaskRunner.run(() -> kickOffInitialSync(userId));
 
         return frontendUrl + "/devices?whoop=connected";
     }
 
-    @Async
-    public void kickOffInitialSync(Long userId) {
+    private void kickOffInitialSync(Long userId) {
         try {
             syncActivities(userId);
         } catch (Exception e) {

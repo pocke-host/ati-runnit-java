@@ -32,6 +32,7 @@ public class StravaService {
 
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
+    private final AsyncTaskRunner asyncTaskRunner;
 
     @Value("${strava.client.id}")
     private String clientId;
@@ -94,12 +95,17 @@ public class StravaService {
         }
         userRepository.save(user);
 
-        // Sync recent activities in background — non-fatal if it fails
-        try {
-            syncActivities(user);
-        } catch (Exception e) {
-            log.warn("Post-OAuth Strava activity sync failed for user {}: {}", user.getId(), e.getMessage());
-        }
+        // Routed through AsyncTaskRunner (a separate bean) so this redirect isn't
+        // blocked on the historical sync, and a slow/failing sync can't roll back the
+        // token save above.
+        Long userId = user.getId();
+        asyncTaskRunner.run(() -> {
+            try {
+                syncActivities(userId);
+            } catch (Exception e) {
+                log.warn("Post-OAuth Strava activity sync failed for user {}: {}", userId, e.getMessage());
+            }
+        });
 
         return frontendUrl + "/devices?strava=connected";
     }
@@ -233,15 +239,30 @@ public class StravaService {
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
+    // Strava refresh tokens are single-use/rotating — two concurrent callers refreshing
+    // the same user's token at once means one gets rejected with an already-consumed
+    // refresh_token. Per-user locking below avoids that race.
+    private final Map<Long, Object> stravaRefreshLocks = new java.util.concurrent.ConcurrentHashMap<>();
+
     private String getValidAccessToken(User user) {
         if (user.getStravaAccessToken() == null) return null;
 
-        // Refresh if expired (or expiring in next 5 minutes)
         long now = Instant.now().getEpochSecond();
-        if (user.getStravaTokenExpiresAt() != null && user.getStravaTokenExpiresAt() <= now + 300) {
-            return refreshToken(user);
+        if (user.getStravaTokenExpiresAt() == null || user.getStravaTokenExpiresAt() > now + 300) {
+            return user.getStravaAccessToken();
         }
-        return user.getStravaAccessToken();
+
+        Object lock = stravaRefreshLocks.computeIfAbsent(user.getId(), k -> new Object());
+        synchronized (lock) {
+            // Re-fetch after acquiring the lock — another thread may have already
+            // refreshed (and rotated the single-use refresh token) while we were waiting.
+            User fresh = userRepository.findById(user.getId()).orElse(user);
+            long recheckedNow = Instant.now().getEpochSecond();
+            if (fresh.getStravaTokenExpiresAt() == null || fresh.getStravaTokenExpiresAt() > recheckedNow + 300) {
+                return fresh.getStravaAccessToken();
+            }
+            return refreshToken(fresh);
+        }
     }
 
     private String refreshToken(User user) {
