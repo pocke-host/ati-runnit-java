@@ -113,7 +113,7 @@ public class GroupEventController {
             List<GroupEvent> allEvents = new ArrayList<>();
             allEvents.addAll(createdEvents);
             allEvents.addAll(invitedEvents);
-            allEvents.sort(Comparator.comparing(GroupEvent::getEventDatetime));
+            allEvents.sort(Comparator.comparing(GroupEvent::getEventDatetime, Comparator.nullsLast(Comparator.naturalOrder())));
 
             List<Map<String, Object>> result = allEvents.stream()
                     .map(e -> toMap(e, userId))
@@ -323,20 +323,26 @@ public class GroupEventController {
                 .filter(i -> "GOING".equals(i.getStatus()) || "ACCEPTED".equals(i.getStatus()))
                 .count();
 
+        // No FK constraints in this schema — an invite whose invitee_id points to a
+        // deleted/missing user throws on proxy initialization rather than being null,
+        // so both filters below guard the same way: skip anything unresolvable instead
+        // of letting one bad invite 500 the whole event.
         GroupEventInvite myInvite = (currentUserId != null)
                 ? invites.stream()
-                        .filter(i -> i.getInvitee().getId().equals(currentUserId))
+                        .filter(i -> hasResolvableInvitee(i) && currentUserId.equals(i.getInvitee().getId()))
                         .findFirst().orElse(null)
                 : null;
 
-        List<Map<String, Object>> inviteeList = invites.stream().map(i -> {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("inviteId", i.getId());
-            m.put("userId", i.getInvitee().getId());
-            m.put("displayName", i.getInvitee().getDisplayName());
-            m.put("status", i.getStatus());
-            return m;
-        }).collect(Collectors.toList());
+        List<Map<String, Object>> inviteeList = invites.stream()
+                .filter(this::hasResolvableInvitee)
+                .map(i -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("inviteId", i.getId());
+                    m.put("userId", i.getInvitee().getId());
+                    m.put("displayName", i.getInvitee().getDisplayName());
+                    m.put("status", i.getStatus());
+                    return m;
+                }).collect(Collectors.toList());
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("id", event.getId());
@@ -358,5 +364,14 @@ public class GroupEventController {
         result.put("invitees", inviteeList);
         result.put("createdAt", event.getCreatedAt() != null ? event.getCreatedAt().toString() : null);
         return result;
+    }
+
+    private boolean hasResolvableInvitee(GroupEventInvite invite) {
+        try {
+            return invite.getInvitee() != null && invite.getInvitee().getId() != null;
+        } catch (Exception e) {
+            log.warn("Group event invite {} references a missing user — skipping", invite.getId());
+            return false;
+        }
     }
 }

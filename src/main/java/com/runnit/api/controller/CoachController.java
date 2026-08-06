@@ -279,6 +279,32 @@ public class CoachController {
         }
     }
 
+    /**
+     * GET /api/athlete/coach/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD
+     * Athlete's own view of workout events their coach pushed to their calendar —
+     * the athlete-perspective counterpart to /api/coach/athletes/{athleteId}/calendar.
+     * No coach-authorization check needed here since a user can always see their own calendar.
+     */
+    @GetMapping("/api/athlete/coach/calendar")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getMyCoachCalendar(
+            @RequestParam String start,
+            @RequestParam String end,
+            Authentication auth) {
+        try {
+            Long athleteId = (Long) auth.getPrincipal();
+            LocalDate startDate = LocalDate.parse(start);
+            LocalDate endDate = LocalDate.parse(end);
+            List<WorkoutEvent> events = workoutEventRepository
+                    .findByUserIdAndPlannedDateBetweenOrderByPlannedDateAsc(athleteId, startDate, endDate);
+            List<Map<String, Object>> result = events.stream().map(this::toEventMap).toList();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // ─── Coach-athlete calendar ───────────────────────────────────────────────
 
     /**
