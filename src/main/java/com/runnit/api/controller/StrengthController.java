@@ -1,5 +1,6 @@
 package com.runnit.api.controller;
 
+import com.runnit.api.dto.StrengthHistoryPoint;
 import com.runnit.api.dto.StrengthPRResponse;
 import com.runnit.api.dto.StrengthVolumeResponse;
 import com.runnit.api.repository.StrengthExerciseRepository;
@@ -55,6 +56,18 @@ public class StrengthController {
             Long userId = (Long) auth.getPrincipal();
             StrengthVolumeResponse volume = personalRecordService.computeVolume(userId, days);
             return ResponseEntity.ok(volume);
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<?> getHistory(@RequestParam String exercise, Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            List<StrengthHistoryPoint> history = personalRecordService.computeHistory(userId, exercise);
+            return ResponseEntity.ok(history);
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
