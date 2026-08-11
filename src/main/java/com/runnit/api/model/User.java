@@ -119,6 +119,12 @@ public class User {
     @Column(name = "coros_last_sync")
     private Instant corosLastSync;
 
+    @Column(name = "apple_health_connected")
+    private Boolean appleHealthConnected;
+
+    @Column(name = "apple_health_last_sync")
+    private Instant appleHealthLastSync;
+
     @Column(name = "hr_zones_json", columnDefinition = "TEXT")
     private String hrZonesJson;
 
@@ -250,6 +256,10 @@ public class User {
     public void setCorosUserId(String corosUserId) { this.corosUserId = corosUserId; }
     public Instant getCorosLastSync() { return corosLastSync; }
     public void setCorosLastSync(Instant corosLastSync) { this.corosLastSync = corosLastSync; }
+    public Boolean getAppleHealthConnected() { return appleHealthConnected; }
+    public void setAppleHealthConnected(Boolean appleHealthConnected) { this.appleHealthConnected = appleHealthConnected; }
+    public Instant getAppleHealthLastSync() { return appleHealthLastSync; }
+    public void setAppleHealthLastSync(Instant appleHealthLastSync) { this.appleHealthLastSync = appleHealthLastSync; }
     public String getHrZonesJson() { return hrZonesJson; }
     public void setHrZonesJson(String hrZonesJson) { this.hrZonesJson = hrZonesJson; }
     public String getGoogleCalendarAccessToken() { return googleCalendarAccessToken; }
