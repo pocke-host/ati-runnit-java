@@ -46,6 +46,7 @@ public class WhoopService {
     private final AsyncTaskRunner asyncTaskRunner;
     private final AdaptivePlanService adaptivePlanService;
     private final AutoMomentService autoMomentService;
+    private final EmailService emailService;
 
     @Value("${whoop.client.id}")
     private String clientId;
@@ -518,6 +519,15 @@ public class WhoopService {
                 .actor(null)
                 .referenceType("WHOOP")
                 .build());
+
+        // In-app notifications go unseen if the user doesn't open the app — email
+        // is the only channel in this codebase today that reaches them regardless.
+        // Never let a mail failure affect the reconnect flow above.
+        try {
+            if (user.getEmail() != null) emailService.sendWhoopReconnectNeeded(user.getEmail());
+        } catch (Exception e) {
+            log.warn("WHOOP reconnect email failed for user {}: {}", user.getId(), e.getMessage());
+        }
     }
 
     private Map<String, Object> exchangeCodeForToken(String code) {

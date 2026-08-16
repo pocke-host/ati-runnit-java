@@ -53,6 +53,83 @@ public class EmailService {
         }
     }
 
+    /**
+     * Sends a "reconnect WHOOP" nudge after markNeedsReconnect() clears a user's
+     * tokens. Never throws — this is a best-effort nudge, not a critical flow, and
+     * WHOOP disconnects are already recorded as an in-app Notification regardless
+     * of whether this email goes out.
+     */
+    public void sendWhoopReconnectNeeded(String toEmail) {
+        if (mailSender == null) {
+            log.warn("[email] SMTP not configured — skipping WHOOP reconnect email to {}", toEmail);
+            return;
+        }
+
+        String devicesLink = frontendUrl + "/devices";
+        String html = buildWhoopReconnectHtml(devicesLink);
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(toEmail);
+            helper.setSubject("Your WHOOP connection needs reconnecting");
+            helper.setText(html, true);
+            mailSender.send(message);
+            log.info("[email] WHOOP reconnect nudge sent to {}", toEmail);
+        } catch (Exception e) {
+            log.warn("[email] Failed to send WHOOP reconnect nudge to {}: {}", toEmail, e.getMessage());
+        }
+    }
+
+    private String buildWhoopReconnectHtml(String devicesLink) {
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="UTF-8"></head>
+            <body style="margin:0;padding:0;background:#f5f5f5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+              <table width="100%%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 20px;">
+                <tr><td align="center">
+                  <table width="480" cellpadding="0" cellspacing="0" style="background:#fff;border:1px solid #e5e5e5;">
+                    <!-- Header -->
+                    <tr>
+                      <td style="background:#000;padding:28px 40px;">
+                        <span style="color:#fff;font-size:22px;font-weight:900;letter-spacing:0.1em;">RUNNIT</span>
+                      </td>
+                    </tr>
+                    <!-- Body -->
+                    <tr>
+                      <td style="padding:40px;">
+                        <p style="margin:0 0 16px;font-size:22px;font-weight:700;color:#000;">Your WHOOP stopped syncing</p>
+                        <p style="margin:0 0 28px;font-size:15px;color:#555;line-height:1.6;">
+                          WHOOP's connection to your RUNNIT account expired, so your recovery and workout
+                          data has paused. Reconnect it in Devices and everything picks back up.
+                        </p>
+                        <a href="%s"
+                           style="display:inline-block;background:#0052FF;color:#fff;text-decoration:none;
+                                  padding:14px 32px;font-size:14px;font-weight:700;letter-spacing:0.08em;
+                                  text-transform:uppercase;">
+                          Reconnect WHOOP
+                        </a>
+                        <p style="margin:28px 0 0;font-size:13px;color:#999;line-height:1.5;">
+                          Or copy this link into your browser:<br>
+                          <span style="color:#0052FF;word-break:break-all;">%s</span>
+                        </p>
+                      </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                      <td style="padding:20px 40px;border-top:1px solid #e5e5e5;">
+                        <p style="margin:0;font-size:12px;color:#bbb;">© RUNNIT · runnit.live</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td></tr>
+              </table>
+            </body>
+            </html>
+            """.formatted(devicesLink, devicesLink);
+    }
+
     private String buildPasswordResetHtml(String resetLink) {
         return """
             <!DOCTYPE html>
