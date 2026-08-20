@@ -103,6 +103,22 @@ public class FollowController {
         }
     }
 
+    @GetMapping("/suggestions")
+    public ResponseEntity<?> getSuggestions(
+            @RequestParam(defaultValue = "10") int limit,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            List<UserResponse> suggestions = followService.getSuggestions(userId, Math.min(limit, 30));
+            return ResponseEntity.ok(suggestions);
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
     @GetMapping("/{userId}/is-following")
     public ResponseEntity<?> isFollowing(@PathVariable Long userId, Authentication auth) {
         try {

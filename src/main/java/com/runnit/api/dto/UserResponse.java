@@ -23,6 +23,7 @@ public class UserResponse {
     private String archetype;
     private String subscriptionStatus;
     private String subscriptionTier;
+    private Boolean isFollowing;
 
     public UserResponse() {}
 
@@ -46,6 +47,7 @@ public class UserResponse {
     public String getArchetype() { return archetype; }
     public String getSubscriptionStatus() { return subscriptionStatus; }
     public String getSubscriptionTier() { return subscriptionTier; }
+    public Boolean getIsFollowing() { return isFollowing; }
 
     public void setId(Long id) { this.id = id; }
     public void setEmail(String email) { this.email = email; }
@@ -67,6 +69,7 @@ public class UserResponse {
     public void setArchetype(String archetype) { this.archetype = archetype; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
     public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
+    public void setIsFollowing(Boolean isFollowing) { this.isFollowing = isFollowing; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -91,6 +94,7 @@ public class UserResponse {
         private String archetype;
         private String subscriptionStatus;
         private String subscriptionTier;
+        private Boolean isFollowing;
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder email(String email) { this.email = email; return this; }
@@ -112,6 +116,7 @@ public class UserResponse {
         public Builder archetype(String archetype) { this.archetype = archetype; return this; }
         public Builder subscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; return this; }
         public Builder subscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; return this; }
+        public Builder isFollowing(Boolean isFollowing) { this.isFollowing = isFollowing; return this; }
 
         public UserResponse build() {
             UserResponse r = new UserResponse();
@@ -135,6 +140,7 @@ public class UserResponse {
             r.archetype = this.archetype;
             r.subscriptionStatus = this.subscriptionStatus;
             r.subscriptionTier = this.subscriptionTier;
+            r.isFollowing = this.isFollowing;
             return r;
         }
     }

@@ -120,11 +120,47 @@ public class UserController {
                             .sport(u.getSport())
                             .bio(u.getBio())
                             .followerCount(followRepository.countByFollowingUserId(u.getId()))
+                            .isFollowing(followRepository.existsByFollowerUserIdAndFollowingUserId(currentUserId, u.getId()))
                             .build())
                     .collect(Collectors.toList());
             return ResponseEntity.ok(results);
         } catch (RuntimeException e) {
             log.error("User search failed: query={} error={}", query, e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Match a device's contact emails against existing accounts, so a user can find
+     * real-world friends who are already on Runnit. Emails only (no phone number is
+     * collected/stored anywhere in this app) — the client sends whatever emails the
+     * Contact Picker / manual entry surfaced, we return which ones have accounts.
+     */
+    @PostMapping("/match-contacts")
+    public ResponseEntity<?> matchContacts(@RequestBody Map<String, List<String>> body, Authentication auth) {
+        try {
+            Long currentUserId = (Long) auth.getPrincipal();
+            List<String> emails = body.getOrDefault("emails", List.of()).stream()
+                    .filter(e -> e != null && !e.isBlank())
+                    .map(e -> e.trim().toLowerCase())
+                    .distinct()
+                    .limit(1000)
+                    .collect(Collectors.toList());
+            if (emails.isEmpty()) return ResponseEntity.ok(List.of());
+
+            List<UserResponse> matches = userRepository.findByEmailInIgnoreCase(emails).stream()
+                    .filter(u -> !u.getId().equals(currentUserId))
+                    .map(u -> UserResponse.builder()
+                            .id(u.getId())
+                            .displayName(u.getDisplayName())
+                            .avatarUrl(u.getAvatarUrl())
+                            .sport(u.getSport())
+                            .isFollowing(followRepository.existsByFollowerUserIdAndFollowingUserId(currentUserId, u.getId()))
+                            .build())
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(matches);
+        } catch (RuntimeException e) {
+            log.error("Contact match failed: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

@@ -54,8 +54,11 @@ public class FollowService {
         List<Long> followerIds = followRepository.findByFollowingUserId(userId).stream()
                 .map(Follow::getFollowerUserId)
                 .collect(Collectors.toList());
+        java.util.Set<Long> followingBack = followRepository.findByFollowerUserId(userId).stream()
+                .map(Follow::getFollowingUserId)
+                .collect(Collectors.toSet());
         return userRepository.findAllById(followerIds).stream()
-                .map(this::toUserResponse)
+                .map(u -> toUserResponse(u, followingBack.contains(u.getId())))
                 .collect(Collectors.toList());
     }
 
@@ -65,7 +68,7 @@ public class FollowService {
                 .map(Follow::getFollowingUserId)
                 .collect(Collectors.toList());
         return userRepository.findAllById(followingIds).stream()
-                .map(this::toUserResponse)
+                .map(u -> toUserResponse(u, true))
                 .collect(Collectors.toList());
     }
 
@@ -74,7 +77,51 @@ public class FollowService {
         return followRepository.existsByFollowerUserIdAndFollowingUserId(followerId, followingId);
     }
 
-    private UserResponse toUserResponse(User user) {
+    /**
+     * "Athletes you may know" — same city first (the strongest signal we have without a
+     * real social graph to mine), topped up with recently-joined public users if the city
+     * pool comes up short or the user hasn't set a location.
+     */
+    @Transactional(readOnly = true)
+    public List<UserResponse> getSuggestions(Long userId, int limit) {
+        User me = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        java.util.Set<Long> exclude = followRepository.findByFollowerUserId(userId).stream()
+                .map(Follow::getFollowingUserId)
+                .collect(Collectors.toSet());
+        exclude.add(userId);
+
+        List<User> sameCity = (me.getLocation() != null && !me.getLocation().isBlank())
+                ? userRepository.findByLocationIgnoreCase(me.getLocation()).stream()
+                        .filter(u -> !exclude.contains(u.getId()))
+                        .collect(Collectors.toList())
+                : List.of();
+
+        List<User> result = new java.util.ArrayList<>(sameCity);
+        if (result.size() < limit) {
+            java.util.Set<Long> picked = result.stream().map(User::getId).collect(Collectors.toSet());
+            picked.addAll(exclude);
+            userRepository.findTop50ByIsPublicTrueOrderByCreatedAtDesc().stream()
+                    .filter(u -> !picked.contains(u.getId()))
+                    .limit(limit - result.size())
+                    .forEach(result::add);
+        }
+
+        return result.stream()
+                .limit(limit)
+                .map(u -> UserResponse.builder()
+                        .id(u.getId())
+                        .displayName(u.getDisplayName())
+                        .avatarUrl(u.getAvatarUrl())
+                        .sport(u.getSport())
+                        .location(u.getLocation())
+                        .isFollowing(false)
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private UserResponse toUserResponse(User user, boolean isFollowing) {
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
@@ -82,6 +129,7 @@ public class FollowService {
                 .avatarUrl(user.getAvatarUrl())
                 .sport(user.getSport())
                 .primarySport(user.getSport())
+                .isFollowing(isFollowing)
                 .build();
     }
 }
