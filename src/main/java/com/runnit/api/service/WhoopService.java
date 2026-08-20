@@ -274,8 +274,15 @@ public class WhoopService {
         userRepository.save(user);
     }
 
+    @Transactional
     public Map<String, Object> getStatus(Long userId) {
         return userRepository.findById(userId).<Map<String, Object>>map(u -> {
+            // Opportunistic refresh: any time the Devices page actually checks status is a
+            // real user visit, which is exactly when we want to keep the token from going
+            // stale — not just wait on the 4-hour cron, which only fires if the backend
+            // instance happens to be awake at that moment.
+            if (u.getWhoopAccessToken() != null) getValidAccessToken(u);
+
             Map<String, Object> status = new HashMap<>();
             status.put("connected", u.getWhoopAccessToken() != null);
             status.put("lastSync", u.getWhoopLastSync() != null ? u.getWhoopLastSync().toString() : null);
@@ -569,13 +576,17 @@ public class WhoopService {
 
     // ─── Recurring backstop sync ───────────────────────────────────────────────
 
-    // Matches WhoopSyncScheduler's own 4-hour cadence — a user synced (via
-    // webhook, manual sync, or a prior backstop run) within this window is
-    // skipped this cycle. Without this, every run pulled full activity+wellness
-    // history for EVERY connected user regardless of whether anything was
-    // actually stale, which spiked memory hard enough to OOM-crash a 512MB
-    // Render instance every time this scheduler fired.
-    private static final long STALENESS_HOURS = 4;
+    // Matches WhoopSyncScheduler's own cadence — a user synced (via webhook,
+    // manual sync, or a prior backstop run) within this window is skipped this
+    // cycle. Without this, every run pulled full activity+wellness history for
+    // EVERY connected user regardless of whether anything was actually stale,
+    // which spiked memory hard enough to OOM-crash a 512MB Render instance
+    // every time this scheduler fired. Shortened from 4h to 1h — the whole
+    // point of this backstop is to keep refresh tokens from going stale from
+    // disuse, and it only runs at all when the instance happens to be awake,
+    // so a shorter window meaningfully shrinks the gap where a token can rot
+    // through an idle-then-sleeping stretch.
+    private static final long STALENESS_HOURS = 1;
 
     /**
      * Backstop for connected users who actually need it, run on a schedule.
