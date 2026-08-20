@@ -14,11 +14,14 @@ public class WhoopSyncScheduler {
     private static final Logger log = LoggerFactory.getLogger(WhoopSyncScheduler.class);
     private final WhoopService whoopService;
 
-    // Every 15 minutes — backstop for missed webhook deliveries, and keeps the
+    // Every minute — backstop for missed webhook deliveries, and keeps the
     // refresh token alive so it never expires purely from disuse. Cheap to run
     // this often since WhoopService.syncAllConnectedUsers() skips anyone synced
-    // within the last hour (see STALENESS_HOURS) — most ticks touch few or no users.
-    @Scheduled(cron = "0 */15 * * * *")
+    // within the last hour (see STALENESS_HOURS) — nearly every tick is a no-op
+    // query that finds zero stale users. Running this frequently only matters
+    // for shrinking detection latency during whatever windows the instance is
+    // actually awake — it can't do anything while the process itself is asleep.
+    @Scheduled(cron = "0 * * * * *")
     public void runBackstopSync() {
         log.info("Running WHOOP backstop sync for all connected users");
         whoopService.syncAllConnectedUsers();
