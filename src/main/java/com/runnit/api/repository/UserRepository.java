@@ -35,4 +35,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
         @org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff
     );
     Optional<User> findByInviteCode(String inviteCode);
+
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE LOWER(u.email) IN :emails")
+    java.util.List<User> findByEmailInIgnoreCase(@org.springframework.data.repository.query.Param("emails") java.util.List<String> emails);
+
+    java.util.List<User> findByLocationIgnoreCase(String location);
+
+    java.util.List<User> findTop50ByIsPublicTrueOrderByCreatedAtDesc();
 }

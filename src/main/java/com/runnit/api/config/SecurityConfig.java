@@ -54,6 +54,7 @@ public class SecurityConfig {
                     "/api/billing/revenuecat-webhook"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/coach/invite/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/invite/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/live-shares/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/moments/*/comments").permitAll()
                 .anyRequest().authenticated()
