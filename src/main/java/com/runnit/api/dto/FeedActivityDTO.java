@@ -4,8 +4,10 @@ import com.runnit.api.model.Activity;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class FeedActivityDTO {
 
@@ -45,8 +47,9 @@ public class FeedActivityDTO {
     private long commentCount;
     // Per-reaction-type counts: { "LIKE": 3, "KUDOS": 1 }
     private Map<String, Long> reactionCounts = new HashMap<>();
-    // The current authenticated user's reaction type, or null if none
-    private String userReaction;
+    // Every reaction type the current authenticated user has left on this activity —
+    // LIKE and KUDOS are independent, so this can hold both at once.
+    private Set<String> userReactions = new HashSet<>();
     // Only populated for sportType == STRENGTH detail fetches (ActivityController.getActivity) —
     // null/omitted everywhere else, including the feed list, to avoid an N+1 on every list item.
     private List<StrengthExerciseDTO> strengthExercises;
@@ -96,11 +99,11 @@ public class FeedActivityDTO {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public long getCommentCount() { return commentCount; }
     public Map<String, Long> getReactionCounts() { return reactionCounts; }
-    public String getUserReaction() { return userReaction; }
+    public Set<String> getUserReactions() { return userReactions; }
 
     public void setCommentCount(long commentCount) { this.commentCount = commentCount; }
     public void setReactionCounts(Map<String, Long> reactionCounts) { this.reactionCounts = reactionCounts; }
-    public void setUserReaction(String userReaction) { this.userReaction = userReaction; }
+    public void setUserReactions(Set<String> userReactions) { this.userReactions = userReactions; }
     public List<StrengthExerciseDTO> getStrengthExercises() { return strengthExercises; }
     public void setStrengthExercises(List<StrengthExerciseDTO> strengthExercises) { this.strengthExercises = strengthExercises; }
 }

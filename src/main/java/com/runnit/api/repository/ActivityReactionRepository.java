@@ -1,6 +1,7 @@
 package com.runnit.api.repository;
 
 import com.runnit.api.model.ActivityReaction;
+import com.runnit.api.model.Reaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,8 +12,10 @@ import java.util.Optional;
 
 @Repository
 public interface ActivityReactionRepository extends JpaRepository<ActivityReaction, Long> {
-    Optional<ActivityReaction> findByActivityIdAndUserId(Long activityId, Long userId);
-    void deleteByActivityIdAndUserId(Long activityId, Long userId);
+    // LIKE and KUDOS are independent per user/activity — always scope lookups and deletes
+    // by type as well, or one reaction silently clobbers the other.
+    Optional<ActivityReaction> findByActivityIdAndUserIdAndType(Long activityId, Long userId, Reaction.ReactionType type);
+    void deleteByActivityIdAndUserIdAndType(Long activityId, Long userId, Reaction.ReactionType type);
 
     @Query("SELECT r.activity.id, COUNT(r) FROM ActivityReaction r WHERE r.activity.id IN :ids GROUP BY r.activity.id")
     List<Object[]> countGroupedByActivityIds(@Param("ids") List<Long> ids);

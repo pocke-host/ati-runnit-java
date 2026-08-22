@@ -27,8 +27,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -170,17 +172,22 @@ public class ActivityService {
         Map<Long, Long> commentCounts = commentRepository.countGroupedByActivityIds(ids)
                 .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
 
-        // Batch load viewer's reactions (null-safe — viewer may be null for public profile views)
-        Map<Long, String> userReactions = viewerUserId != null
-                ? activityReactionRepository.findUserReactionsByActivityIds(ids, viewerUserId)
-                        .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> r[1].toString()))
-                : Map.of();
+        // Batch load viewer's reactions (null-safe — viewer may be null for public profile views).
+        // A user can now hold both LIKE and KUDOS on the same activity, so this groups into a
+        // set per activity rather than a single value — toMap would throw on the second row.
+        Map<Long, Set<String>> userReactions = new HashMap<>();
+        if (viewerUserId != null) {
+            activityReactionRepository.findUserReactionsByActivityIds(ids, viewerUserId).forEach(row -> {
+                Long actId = (Long) row[0];
+                userReactions.computeIfAbsent(actId, k -> new HashSet<>()).add(row[1].toString());
+            });
+        }
 
         List<FeedActivityDTO> dtos = activities.stream().map(a -> {
             FeedActivityDTO dto = FeedActivityDTO.from(a);
             dto.setReactionCounts(reactionCountsByType.getOrDefault(a.getId(), Map.of()));
             dto.setCommentCount(commentCounts.getOrDefault(a.getId(), 0L));
-            dto.setUserReaction(userReactions.get(a.getId()));
+            dto.setUserReactions(userReactions.getOrDefault(a.getId(), Set.of()));
             return dto;
         }).collect(Collectors.toList());
 
@@ -220,15 +227,20 @@ public class ActivityService {
         Map<Long, Long> commentCounts = commentRepository.countGroupedByActivityIds(ids)
                 .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
 
-        // Batch load current user's reactions — 1 query instead of N
-        Map<Long, String> userReactions = activityReactionRepository.findUserReactionsByActivityIds(ids, userId)
-                .stream().collect(Collectors.toMap(r -> (Long) r[0], r -> r[1].toString()));
+        // Batch load current user's reactions — 1 query instead of N. Grouped into a set per
+        // activity since a user can hold both LIKE and KUDOS at once (toMap would throw on
+        // the second row for the same activity).
+        Map<Long, Set<String>> userReactions = new HashMap<>();
+        activityReactionRepository.findUserReactionsByActivityIds(ids, userId).forEach(row -> {
+            Long actId = (Long) row[0];
+            userReactions.computeIfAbsent(actId, k -> new HashSet<>()).add(row[1].toString());
+        });
 
         List<FeedActivityDTO> dtos = activities.stream().map(a -> {
             FeedActivityDTO dto = FeedActivityDTO.from(a);
             dto.setReactionCounts(reactionCountsByType.getOrDefault(a.getId(), Map.of()));
             dto.setCommentCount(commentCounts.getOrDefault(a.getId(), 0L));
-            dto.setUserReaction(userReactions.get(a.getId()));
+            dto.setUserReactions(userReactions.getOrDefault(a.getId(), Set.of()));
             return dto;
         }).collect(Collectors.toList());
 
