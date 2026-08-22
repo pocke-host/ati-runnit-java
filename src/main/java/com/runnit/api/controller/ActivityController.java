@@ -124,8 +124,11 @@ public class ActivityController {
             }
 
             if (viewerUserId != null) {
-                activityReactionRepository.findByActivityIdAndUserId(id, viewerUserId)
-                        .ifPresent(r -> dto.setUserReaction(r.getType().name()));
+                java.util.Set<String> reactions = new java.util.HashSet<>();
+                for (Object[] row : activityReactionRepository.findUserReactionsByActivityIds(ids, viewerUserId)) {
+                    reactions.add(row[1].toString());
+                }
+                dto.setUserReactions(reactions);
             }
 
             return ResponseEntity.ok(dto);
@@ -210,12 +213,14 @@ public class ActivityController {
             String rawType = body.containsKey("type") ? body.get("type") : body.get("reactionType");
             Reaction.ReactionType type = Reaction.ReactionType.valueOf(rawType.toUpperCase());
 
+            // LIKE and KUDOS are independent — adding one must not touch the other, so this
+            // only creates a row if this exact type doesn't already exist (idempotent add,
+            // not an upsert-by-user-and-activity like the old single-reaction behavior).
             ActivityReaction reaction = activityReactionRepository
-                    .findByActivityIdAndUserId(id, userId)
-                    .orElse(ActivityReaction.builder().user(user).activity(activity).build());
-            reaction.setType(type);
-            activityReactionRepository.save(reaction);
-            return ResponseEntity.ok(Map.of("reactionType", type.name()));
+                    .findByActivityIdAndUserIdAndType(id, userId, type)
+                    .orElseGet(() -> activityReactionRepository.save(
+                            ActivityReaction.builder().user(user).activity(activity).type(type).build()));
+            return ResponseEntity.ok(Map.of("reactionType", reaction.getType().name()));
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
@@ -267,10 +272,14 @@ public class ActivityController {
 
     @DeleteMapping("/{id}/reactions")
     @Transactional
-    public ResponseEntity<?> removeReaction(@PathVariable Long id, Authentication auth) {
+    public ResponseEntity<?> removeReaction(
+            @PathVariable Long id,
+            @RequestParam String type,
+            Authentication auth) {
         try {
             Long userId = (Long) auth.getPrincipal();
-            activityReactionRepository.deleteByActivityIdAndUserId(id, userId);
+            Reaction.ReactionType reactionType = Reaction.ReactionType.valueOf(type.toUpperCase());
+            activityReactionRepository.deleteByActivityIdAndUserIdAndType(id, userId, reactionType);
             return ResponseEntity.ok(Map.of("message", "Reaction removed"));
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
