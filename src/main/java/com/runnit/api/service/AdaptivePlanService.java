@@ -40,6 +40,8 @@ public class AdaptivePlanService {
     private final WellnessDailyRepository wellnessDailyRepository;
     private final ActivityRepository activityRepository;
     private final TrainingLoadService trainingLoadService;
+    private final CoachRequestRepository coachRequestRepository;
+    private final UserRepository userRepository;
 
     // ── Tunable thresholds — every one maps to a human-readable reason string ──
 
@@ -135,6 +137,8 @@ public class AdaptivePlanService {
     // ── Missed-workout softening (scheduler-only — the activity-triggered path structurally can't see this) ──
 
     private void softenForMissedWorkouts(Plan plan) {
+        if (!plan.isAdaptiveEnabled()) return; // athlete opted this plan out — full manual control
+
         List<PlanWorkout> incomplete = planWorkoutRepository
                 .findByPlanIdAndCompletedFalseOrderByWeekNumberAscDayAsc(plan.getId());
         if (incomplete.isEmpty()) return;
@@ -166,6 +170,8 @@ public class AdaptivePlanService {
     // ── Core rule evaluation (R1-R5) ───────────────────────────────────────
 
     private void evaluateAndAdapt(Long userId, Plan plan, Activity trigger, String triggeredBy) {
+        if (!plan.isAdaptiveEnabled()) return; // athlete opted this plan out — full manual control
+
         Map<String, Object> load = trainingLoadService.computeMetrics(userId);
         double acwr = ((Number) load.get("acwr")).doubleValue();
         double tsb = ((Number) load.get("tsb")).doubleValue();
@@ -225,6 +231,19 @@ public class AdaptivePlanService {
                     "Your training stress balance is %.1f and today's recovery score is %d%% (low). We downgraded your next %s to a recovery effort.",
                     tsb, recoveryScore, displayType(workoutType));
             return Decision.downgradeAndSoften("RECOVERY", SOFTEN_PCT_HIGH, reason);
+        }
+
+        // R2b — deep fatigue, no recovery data (non-WHOOP fallback): recoveryScore is only ever
+        // populated from WHOOP today, so R2 above silently never fires for Garmin/COROS/Strava/
+        // Apple Health users regardless of how fatigued their training load says they are. TSB
+        // alone is a real, device-agnostic signal — soften (not downgrade) on it alone, since we're
+        // missing the corroborating recovery signal R2 relies on. Skipped entirely if a recovery
+        // score IS available — R2 already handled that case above, first-match-wins.
+        if (tsb < TSB_VERY_NEGATIVE && recoveryScore == null && HARD_OR_LONG_TYPES.contains(workoutType)) {
+            String reason = String.format(
+                    "Your training stress balance is %.1f (deep fatigue risk). We eased your next %s — connect WHOOP for recovery-aware adjustments too.",
+                    tsb, displayType(workoutType));
+            return Decision.softenOnly(SOFTEN_PCT_MODERATE, reason);
         }
 
         // R3 — moderate risk: soften, don't replace
@@ -348,6 +367,34 @@ public class AdaptivePlanService {
                 .referenceId(plan.getId())
                 .referenceType("PLAN")
                 .build());
+
+        notifyCoachIfAssigned(plan, workoutsAdapted);
+    }
+
+    /**
+     * Before this, a coach had zero visibility when the adaptive engine silently changed a
+     * workout on a plan they built and assigned — no notification, no PlanAdaptation UI on
+     * their side. This doesn't fix the missing coach-facing history view, but at least tells
+     * them it happened, same channel as everything else (Notification), not a new mechanism.
+     */
+    private void notifyCoachIfAssigned(Plan plan, int workoutsAdapted) {
+        if (plan.getUser() == null) return;
+        coachRequestRepository.findByAthleteIdAndStatus(plan.getUser().getId(), "APPROVED")
+                .ifPresent(req -> userRepository.findById(req.getCoachId()).ifPresent(coach -> {
+                    String athleteName = plan.getUser().getDisplayName() != null
+                            ? plan.getUser().getDisplayName() : "Your athlete";
+                    String summary = workoutsAdapted == 1
+                            ? athleteName + "'s plan was auto-adjusted based on their recent training load."
+                            : athleteName + "'s plan had " + workoutsAdapted + " workouts auto-adjusted based on their recent training load.";
+                    notificationRepository.save(Notification.builder()
+                            .user(coach)
+                            .type("ATHLETE_PLAN_ADAPTED")
+                            .message(summary)
+                            .actor(plan.getUser())
+                            .referenceId(plan.getId())
+                            .referenceType("PLAN")
+                            .build());
+                }));
     }
 
     private static String displayType(String workoutType) {

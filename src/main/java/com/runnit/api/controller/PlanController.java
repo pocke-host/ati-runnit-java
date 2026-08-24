@@ -165,6 +165,33 @@ public class PlanController {
         }
     }
 
+    /** PATCH /api/plans/{id}/adaptive — toggle whether AdaptivePlanService touches this plan
+     *  (e.g. an athlete taking full manual control for a race/taper week). */
+    @PatchMapping("/{id}/adaptive")
+    @Transactional
+    public ResponseEntity<?> setAdaptiveEnabled(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            Plan plan = planRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Plan not found"));
+            if (!plan.getUser().getId().equals(userId)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
+            }
+            Boolean enabled = body.get("adaptiveEnabled");
+            if (enabled == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "adaptiveEnabled is required"));
+            }
+            plan.setAdaptiveEnabled(enabled);
+            planRepository.save(plan);
+            return ResponseEntity.ok(toMap(plan));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @DeleteMapping("/{id}")
     @Transactional
     public ResponseEntity<?> deletePlan(@PathVariable Long id, Authentication auth) {
@@ -465,6 +492,7 @@ public class PlanController {
         map.put("targetRaceDate", plan.getTargetRaceDate() != null ? plan.getTargetRaceDate().toString() : null);
         map.put("currentWeeklyMeters", plan.getCurrentWeeklyMeters());
         map.put("targetSeconds", plan.getTargetSeconds());
+        map.put("adaptiveEnabled", plan.isAdaptiveEnabled());
         map.put("createdAt", plan.getCreatedAt());
 
         if (plan.getWorkouts() != null && !plan.getWorkouts().isEmpty()) {

@@ -51,6 +51,12 @@ public class Plan {
     @Column(name = "target_seconds")
     private Integer targetSeconds;
 
+    // Lets an athlete pause the adaptive engine for this plan — e.g. a race/taper week they
+    // want full manual control over. Defaults on; AdaptivePlanService checks this before
+    // evaluating any rule.
+    @Column(name = "adaptive_enabled", nullable = false)
+    private boolean adaptiveEnabled = true;
+
     @OneToMany(mappedBy = "plan", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("week_number ASC, day ASC")
     private List<PlanWorkout> workouts;
@@ -74,6 +80,7 @@ public class Plan {
     public LocalDate getTargetRaceDate() { return targetRaceDate; }
     public Integer getCurrentWeeklyMeters() { return currentWeeklyMeters; }
     public Integer getTargetSeconds() { return targetSeconds; }
+    public boolean isAdaptiveEnabled() { return adaptiveEnabled; }
     public List<PlanWorkout> getWorkouts() { return workouts; }
     public Instant getCreatedAt() { return createdAt; }
 
@@ -90,6 +97,7 @@ public class Plan {
     public void setTargetRaceDate(LocalDate targetRaceDate) { this.targetRaceDate = targetRaceDate; }
     public void setCurrentWeeklyMeters(Integer currentWeeklyMeters) { this.currentWeeklyMeters = currentWeeklyMeters; }
     public void setTargetSeconds(Integer targetSeconds) { this.targetSeconds = targetSeconds; }
+    public void setAdaptiveEnabled(boolean adaptiveEnabled) { this.adaptiveEnabled = adaptiveEnabled; }
     public void setWorkouts(List<PlanWorkout> workouts) { this.workouts = workouts; }
 
     public static Builder builder() { return new Builder(); }
