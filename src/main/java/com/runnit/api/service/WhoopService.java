@@ -497,14 +497,23 @@ public class WhoopService {
                 return user.getWhoopAccessToken();
             }
         } catch (HttpClientErrorException e) {
-            // 4xx from WHOOP's token endpoint (e.g. invalid_grant) means the refresh token
-            // itself is dead — WHOOP won't accept it again on a later retry. Clearing the
-            // tokens here (rather than leaving them in place, as before) makes getStatus()
-            // correctly report connected=false instead of silently claiming the connection
-            // is still good while every sync quietly no-ops. A one-time reconnect
-            // notification beats the user finding out days later that nothing's been syncing.
-            log.warn("WHOOP token refresh rejected for user {} (needs reconnect): {}", user.getId(), e.getMessage());
-            markNeedsReconnect(user);
+            // Only 400/401 actually mean the refresh token itself is dead (e.g. invalid_grant) —
+            // WHOOP won't accept it again on a later retry, so clearing tokens here makes
+            // getStatus() correctly report connected=false instead of silently claiming the
+            // connection is still good while every sync quietly no-ops.
+            //
+            // 429 (and any other 4xx) is NOT that — it's WHOOP rate-limiting us, most likely
+            // from the per-minute backstop scheduler running across every connected user.
+            // Treating it the same as invalid_grant was wiping perfectly good connections on
+            // ordinary rate-limit responses, forcing users to reconnect for no real reason.
+            // Leave the tokens in place and let getValidAccessToken() retry on the next attempt.
+            HttpStatusCode status = e.getStatusCode();
+            if (status == HttpStatus.BAD_REQUEST || status == HttpStatus.UNAUTHORIZED) {
+                log.warn("WHOOP token refresh rejected for user {} (needs reconnect): {}", user.getId(), e.getMessage());
+                markNeedsReconnect(user);
+            } else {
+                log.warn("WHOOP token refresh got {} for user {} (will retry): {}", status, user.getId(), e.getMessage());
+            }
         } catch (Exception e) {
             // Network blip / WHOOP 5xx — transient, don't destroy working tokens over it.
             // getValidAccessToken() will just retry on the next sync attempt.
