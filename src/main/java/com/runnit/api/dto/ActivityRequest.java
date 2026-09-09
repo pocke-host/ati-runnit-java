@@ -25,6 +25,10 @@ public class ActivityRequest {
     private Double startLat;
     private Double startLng;
     private String notes;
+    private String listeningTrack;
+    private String listeningArtist;
+    private String listeningProvider;
+    private String listeningUrl;
 
     public ActivityRequest() {}
 
@@ -41,6 +45,10 @@ public class ActivityRequest {
     public Double getStartLat() { return startLat; }
     public Double getStartLng() { return startLng; }
     public String getNotes() { return notes; }
+    public String getListeningTrack() { return listeningTrack; }
+    public String getListeningArtist() { return listeningArtist; }
+    public String getListeningProvider() { return listeningProvider; }
+    public String getListeningUrl() { return listeningUrl; }
 
     public void setSportType(Activity.SportType sportType) { this.sportType = sportType; }
     public void setDurationSeconds(Integer durationSeconds) { this.durationSeconds = durationSeconds; }
@@ -57,4 +65,8 @@ public class ActivityRequest {
     public void setStartLat(Double startLat) { this.startLat = startLat; }
     public void setStartLng(Double startLng) { this.startLng = startLng; }
     public void setNotes(String notes) { this.notes = notes; }
+    public void setListeningTrack(String listeningTrack) { this.listeningTrack = listeningTrack; }
+    public void setListeningArtist(String listeningArtist) { this.listeningArtist = listeningArtist; }
+    public void setListeningProvider(String listeningProvider) { this.listeningProvider = listeningProvider; }
+    public void setListeningUrl(String listeningUrl) { this.listeningUrl = listeningUrl; }
 }

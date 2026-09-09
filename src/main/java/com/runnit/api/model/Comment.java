@@ -24,6 +24,15 @@ public class Comment {
     @JoinColumn(name = "activity_id")
     private Activity activity;
 
+    @Column(name = "parent_id")
+    private Long parentId;
+
+    @Column(name = "media_url", length = 500)
+    private String mediaUrl;
+
+    @Column(name = "media_type", length = 30)
+    private String mediaType;
+
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
@@ -39,12 +48,18 @@ public class Comment {
     public Activity getActivity() { return activity; }
     public String getContent() { return content; }
     public Instant getCreatedAt() { return createdAt; }
+    public Long getParentId() { return parentId; }
+    public String getMediaUrl() { return mediaUrl; }
+    public String getMediaType() { return mediaType; }
 
     public void setId(Long id) { this.id = id; }
     public void setUser(User user) { this.user = user; }
     public void setMoment(Moment moment) { this.moment = moment; }
     public void setActivity(Activity activity) { this.activity = activity; }
     public void setContent(String content) { this.content = content; }
+    public void setParentId(Long parentId) { this.parentId = parentId; }
+    public void setMediaUrl(String mediaUrl) { this.mediaUrl = mediaUrl; }
+    public void setMediaType(String mediaType) { this.mediaType = mediaType; }
 
     public static Builder builder() { return new Builder(); }
 

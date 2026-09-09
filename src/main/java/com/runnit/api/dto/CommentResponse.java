@@ -7,6 +7,9 @@ public class CommentResponse {
     private String text;
     private Instant createdAt;
     private UserInfo user;
+    private Long parentId;
+    private String mediaUrl;
+    private String mediaType;
 
     public CommentResponse() {}
 
@@ -14,11 +17,17 @@ public class CommentResponse {
     public String getText() { return text; }
     public Instant getCreatedAt() { return createdAt; }
     public UserInfo getUser() { return user; }
+    public Long getParentId() { return parentId; }
+    public String getMediaUrl() { return mediaUrl; }
+    public String getMediaType() { return mediaType; }
 
     public void setId(Long id) { this.id = id; }
     public void setText(String text) { this.text = text; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public void setUser(UserInfo user) { this.user = user; }
+    public void setParentId(Long parentId) { this.parentId = parentId; }
+    public void setMediaUrl(String mediaUrl) { this.mediaUrl = mediaUrl; }
+    public void setMediaType(String mediaType) { this.mediaType = mediaType; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -27,11 +36,17 @@ public class CommentResponse {
         private String text;
         private Instant createdAt;
         private UserInfo user;
+        private Long parentId;
+        private String mediaUrl;
+        private String mediaType;
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder text(String text) { this.text = text; return this; }
         public Builder createdAt(Instant createdAt) { this.createdAt = createdAt; return this; }
         public Builder user(UserInfo user) { this.user = user; return this; }
+        public Builder parentId(Long v) { this.parentId = v; return this; }
+        public Builder mediaUrl(String v) { this.mediaUrl = v; return this; }
+        public Builder mediaType(String v) { this.mediaType = v; return this; }
 
         public CommentResponse build() {
             CommentResponse r = new CommentResponse();
@@ -39,6 +54,9 @@ public class CommentResponse {
             r.text = this.text;
             r.createdAt = this.createdAt;
             r.user = this.user;
+            r.parentId = this.parentId;
+            r.mediaUrl = this.mediaUrl;
+            r.mediaType = this.mediaType;
             return r;
         }
     }
