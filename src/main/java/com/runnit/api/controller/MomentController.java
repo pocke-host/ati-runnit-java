@@ -137,6 +137,11 @@ public class MomentController {
                     .moment(moment)
                     .content(text)
                     .build();
+            if (body.get("parentId") != null && !body.get("parentId").isBlank()) {
+                comment.setParentId(Long.valueOf(body.get("parentId")));
+            }
+            comment.setMediaUrl(body.get("mediaUrl"));
+            comment.setMediaType(body.get("mediaType"));
             comment = commentRepository.save(comment);
             return ResponseEntity.ok(toCommentResponse(comment));
         } catch (RuntimeException e) {
@@ -168,6 +173,9 @@ public class MomentController {
         return CommentResponse.builder()
                 .id(comment.getId())
                 .text(comment.getContent())
+                .parentId(comment.getParentId())
+                .mediaUrl(comment.getMediaUrl())
+                .mediaType(comment.getMediaType())
                 .createdAt(comment.getCreatedAt())
                 .user(CommentResponse.UserInfo.builder()
                         .id(comment.getUser().getId())

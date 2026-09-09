@@ -41,6 +41,10 @@ public class FeedActivityDTO {
     private Double startLat;
     private Double startLng;
     private String notes;
+    private String listeningTrack;
+    private String listeningArtist;
+    private String listeningProvider;
+    private String listeningUrl;
     private String source;
     private LocalDateTime performedAt;
     private LocalDateTime createdAt;
@@ -73,6 +77,10 @@ public class FeedActivityDTO {
         dto.startLat = a.getStartLat();
         dto.startLng = a.getStartLng();
         dto.notes = a.getNotes();
+        dto.listeningTrack = a.getListeningTrack();
+        dto.listeningArtist = a.getListeningArtist();
+        dto.listeningProvider = a.getListeningProvider();
+        dto.listeningUrl = a.getListeningUrl();
         dto.source = a.getSource() != null ? a.getSource().name() : null;
         // performedAt is when the workout actually happened; falls back to createdAt for activities
         // synced before this field existed (that data is genuinely unrecoverable — see V46 migration)
@@ -94,6 +102,10 @@ public class FeedActivityDTO {
     public Double getStartLat() { return startLat; }
     public Double getStartLng() { return startLng; }
     public String getNotes() { return notes; }
+    public String getListeningTrack() { return listeningTrack; }
+    public String getListeningArtist() { return listeningArtist; }
+    public String getListeningProvider() { return listeningProvider; }
+    public String getListeningUrl() { return listeningUrl; }
     public String getSource() { return source; }
     public LocalDateTime getPerformedAt() { return performedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }

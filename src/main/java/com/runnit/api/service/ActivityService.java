@@ -66,6 +66,10 @@ public class ActivityService {
                 .startLat(request.getStartLat())
                 .startLng(request.getStartLng())
                 .notes(request.getNotes())
+                .listeningTrack(request.getListeningTrack())
+                .listeningArtist(request.getListeningArtist())
+                .listeningProvider(request.getListeningProvider())
+                .listeningUrl(request.getListeningUrl())
                 .source(Activity.Source.MANUAL)
                 .build();
 

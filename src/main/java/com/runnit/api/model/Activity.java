@@ -60,6 +60,18 @@ public class Activity {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "listening_track", length = 255)
+    private String listeningTrack;
+
+    @Column(name = "listening_artist", length = 255)
+    private String listeningArtist;
+
+    @Column(name = "listening_provider", length = 50)
+    private String listeningProvider;
+
+    @Column(name = "listening_url", length = 500)
+    private String listeningUrl;
+
     @Column(name = "coach_annotation", columnDefinition = "TEXT")
     private String coachAnnotation;
 
@@ -100,6 +112,10 @@ public class Activity {
     public Source getSource() { return source; }
     public String getExternalId() { return externalId; }
     public String getNotes() { return notes; }
+    public String getListeningTrack() { return listeningTrack; }
+    public String getListeningArtist() { return listeningArtist; }
+    public String getListeningProvider() { return listeningProvider; }
+    public String getListeningUrl() { return listeningUrl; }
     public String getCoachAnnotation() { return coachAnnotation; }
     public LocalDateTime getPerformedAt() { return performedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
@@ -122,6 +138,10 @@ public class Activity {
     public void setSource(Source source) { this.source = source; }
     public void setExternalId(String externalId) { this.externalId = externalId; }
     public void setNotes(String notes) { this.notes = notes; }
+    public void setListeningTrack(String listeningTrack) { this.listeningTrack = listeningTrack; }
+    public void setListeningArtist(String listeningArtist) { this.listeningArtist = listeningArtist; }
+    public void setListeningProvider(String listeningProvider) { this.listeningProvider = listeningProvider; }
+    public void setListeningUrl(String listeningUrl) { this.listeningUrl = listeningUrl; }
     public void setCoachAnnotation(String coachAnnotation) { this.coachAnnotation = coachAnnotation; }
 
     public static Builder builder() { return new Builder(); }
@@ -142,6 +162,10 @@ public class Activity {
         private Source source;
         private String externalId;
         private String notes;
+        private String listeningTrack;
+        private String listeningArtist;
+        private String listeningProvider;
+        private String listeningUrl;
         private LocalDateTime performedAt;
 
         public Builder user(User user) { this.user = user; return this; }
@@ -159,6 +183,10 @@ public class Activity {
         public Builder source(Source source) { this.source = source; return this; }
         public Builder externalId(String externalId) { this.externalId = externalId; return this; }
         public Builder notes(String notes) { this.notes = notes; return this; }
+        public Builder listeningTrack(String v) { this.listeningTrack = v; return this; }
+        public Builder listeningArtist(String v) { this.listeningArtist = v; return this; }
+        public Builder listeningProvider(String v) { this.listeningProvider = v; return this; }
+        public Builder listeningUrl(String v) { this.listeningUrl = v; return this; }
         public Builder performedAt(LocalDateTime performedAt) { this.performedAt = performedAt; return this; }
 
         public Activity build() {
@@ -181,6 +209,10 @@ public class Activity {
             a.source = this.source;
             a.externalId = this.externalId;
             a.notes = this.notes;
+            a.listeningTrack = this.listeningTrack;
+            a.listeningArtist = this.listeningArtist;
+            a.listeningProvider = this.listeningProvider;
+            a.listeningUrl = this.listeningUrl;
             return a;
         }
     }

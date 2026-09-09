@@ -189,6 +189,11 @@ public class ActivityController {
                     .activity(activity)
                     .content(body.get("text"))
                     .build();
+            if (body.get("parentId") != null && !body.get("parentId").isBlank()) {
+                comment.setParentId(Long.valueOf(body.get("parentId")));
+            }
+            comment.setMediaUrl(body.get("mediaUrl"));
+            comment.setMediaType(body.get("mediaType"));
             comment = commentRepository.save(comment);
             return ResponseEntity.ok(toCommentResponse(comment));
         } catch (RuntimeException e) {
@@ -263,6 +268,10 @@ public class ActivityController {
             if (body.containsKey("notes")) {
                 activity.setNotes(body.get("notes"));
             }
+            if (body.containsKey("listeningTrack")) activity.setListeningTrack(body.get("listeningTrack"));
+            if (body.containsKey("listeningArtist")) activity.setListeningArtist(body.get("listeningArtist"));
+            if (body.containsKey("listeningProvider")) activity.setListeningProvider(body.get("listeningProvider"));
+            if (body.containsKey("listeningUrl")) activity.setListeningUrl(body.get("listeningUrl"));
             activityRepository.save(activity);
             return ResponseEntity.ok(FeedActivityDTO.from(activity));
         } catch (RuntimeException e) {
@@ -292,6 +301,9 @@ public class ActivityController {
         return CommentResponse.builder()
                 .id(comment.getId())
                 .text(comment.getContent())
+                .parentId(comment.getParentId())
+                .mediaUrl(comment.getMediaUrl())
+                .mediaType(comment.getMediaType())
                 .createdAt(comment.getCreatedAt())
                 .user(CommentResponse.UserInfo.builder()
                         .id(comment.getUser().getId())

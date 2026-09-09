@@ -44,11 +44,16 @@ class AdaptivePlanServiceTest {
     }
 
     @Test
-    void r2_doesNotFireWithoutWellnessData() {
-        // recoveryScore == null (no wearable connected) must never be treated as "bad"
+    void r2_deepFatigueUsesNonWearableFallback() {
+        // Deep fatigue is actionable even without a wearable; the decision should
+        // soften the next hard session and explain that recovery data is missing.
         AdaptivePlanService.Decision d = AdaptivePlanService.decide(
                 1.0, -25.0, null, "OPTIMAL", true, "INTERVAL", false);
-        assertNull(d);
+        assertNotNull(d);
+        assertNull(d.newWorkoutType());
+        assertEquals(0.92, d.durationDistanceFactor(), 0.0001);
+        assertEquals(1.08, d.paceFactor(), 0.0001);
+        assertTrue(d.reason().contains("deep fatigue risk"));
     }
 
     @Test

@@ -1,0 +1,9 @@
+ALTER TABLE activities ADD COLUMN listening_track VARCHAR(255) DEFAULT NULL;
+ALTER TABLE activities ADD COLUMN listening_artist VARCHAR(255) DEFAULT NULL;
+ALTER TABLE activities ADD COLUMN listening_provider VARCHAR(50) DEFAULT NULL;
+ALTER TABLE activities ADD COLUMN listening_url VARCHAR(500) DEFAULT NULL;
+
+ALTER TABLE comments ADD COLUMN parent_id BIGINT DEFAULT NULL;
+ALTER TABLE comments ADD COLUMN media_url VARCHAR(500) DEFAULT NULL;
+ALTER TABLE comments ADD COLUMN media_type VARCHAR(30) DEFAULT NULL;
+CREATE INDEX idx_comments_parent_id ON comments (parent_id);
