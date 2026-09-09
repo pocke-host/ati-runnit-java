@@ -3,9 +3,12 @@ package com.runnit.api.controller;
 import com.runnit.api.dto.MomentResponse;
 import com.runnit.api.dto.UserResponse;
 import com.runnit.api.model.User;
+import com.runnit.api.model.Activity;
+import com.runnit.api.model.RaceBookmark;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.UserRepository;
+import com.runnit.api.repository.RaceBookmarkRepository;
 import com.runnit.api.service.MomentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +33,7 @@ public class UserController {
     private final FollowRepository followRepository;
     private final ActivityRepository activityRepository;
     private final MomentService momentService;
+    private final RaceBookmarkRepository raceBookmarkRepository;
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getUserProfile(@PathVariable Long id) {
@@ -179,6 +183,45 @@ public class UserController {
             log.error("Failed to fetch user moments: userId={} error={}", id, e.getMessage(), e);
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @GetMapping("/{id}/race-history")
+    public ResponseEntity<?> getRaceHistory(@PathVariable Long id, Authentication auth) {
+        try {
+            userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+            List<Map<String, Object>> activities = activityRepository
+                    .findByUserIdOrderByCreatedAtDesc(id, PageRequest.of(0, 200)).getContent().stream()
+                    .filter(a -> a.getSportType() == Activity.SportType.RUN && isRaceDistance(a.getDistanceMeters()))
+                    .map(this::raceActivityMap).collect(Collectors.toList());
+            List<Map<String, Object>> bookmarks = raceBookmarkRepository.findByUserIdOrderByRaceDateAsc(id).stream()
+                    .map(this::raceBookmarkMap).collect(Collectors.toList());
+            return ResponseEntity.ok(Map.of("activities", activities, "bookmarks", bookmarks));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private boolean isRaceDistance(Integer meters) {
+        if (meters == null) return false;
+        double km = meters / 1000.0;
+        return List.of(5.0, 10.0, 21.0975, 42.195).stream()
+                .anyMatch(d -> Math.abs(km - d) / d <= 0.05);
+    }
+
+    private Map<String, Object> raceActivityMap(Activity a) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", a.getId()); map.put("distanceMeters", a.getDistanceMeters());
+        map.put("durationSeconds", a.getDurationSeconds()); map.put("performedAt", a.getPerformedAt());
+        map.put("createdAt", a.getCreatedAt()); map.put("raceName", null);
+        return map;
+    }
+
+    private Map<String, Object> raceBookmarkMap(RaceBookmark bm) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", bm.getId()); map.put("raceName", bm.getRaceName());
+        map.put("raceDate", bm.getRaceDate() != null ? bm.getRaceDate().toString() : null);
+        map.put("raceType", bm.getRaceType()); map.put("city", bm.getCity()); map.put("state", bm.getState());
+        map.put("raceUrl", bm.getRaceUrl()); return map;
     }
 
     @PostMapping("/me/push-token")

@@ -6,6 +6,7 @@ import com.runnit.api.dto.MomentResponse;
 import com.runnit.api.exception.BadRequestException;
 import com.runnit.api.exception.ResourceNotFoundException;
 import com.runnit.api.model.Comment;
+import com.runnit.api.model.Notification;
 import com.runnit.api.model.Moment;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.CommentRepository;
@@ -26,6 +27,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @RestController
@@ -37,6 +40,8 @@ public class MomentController {
     private final MomentRepository momentRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
+    private final com.runnit.api.repository.NotificationRepository notificationRepository;
+    private static final Pattern MENTION_PATTERN = Pattern.compile("@([A-Za-z0-9_.-]{2,30})");
 
     @PostMapping
     public ResponseEntity<?> createMoment(
@@ -143,6 +148,7 @@ public class MomentController {
             comment.setMediaUrl(body.get("mediaUrl"));
             comment.setMediaType(body.get("mediaType"));
             comment = commentRepository.save(comment);
+            notifyMentionedUsers(text, user, moment.getId());
             return ResponseEntity.ok(toCommentResponse(comment));
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
@@ -183,5 +189,20 @@ public class MomentController {
                         .avatarUrl(comment.getUser().getAvatarUrl())
                         .build())
                 .build();
+    }
+
+    private void notifyMentionedUsers(String text, User actor, Long momentId) {
+        Matcher matcher = MENTION_PATTERN.matcher(text == null ? "" : text);
+        java.util.Set<Long> notified = new java.util.HashSet<>();
+        while (matcher.find()) {
+            userRepository.findByUserIgnoreCase(matcher.group(1)).ifPresent(mentioned -> {
+                if (!mentioned.getId().equals(actor.getId()) && notified.add(mentioned.getId())) {
+                    notificationRepository.save(Notification.builder()
+                            .user(mentioned).actor(actor).type("MENTION")
+                            .message(actor.getDisplayName() + " mentioned you in a comment")
+                            .referenceId(momentId).referenceType("MOMENT").build());
+                }
+            });
+        }
     }
 }
