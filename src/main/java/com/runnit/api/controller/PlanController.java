@@ -274,6 +274,9 @@ public class PlanController {
             }
             PlanWorkout workout = workoutRepository.findById(workoutId)
                     .orElseThrow(() -> new RuntimeException("Workout not found"));
+            if (!workout.getPlan().getId().equals(planId)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Workout does not belong to this plan"));
+            }
             if (body.containsKey("title") && body.get("title") != null) {
                 workout.setTitle((String) body.get("title"));
             }
@@ -298,6 +301,10 @@ public class PlanController {
             if (body.containsKey("completed")) {
                 workout.setCompleted(Boolean.TRUE.equals(body.get("completed")));
             }
+            if (body.containsKey("linkedActivityId")) {
+                Object linked = body.get("linkedActivityId");
+                workout.setLinkedActivityId(linked == null ? null : ((Number) linked).longValue());
+            }
             workoutRepository.save(workout);
             Map<String, Object> result = new HashMap<>();
             result.put("id", workout.getId());
@@ -310,6 +317,7 @@ public class PlanController {
             result.put("distanceMeters", workout.getDistanceMeters());
             result.put("targetPaceSeconds", workout.getTargetPaceSeconds());
             result.put("completed", workout.isCompleted());
+            result.put("linkedActivityId", workout.getLinkedActivityId());
             return ResponseEntity.ok(result);
         } catch (RuntimeException e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);

@@ -1,6 +1,8 @@
 package com.runnit.api.controller;
 
+import com.runnit.api.model.InviteEvent;
 import com.runnit.api.model.User;
+import com.runnit.api.repository.InviteEventRepository;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.service.FollowService;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class InviteController {
 
     private final UserRepository userRepository;
     private final FollowService followService;
+    private final InviteEventRepository inviteEventRepository;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -64,18 +67,79 @@ public class InviteController {
         }
     }
 
-    /** GET /api/invite/{code} — public preview so the join page can show who invited you. */
+    /**
+     * GET /api/invite/{code} — public preview so the join page can show who invited you.
+     * Also logs a VISITED event: visitor is null when the caller isn't authenticated,
+     * which is the proxy for "a new person clicked this" vs. an existing user reopening
+     * a link they'd already used.
+     */
     @GetMapping("/api/invite/{code}")
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> previewInvite(@PathVariable String code) {
+    @Transactional
+    public ResponseEntity<?> previewInvite(@PathVariable String code, Authentication auth) {
         return userRepository.findByInviteCode(code)
                 .map(inviter -> {
+                    User visitor = (auth != null && auth.getPrincipal() instanceof Long visitorId)
+                            ? userRepository.findById(visitorId).orElse(null)
+                            : null;
+                    inviteEventRepository.save(InviteEvent.builder()
+                            .inviter(inviter)
+                            .visitor(visitor)
+                            .eventType("VISITED")
+                            .build());
+
                     Map<String, Object> preview = new HashMap<>();
                     preview.put("displayName", inviter.getDisplayName());
                     preview.put("avatarUrl", inviter.getAvatarUrl());
                     return ResponseEntity.ok((Object) preview);
                 })
                 .orElse(ResponseEntity.status(404).body(Map.of("error", "Invite link not found")));
+    }
+
+    /** POST /api/invite/copied — authenticated user recorded copying their own invite link. */
+    @PostMapping("/api/invite/copied")
+    @Transactional
+    public ResponseEntity<?> logInviteCopied(Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            User inviter = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            inviteEventRepository.save(InviteEvent.builder()
+                    .inviter(inviter)
+                    .eventType("COPIED")
+                    .build());
+
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/invite-stats — copy/visit counts for the current user's own invite link.
+     * Deliberately NOT under /api/invite/* — same reason as /api/invite-link above: that
+     * prefix is permitAll'd (GET) for the public code preview, and "stats" is a single path
+     * segment that would otherwise match it and slip past authentication.
+     */
+    @GetMapping("/api/invite-stats")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getInviteStats(Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            long copied = inviteEventRepository.countByInviter_IdAndEventType(userId, "COPIED");
+            long visited = inviteEventRepository.countByInviter_IdAndEventType(userId, "VISITED");
+            long visitedByNewUsers = inviteEventRepository.countByInviter_IdAndEventTypeAndVisitorIsNull(userId, "VISITED");
+
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("copied", copied);
+            stats.put("visited", visited);
+            stats.put("visitedByNewUsers", visitedByNewUsers);
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     /** POST /api/invite/{code}/accept — authenticated user follows whoever sent the link. */
