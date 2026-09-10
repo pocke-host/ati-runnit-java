@@ -462,10 +462,25 @@ public class WhoopService {
             User fresh = userRepository.findById(user.getId()).orElse(user);
             long recheckedNow = Instant.now().getEpochSecond();
             if (fresh.getWhoopTokenExpiresAt() == null || fresh.getWhoopTokenExpiresAt() > recheckedNow + 300) {
+                copyTokenState(fresh, user);
                 return fresh.getWhoopAccessToken();
             }
-            return refreshToken(fresh);
+            String refreshed = refreshToken(fresh);
+            copyTokenState(fresh, user);
+            return refreshed;
         }
+    }
+
+    /**
+     * A refresh can rotate WHOOP's single-use refresh token. Keep the entity that
+     * the caller is about to save in sync with the freshly reloaded entity; without
+     * this, the caller's later lastSync save could overwrite the rotated token with
+     * the stale token it loaded before the refresh.
+     */
+    private void copyTokenState(User source, User target) {
+        target.setWhoopAccessToken(source.getWhoopAccessToken());
+        target.setWhoopRefreshToken(source.getWhoopRefreshToken());
+        target.setWhoopTokenExpiresAt(source.getWhoopTokenExpiresAt());
     }
 
     private String refreshToken(User user) {

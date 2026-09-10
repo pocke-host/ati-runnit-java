@@ -405,7 +405,9 @@ public class AuthController {
         Cookie cookie = new Cookie(name, "");
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
-        cookie.setPath("/");
+        // Must match the path used when the refresh cookie was created or the
+        // browser will retain the old cookie after logout.
+        cookie.setPath("refreshToken".equals(name) ? "/api/auth/refresh" : "/");
         cookie.setMaxAge(0);
         cookie.setAttribute("SameSite", "None");
         response.addCookie(cookie);
