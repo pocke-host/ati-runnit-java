@@ -2,6 +2,8 @@ package com.runnit.api.controller;
 
 import com.runnit.api.model.RaceResult;
 import com.runnit.api.repository.RaceResultRepository;
+import com.runnit.api.repository.UserRepository;
+import com.runnit.api.service.RaceResultDiscoveryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,6 +18,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RaceResultController {
     private final RaceResultRepository repository;
+    private final UserRepository userRepository;
+    private final RaceResultDiscoveryService discoveryService;
+
+    @GetMapping("/discover")
+    public ResponseEntity<?> discover(@RequestParam(defaultValue = "ATHLINKS") String provider, Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            return ResponseEntity.ok(discoveryService.discover(userRepository.findById(userId).orElseThrow(), provider));
+        } catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
+    }
 
     @GetMapping
     @Transactional(readOnly = true)
