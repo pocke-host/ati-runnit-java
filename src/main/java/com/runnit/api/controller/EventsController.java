@@ -16,17 +16,20 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/events")
 public class EventsController {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final com.runnit.api.service.RunSignupRequestGate runSignupGate;
 
     // ── RunSignup proxy ───────────────────────────────────────────────────
 
@@ -58,7 +61,7 @@ public class EventsController {
             String url = builder.toUriString();
             HttpHeaders headers = new HttpHeaders();
             if (runSignupCallerSecret != null && !runSignupCallerSecret.isBlank()) headers.set("X-RSU-API-REG-SECRET", runSignupCallerSecret);
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            ResponseEntity<Map> response = runSignupGate.execute(() -> restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), Map.class));
             return ResponseEntity.ok(response.getBody());
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);

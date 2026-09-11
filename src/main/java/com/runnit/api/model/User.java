@@ -139,6 +139,17 @@ public class User {
     @Column(name = "spotify_oauth_state", length = 100)
     private String spotifyOauthState;
 
+    @Column(name = "runsignup_access_token", columnDefinition = "TEXT")
+    private String runSignupAccessToken;
+    @Column(name = "runsignup_refresh_token", columnDefinition = "TEXT")
+    private String runSignupRefreshToken;
+    @Column(name = "runsignup_token_expires_at")
+    private Long runSignupTokenExpiresAt;
+    @Column(name = "runsignup_oauth_state", length = 100)
+    private String runSignupOauthState;
+    @Column(name = "runsignup_oauth_verifier", length = 128)
+    private String runSignupOauthVerifier;
+
     @Column(name = "apple_health_connected")
     private Boolean appleHealthConnected;
 
@@ -294,6 +305,16 @@ public class User {
     public void setSpotifyTokenExpiresAt(Long v) { this.spotifyTokenExpiresAt = v; }
     public String getSpotifyOauthState() { return spotifyOauthState; }
     public void setSpotifyOauthState(String v) { this.spotifyOauthState = v; }
+    public String getRunSignupAccessToken() { return runSignupAccessToken; }
+    public void setRunSignupAccessToken(String v) { this.runSignupAccessToken = v; }
+    public String getRunSignupRefreshToken() { return runSignupRefreshToken; }
+    public void setRunSignupRefreshToken(String v) { this.runSignupRefreshToken = v; }
+    public Long getRunSignupTokenExpiresAt() { return runSignupTokenExpiresAt; }
+    public void setRunSignupTokenExpiresAt(Long v) { this.runSignupTokenExpiresAt = v; }
+    public String getRunSignupOauthState() { return runSignupOauthState; }
+    public void setRunSignupOauthState(String v) { this.runSignupOauthState = v; }
+    public String getRunSignupOauthVerifier() { return runSignupOauthVerifier; }
+    public void setRunSignupOauthVerifier(String v) { this.runSignupOauthVerifier = v; }
     public Boolean getAppleHealthConnected() { return appleHealthConnected; }
     public void setAppleHealthConnected(Boolean appleHealthConnected) { this.appleHealthConnected = appleHealthConnected; }
     public Instant getAppleHealthLastSync() { return appleHealthLastSync; }
