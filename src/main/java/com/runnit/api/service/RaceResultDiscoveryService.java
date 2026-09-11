@@ -16,13 +16,15 @@ import java.util.*;
 public class RaceResultDiscoveryService {
     private final RestTemplate restTemplate;
     private final ObjectMapper mapper;
+    private final RunSignupRequestGate runSignupGate;
+    private final RunSignupOAuthService runSignupOAuth;
     @Value("${athlinks.api.key:}") private String athlinksKey;
     @Value("${runsignup.api.key:}") private String runSignupKey;
     @Value("${runsignup.api.secret:}") private String runSignupSecret;
     @Value("${runsignup.api.caller-token:}") private String runSignupCallerToken;
     @Value("${runsignup.api.caller-secret:}") private String runSignupCallerSecret;
 
-    public RaceResultDiscoveryService(RestTemplate restTemplate, ObjectMapper mapper) { this.restTemplate = restTemplate; this.mapper = mapper; }
+    public RaceResultDiscoveryService(RestTemplate restTemplate, ObjectMapper mapper, RunSignupRequestGate runSignupGate, RunSignupOAuthService runSignupOAuth) { this.restTemplate = restTemplate; this.mapper = mapper; this.runSignupGate = runSignupGate; this.runSignupOAuth = runSignupOAuth; }
 
     public List<Map<String,Object>> discover(User user, String provider, String raceId, String eventId) {
         if ("ATHLINKS".equalsIgnoreCase(provider)) return athlinks(user);
@@ -67,11 +69,15 @@ public class RaceResultDiscoveryService {
         String[] name = (user.getDisplayName() == null ? "" : user.getDisplayName().trim()).split("\\s+", 2);
         String first = name.length > 0 ? name[0] : "";
         String last = name.length > 1 ? name[1] : "";
-        String url = "https://api.runsignup.com/rest/race/" + enc(raceId) + "/results/get-results?format=json&api_key=" + enc(runSignupKey) + "&api_secret=" + enc(runSignupSecret) + "&event_id=" + enc(eventId) + "&first_name=" + enc(first) + "&last_name=" + enc(last) + "&results_per_page=100&rsu_api_reg=" + enc(runSignupCallerToken);
+        boolean userAuthorized = user.getRunSignupRefreshToken() != null;
+        String url = "https://api.runsignup.com/rest/race/" + enc(raceId) + "/results/get-results?format=json&event_id=" + enc(eventId) + "&first_name=" + enc(first) + "&last_name=" + enc(last) + "&results_per_page=100";
+        if (!userAuthorized) url += "&api_key=" + enc(runSignupKey) + "&api_secret=" + enc(runSignupSecret) + "&rsu_api_reg=" + enc(runSignupCallerToken);
+        final String requestUrl = url;
         try {
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.set("X-RSU-API-REG-SECRET", runSignupCallerSecret);
-            String body = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, new org.springframework.http.HttpEntity<>(headers), String.class).getBody();
+            if (userAuthorized) headers.setBearerAuth(runSignupOAuth.accessToken(user));
+            else headers.set("X-RSU-API-REG-SECRET", runSignupCallerSecret);
+            String body = runSignupGate.execute(() -> restTemplate.exchange(requestUrl, org.springframework.http.HttpMethod.GET, new org.springframework.http.HttpEntity<>(headers), String.class).getBody());
             JsonNode root = mapper.readTree(body);
             List<JsonNode> rows = new ArrayList<>(); collectResults(root, rows);
             List<Map<String,Object>> out = new ArrayList<>();
