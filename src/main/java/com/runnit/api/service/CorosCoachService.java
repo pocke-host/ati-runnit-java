@@ -50,9 +50,20 @@ public class CorosCoachService {
         Map<String,Object> out=new LinkedHashMap<>(); out.put("recovery",callTool(u,"queryRecoveryStatus",Map.of())); out.put("trainingLoad",callTool(u,"queryTrainingLoadAssessment",Map.of())); out.put("fitness",callTool(u,"queryFitnessAssessmentOverview",Map.of())); return out;
     }
     private Object callTool(User u,String name,Map<String,Object> args){
+        initialize(u);
         Map<String,Object> req=new LinkedHashMap<>(); req.put("jsonrpc","2.0"); req.put("id",UUID.randomUUID().toString()); req.put("method","tools/call"); req.put("params",Map.of("name",name,"arguments",args));
-        HttpHeaders h=new HttpHeaders(); h.setBearerAuth(u.getCorosMcpAccessToken()); h.setAccept(List.of(MediaType.APPLICATION_JSON,MediaType.TEXT_EVENT_STREAM)); h.setContentType(MediaType.APPLICATION_JSON);
+        HttpHeaders h=mcpHeaders(u); h.set("MCP-Protocol-Version","2025-06-18");
         ResponseEntity<String> response=http.exchange(baseUrl+"/mcp",HttpMethod.POST,new HttpEntity<>(req,h),String.class); return response.getBody();
+    }
+    private void initialize(User u){
+        Map<String,Object> params=new LinkedHashMap<>(); params.put("protocolVersion","2025-06-18"); params.put("capabilities",Map.of()); params.put("clientInfo",Map.of("name","RUNNIT COROS Coach","version","1.0"));
+        Map<String,Object> req=new LinkedHashMap<>(); req.put("jsonrpc","2.0"); req.put("id",UUID.randomUUID().toString()); req.put("method","initialize"); req.put("params",params);
+        HttpHeaders h=mcpHeaders(u); h.set("MCP-Protocol-Version","2025-06-18");
+        ResponseEntity<String> response=http.exchange(baseUrl+"/mcp",HttpMethod.POST,new HttpEntity<>(req,h),String.class);
+        if(!response.getStatusCode().is2xxSuccessful()) throw new IllegalStateException("COROS MCP initialization failed");
+    }
+    private HttpHeaders mcpHeaders(User u){
+        HttpHeaders h=new HttpHeaders(); h.setBearerAuth(u.getCorosMcpAccessToken()); h.setAccept(List.of(MediaType.APPLICATION_JSON,MediaType.TEXT_EVENT_STREAM)); h.setContentType(MediaType.APPLICATION_JSON); return h;
     }
     private void saveTokens(User u,Map<String,Object> t){u.setCorosMcpAccessToken((String)t.get("access_token")); if(t.get("refresh_token")!=null)u.setCorosMcpRefreshToken((String)t.get("refresh_token")); long e=((Number)t.getOrDefault("expires_in",3600)).longValue();u.setCorosMcpTokenExpiresAt(Instant.now().getEpochSecond()+e);}
     private void ensureFresh(User u){
