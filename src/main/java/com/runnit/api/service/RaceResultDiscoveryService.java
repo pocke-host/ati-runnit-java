@@ -17,13 +17,18 @@ public class RaceResultDiscoveryService {
     private final RestTemplate restTemplate;
     private final ObjectMapper mapper;
     @Value("${athlinks.api.key:}") private String athlinksKey;
+    @Value("${runsignup.api.key:}") private String runSignupKey;
+    @Value("${runsignup.api.secret:}") private String runSignupSecret;
 
     public RaceResultDiscoveryService(RestTemplate restTemplate, ObjectMapper mapper) { this.restTemplate = restTemplate; this.mapper = mapper; }
 
-    public List<Map<String,Object>> discover(User user, String provider) {
+    public List<Map<String,Object>> discover(User user, String provider, String raceId, String eventId) {
         if ("ATHLINKS".equalsIgnoreCase(provider)) return athlinks(user);
+        if ("RUNSIGNUP".equalsIgnoreCase(provider)) return runSignup(user, raceId, eventId);
         return List.of();
     }
+
+    public List<String> providers() { return List.of("ATHLINKS", "RUNSIGNUP"); }
 
     private List<Map<String,Object>> athlinks(User user) {
         if (athlinksKey == null || athlinksKey.isBlank()) throw new IllegalStateException("Athlinks integration is not configured");
@@ -54,10 +59,43 @@ public class RaceResultDiscoveryService {
         } catch (Exception e) { log.warn("Athlinks result discovery failed: {}", e.getMessage()); throw new IllegalStateException("Athlinks result search failed", e); }
     }
 
+    private List<Map<String,Object>> runSignup(User user, String raceId, String eventId) {
+        if (runSignupKey.isBlank() || runSignupSecret.isBlank()) throw new IllegalStateException("RunSignup integration is not configured");
+        if (raceId == null || eventId == null) throw new IllegalArgumentException("RunSignup requires raceId and eventId");
+        String[] name = (user.getDisplayName() == null ? "" : user.getDisplayName().trim()).split("\\s+", 2);
+        String first = name.length > 0 ? name[0] : "";
+        String last = name.length > 1 ? name[1] : "";
+        String url = "https://api.runsignup.com/rest/race/" + enc(raceId) + "/results/get-results?format=json&api_key=" + enc(runSignupKey) + "&api_secret=" + enc(runSignupSecret) + "&event_id=" + enc(eventId) + "&first_name=" + enc(first) + "&last_name=" + enc(last) + "&results_per_page=100";
+        try {
+            JsonNode root = mapper.readTree(restTemplate.getForObject(url, String.class));
+            List<JsonNode> rows = new ArrayList<>(); collectResults(root, rows);
+            List<Map<String,Object>> out = new ArrayList<>();
+            for (JsonNode row : rows) {
+                Map<String,Object> result = new LinkedHashMap<>(); result.put("provider","RUNSIGNUP");
+                result.put("externalResultId", first(row,"result_id","resultId","registration_id","registrationId"));
+                result.put("raceName", first(row,"race_name","raceName","event_name","eventName"));
+                result.put("raceDate", first(row,"race_date","raceDate","event_date","eventDate"));
+                result.put("distance", first(row,"event_name","eventName","distance"));
+                result.put("finishTimeSeconds", seconds(row,"chip_time","chipTime","clock_time","clockTime","finish_time","finishTime"));
+                result.put("placement", integer(row,"place","overall_place","overallPlace"));
+                result.put("resultUrl", first(row,"result_url","resultUrl","url")); result.put("matchConfidence",85);
+                if (result.get("externalResultId") != null) out.add(result);
+            }
+            return out;
+        } catch (Exception e) { log.warn("RunSignup result discovery failed: {}", e.getMessage()); throw new IllegalStateException("RunSignup result search failed", e); }
+    }
+
+    private void collectResults(JsonNode node, List<JsonNode> out) {
+        if (node == null) return;
+        if (node.isObject()) { if (node.has("result_id") || node.has("resultId") || node.has("registration_id")) out.add(node); node.fields().forEachRemaining(e -> collectResults(e.getValue(), out)); }
+        else if (node.isArray()) node.forEach(n -> collectResults(n, out));
+    }
+
     private static String first(JsonNode row, String... keys) { for (String key : keys) if (row.hasNonNull(key)) return row.get(key).asText(); return null; }
     private static Integer integer(JsonNode row, String... keys) { String value = first(row, keys); try { return value == null ? null : Integer.valueOf(value.replaceAll("[^0-9]", "")); } catch (Exception ignored) { return null; } }
     private static Integer seconds(JsonNode row, String... keys) {
         String value = first(row, keys); if (value == null) return null;
         try { if (value.matches("\\d+")) return Integer.valueOf(value); String[] p = value.split(":"); int s=0; for (String part:p) s=s*60+Integer.parseInt(part.replaceAll("[^0-9]", "")); return s; } catch (Exception ignored) { return null; }
     }
+    private static String enc(String value) { return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8); }
 }
