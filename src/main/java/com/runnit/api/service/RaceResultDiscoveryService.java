@@ -19,6 +19,8 @@ public class RaceResultDiscoveryService {
     @Value("${athlinks.api.key:}") private String athlinksKey;
     @Value("${runsignup.api.key:}") private String runSignupKey;
     @Value("${runsignup.api.secret:}") private String runSignupSecret;
+    @Value("${runsignup.api.caller-token:}") private String runSignupCallerToken;
+    @Value("${runsignup.api.caller-secret:}") private String runSignupCallerSecret;
 
     public RaceResultDiscoveryService(RestTemplate restTemplate, ObjectMapper mapper) { this.restTemplate = restTemplate; this.mapper = mapper; }
 
@@ -65,9 +67,12 @@ public class RaceResultDiscoveryService {
         String[] name = (user.getDisplayName() == null ? "" : user.getDisplayName().trim()).split("\\s+", 2);
         String first = name.length > 0 ? name[0] : "";
         String last = name.length > 1 ? name[1] : "";
-        String url = "https://api.runsignup.com/rest/race/" + enc(raceId) + "/results/get-results?format=json&api_key=" + enc(runSignupKey) + "&api_secret=" + enc(runSignupSecret) + "&event_id=" + enc(eventId) + "&first_name=" + enc(first) + "&last_name=" + enc(last) + "&results_per_page=100";
+        String url = "https://api.runsignup.com/rest/race/" + enc(raceId) + "/results/get-results?format=json&api_key=" + enc(runSignupKey) + "&api_secret=" + enc(runSignupSecret) + "&event_id=" + enc(eventId) + "&first_name=" + enc(first) + "&last_name=" + enc(last) + "&results_per_page=100&rsu_api_reg=" + enc(runSignupCallerToken);
         try {
-            JsonNode root = mapper.readTree(restTemplate.getForObject(url, String.class));
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.set("X-RSU-API-REG-SECRET", runSignupCallerSecret);
+            String body = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, new org.springframework.http.HttpEntity<>(headers), String.class).getBody();
+            JsonNode root = mapper.readTree(body);
             List<JsonNode> rows = new ArrayList<>(); collectResults(root, rows);
             List<Map<String,Object>> out = new ArrayList<>();
             for (JsonNode row : rows) {
