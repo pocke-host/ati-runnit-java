@@ -22,12 +22,15 @@ public class RaceResultController {
     private final RaceResultDiscoveryService discoveryService;
 
     @GetMapping("/discover")
-    public ResponseEntity<?> discover(@RequestParam(defaultValue = "ATHLINKS") String provider, Authentication auth) {
+    public ResponseEntity<?> discover(@RequestParam(defaultValue = "ATHLINKS") String provider, @RequestParam(required = false) String raceId, @RequestParam(required = false) String eventId, Authentication auth) {
         try {
             Long userId = (Long) auth.getPrincipal();
-            return ResponseEntity.ok(discoveryService.discover(userRepository.findById(userId).orElseThrow(), provider));
+            return ResponseEntity.ok(discoveryService.discover(userRepository.findById(userId).orElseThrow(), provider, raceId, eventId));
         } catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
     }
+
+    @GetMapping("/providers")
+    public List<String> providers() { return discoveryService.providers(); }
 
     @GetMapping
     @Transactional(readOnly = true)
