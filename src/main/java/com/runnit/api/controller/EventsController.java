@@ -10,6 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 
 import lombok.extern.slf4j.Slf4j;
 import java.time.Instant;
@@ -40,6 +44,10 @@ public class EventsController {
                     .queryParam("page", page)
                     .queryParam("results_per_page", results_per_page);
 
+            if (runSignupKey != null && !runSignupKey.isBlank()) builder.queryParam("api_key", runSignupKey);
+            if (runSignupSecret != null && !runSignupSecret.isBlank()) builder.queryParam("api_secret", runSignupSecret);
+            if (runSignupCallerToken != null && !runSignupCallerToken.isBlank()) builder.queryParam("rsu_api_reg", runSignupCallerToken);
+
             if (event_type != null && !event_type.isBlank()) {
                 builder.queryParam("event_type", event_type);
             }
@@ -48,7 +56,9 @@ public class EventsController {
             }
 
             String url = builder.toUriString();
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+            HttpHeaders headers = new HttpHeaders();
+            if (runSignupCallerSecret != null && !runSignupCallerSecret.isBlank()) headers.set("X-RSU-API-REG-SECRET", runSignupCallerSecret);
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
             return ResponseEntity.ok(response.getBody());
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
@@ -62,6 +72,11 @@ public class EventsController {
     private static final long CACHE_TTL_MS = 60 * 60 * 1000L;
     private final AtomicReference<List<Map<String, Object>>> cachedFar = new AtomicReference<>(null);
     private volatile long cacheTimestamp = 0;
+
+    @Value("${runsignup.api.key:}") private String runSignupKey;
+    @Value("${runsignup.api.secret:}") private String runSignupSecret;
+    @Value("${runsignup.api.caller-token:}") private String runSignupCallerToken;
+    @Value("${runsignup.api.caller-secret:}") private String runSignupCallerSecret;
 
     /** Pages to scrape on findarace.com, mapped to the sport label */
     private static final Map<String, String> FAR_PAGES = new LinkedHashMap<>();
