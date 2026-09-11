@@ -13,6 +13,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import com.runnit.api.model.User;
+import com.runnit.api.repository.UserRepository;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.UUID;
 
 import java.util.ArrayList;
 import java.util.Base64;
@@ -26,6 +32,9 @@ public class SpotifyService {
 
     private static final String TOKEN_URL = "https://accounts.spotify.com/api/token";
     private static final String SEARCH_URL = "https://api.spotify.com/v1/search";
+    private static final String AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
+    private static final String RECENTLY_PLAYED_URL = "https://api.spotify.com/v1/me/player/recently-played";
+    private static final String USER_SCOPE = "user-read-recently-played";
 
     @Value("${spotify.client.id:}")
     private String clientId;
@@ -33,16 +42,68 @@ public class SpotifyService {
     @Value("${spotify.client.secret:}")
     private String clientSecret;
 
+    @Value("${spotify.redirect.uri:https://ati-runnit-java.onrender.com/api/spotify/callback}")
+    private String redirectUri;
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
 
     // In-memory token cache
     private String cachedAccessToken;
     private long tokenExpiryEpochMs = 0;
 
-    public SpotifyService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+    public SpotifyService(RestTemplate restTemplate, ObjectMapper objectMapper, UserRepository userRepository) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.userRepository = userRepository;
+    }
+
+    public String connect(Long userId) {
+        requireConfigured();
+        User user = userRepository.findById(userId).orElseThrow();
+        String state = UUID.randomUUID().toString();
+        user.setSpotifyOauthState(state);
+        userRepository.save(user);
+        return AUTHORIZE_URL + "?response_type=code&client_id=" + enc(clientId)
+                + "&scope=" + enc(USER_SCOPE) + "&redirect_uri=" + enc(redirectUri)
+                + "&state=" + enc(state);
+    }
+
+    public String callback(String code, String state) {
+        requireConfigured();
+        User user = userRepository.findBySpotifyOauthState(state)
+                .orElseThrow(() -> new IllegalStateException("Spotify authorization expired"));
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("grant_type", "authorization_code");
+        body.add("code", code);
+        body.add("redirect_uri", redirectUri);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.setBasicAuth(clientId, clientSecret);
+        Map<String, Object> token = tokenResponse(new HttpEntity<>(body, headers));
+        saveUserToken(user, token);
+        user.setSpotifyOauthState(null);
+        userRepository.save(user);
+        return "";
+    }
+
+    public Map<String, Object> status(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow();
+        return Map.of("connected", user.getSpotifyRefreshToken() != null,
+                "expiresAt", user.getSpotifyTokenExpiresAt() == null ? 0 : user.getSpotifyTokenExpiresAt());
+    }
+
+    public List<Map<String, Object>> recentlyPlayed(Long userId, Long after, Long before) {
+        User user = userRepository.findById(userId).orElseThrow();
+        String token = userAccessToken(user);
+        StringBuilder url = new StringBuilder(RECENTLY_PLAYED_URL).append("?limit=50");
+        if (after != null) url.append("&after=").append(after);
+        if (before != null) url.append("&before=").append(before);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        ResponseEntity<String> response = restTemplate.exchange(url.toString(), HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        return parseRecentlyPlayed(response.getBody());
     }
 
     /**
@@ -122,6 +183,78 @@ public class SpotifyService {
         }
     }
 
+    private String userAccessToken(User user) {
+        if (user.getSpotifyAccessToken() == null) {
+            throw new IllegalStateException("Connect Spotify first");
+        }
+        if (user.getSpotifyTokenExpiresAt() != null && Instant.now().getEpochSecond() < user.getSpotifyTokenExpiresAt() - 60) {
+            return user.getSpotifyAccessToken();
+        }
+        if (user.getSpotifyRefreshToken() == null) throw new IllegalStateException("Spotify authorization expired");
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("grant_type", "refresh_token");
+        body.add("refresh_token", user.getSpotifyRefreshToken());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.setBasicAuth(clientId, clientSecret);
+        Map<String, Object> token = tokenResponse(new HttpEntity<>(body, headers));
+        saveUserToken(user, token);
+        userRepository.save(user);
+        return user.getSpotifyAccessToken();
+    }
+
+    private Map<String, Object> tokenResponse(HttpEntity<MultiValueMap<String, String>> request) {
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(TOKEN_URL, request, String.class);
+            return objectMapper.readValue(response.getBody(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            throw new IllegalStateException("Spotify token exchange failed", e);
+        }
+    }
+
+    private void saveUserToken(User user, Map<String, Object> token) {
+        user.setSpotifyAccessToken((String) token.get("access_token"));
+        if (token.get("refresh_token") != null) user.setSpotifyRefreshToken((String) token.get("refresh_token"));
+        long expiresIn = token.get("expires_in") instanceof Number ? ((Number) token.get("expires_in")).longValue() : 3600;
+        user.setSpotifyTokenExpiresAt(Instant.now().getEpochSecond() + expiresIn);
+    }
+
+    private List<Map<String, Object>> parseRecentlyPlayed(String json) {
+        List<Map<String, Object>> tracks = new ArrayList<>();
+        try {
+            JsonNode items = objectMapper.readTree(json).path("items");
+            for (JsonNode item : items) {
+                JsonNode track = item.path("track");
+                Map<String, Object> row = parseTrack(track);
+                row.put("playedAt", item.path("played_at").asText(null));
+                tracks.add(row);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not parse Spotify listening history", e);
+        }
+        return tracks;
+    }
+
+    private Map<String, Object> parseTrack(JsonNode item) {
+        Map<String, Object> track = new HashMap<>();
+        track.put("id", item.path("id").asText(null));
+        track.put("name", item.path("name").asText(null));
+        JsonNode artists = item.path("artists");
+        track.put("artist", artists.isArray() && !artists.isEmpty() ? artists.get(0).path("name").asText(null) : null);
+        track.put("albumName", item.path("album").path("name").asText(null));
+        track.put("externalUrl", item.path("external_urls").path("spotify").asText(null));
+        track.put("durationMs", item.path("duration_ms").asLong(0));
+        return track;
+    }
+
+    private void requireConfigured() {
+        if (clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()) {
+            throw new IllegalStateException("Spotify integration is not configured");
+        }
+    }
+
+    private String enc(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8); }
+
     /**
      * Parses the Spotify search JSON response into a list of track maps.
      */
@@ -132,21 +265,8 @@ public class SpotifyService {
             JsonNode items = root.path("tracks").path("items");
 
             for (JsonNode item : items) {
-                Map<String, Object> track = new HashMap<>();
-                track.put("id", item.path("id").asText(null));
-                track.put("name", item.path("name").asText(null));
-
-                // First artist name
-                JsonNode artists = item.path("artists");
-                String artist = (artists.isArray() && artists.size() > 0)
-                        ? artists.get(0).path("name").asText(null)
-                        : null;
-                track.put("artist", artist);
-
-                track.put("albumName", item.path("album").path("name").asText(null));
+                Map<String, Object> track = parseTrack(item);
                 track.put("previewUrl", nullIfEmpty(item.path("preview_url").asText(null)));
-                track.put("externalUrl", item.path("external_urls").path("spotify").asText(null));
-                track.put("durationMs", item.path("duration_ms").asLong(0));
 
                 tracks.add(track);
             }

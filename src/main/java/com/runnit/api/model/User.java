@@ -130,6 +130,15 @@ public class User {
     @Column(name = "coros_mcp_client_id", length = 200)
     private String corosMcpClientId;
 
+    @Column(name = "spotify_access_token", columnDefinition = "TEXT")
+    private String spotifyAccessToken;
+    @Column(name = "spotify_refresh_token", columnDefinition = "TEXT")
+    private String spotifyRefreshToken;
+    @Column(name = "spotify_token_expires_at")
+    private Long spotifyTokenExpiresAt;
+    @Column(name = "spotify_oauth_state", length = 100)
+    private String spotifyOauthState;
+
     @Column(name = "apple_health_connected")
     private Boolean appleHealthConnected;
 
@@ -277,6 +286,14 @@ public class User {
     public void setCorosMcpOauthState(String v) { this.corosMcpOauthState = v; }
     public String getCorosMcpClientId() { return corosMcpClientId; }
     public void setCorosMcpClientId(String v) { this.corosMcpClientId = v; }
+    public String getSpotifyAccessToken() { return spotifyAccessToken; }
+    public void setSpotifyAccessToken(String v) { this.spotifyAccessToken = v; }
+    public String getSpotifyRefreshToken() { return spotifyRefreshToken; }
+    public void setSpotifyRefreshToken(String v) { this.spotifyRefreshToken = v; }
+    public Long getSpotifyTokenExpiresAt() { return spotifyTokenExpiresAt; }
+    public void setSpotifyTokenExpiresAt(Long v) { this.spotifyTokenExpiresAt = v; }
+    public String getSpotifyOauthState() { return spotifyOauthState; }
+    public void setSpotifyOauthState(String v) { this.spotifyOauthState = v; }
     public Boolean getAppleHealthConnected() { return appleHealthConnected; }
     public void setAppleHealthConnected(Boolean appleHealthConnected) { this.appleHealthConnected = appleHealthConnected; }
     public Instant getAppleHealthLastSync() { return appleHealthLastSync; }

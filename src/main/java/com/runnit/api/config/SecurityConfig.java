@@ -47,6 +47,7 @@ public class SecurityConfig {
                     "/api/garmin/oauth/webhook",
                     "/api/integrations/coros/callback",
                     "/api/coros-coach/callback",
+                    "/api/spotify/callback",
                     "/api/coros/webhook",
                     "/api/integrations/google-calendar/callback",
                     "/api/integrations/whoop/callback",

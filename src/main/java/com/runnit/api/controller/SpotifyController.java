@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import java.net.URI;
 
 import java.util.List;
 import java.util.Map;
@@ -22,6 +25,32 @@ import java.util.Map;
 public class SpotifyController {
 
     private final SpotifyService spotifyService;
+    @Value("${app.frontend.url:https://runnit.live}")
+    private String frontendUrl;
+
+    @GetMapping("/connect")
+    public Map<String, String> connect(Authentication auth) {
+        return Map.of("url", spotifyService.connect((Long) auth.getPrincipal()));
+    }
+
+    @GetMapping("/callback")
+    public ResponseEntity<Void> callback(@RequestParam String code, @RequestParam String state) {
+        spotifyService.callback(code, state);
+        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(frontendUrl + "/devices?spotify=connected")).build();
+    }
+
+    @GetMapping("/status")
+    public Map<String, Object> status(Authentication auth) {
+        return spotifyService.status((Long) auth.getPrincipal());
+    }
+
+    @GetMapping("/recently-played")
+    public ResponseEntity<List<Map<String, Object>>> recentlyPlayed(
+            @RequestParam(required = false) Long after,
+            @RequestParam(required = false) Long before,
+            Authentication auth) {
+        return ResponseEntity.ok(spotifyService.recentlyPlayed((Long) auth.getPrincipal(), after, before));
+    }
 
     /**
      * GET /api/spotify/search?q=QUERY
