@@ -23,6 +23,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByGarminRequestToken(String requestToken);
     Optional<User> findByGarminAccessToken(String accessToken);
     Optional<User> findByCorosOauthState(String state);
+    Optional<User> findByCorosMcpOauthState(String state);
     Optional<User> findByCorosUserId(String corosUserId);
     Optional<User> findByGoogleCalendarOauthState(String state);
     Optional<User> findByWhoopOauthState(String state);
