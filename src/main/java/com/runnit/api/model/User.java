@@ -119,6 +119,17 @@ public class User {
     @Column(name = "coros_last_sync")
     private Instant corosLastSync;
 
+    @Column(name = "coros_mcp_access_token", columnDefinition = "TEXT")
+    private String corosMcpAccessToken;
+    @Column(name = "coros_mcp_refresh_token", columnDefinition = "TEXT")
+    private String corosMcpRefreshToken;
+    @Column(name = "coros_mcp_token_expires_at")
+    private Long corosMcpTokenExpiresAt;
+    @Column(name = "coros_mcp_oauth_state", length = 100)
+    private String corosMcpOauthState;
+    @Column(name = "coros_mcp_client_id", length = 200)
+    private String corosMcpClientId;
+
     @Column(name = "apple_health_connected")
     private Boolean appleHealthConnected;
 
@@ -256,6 +267,16 @@ public class User {
     public void setCorosUserId(String corosUserId) { this.corosUserId = corosUserId; }
     public Instant getCorosLastSync() { return corosLastSync; }
     public void setCorosLastSync(Instant corosLastSync) { this.corosLastSync = corosLastSync; }
+    public String getCorosMcpAccessToken() { return corosMcpAccessToken; }
+    public void setCorosMcpAccessToken(String v) { this.corosMcpAccessToken = v; }
+    public String getCorosMcpRefreshToken() { return corosMcpRefreshToken; }
+    public void setCorosMcpRefreshToken(String v) { this.corosMcpRefreshToken = v; }
+    public Long getCorosMcpTokenExpiresAt() { return corosMcpTokenExpiresAt; }
+    public void setCorosMcpTokenExpiresAt(Long v) { this.corosMcpTokenExpiresAt = v; }
+    public String getCorosMcpOauthState() { return corosMcpOauthState; }
+    public void setCorosMcpOauthState(String v) { this.corosMcpOauthState = v; }
+    public String getCorosMcpClientId() { return corosMcpClientId; }
+    public void setCorosMcpClientId(String v) { this.corosMcpClientId = v; }
     public Boolean getAppleHealthConnected() { return appleHealthConnected; }
     public void setAppleHealthConnected(Boolean appleHealthConnected) { this.appleHealthConnected = appleHealthConnected; }
     public Instant getAppleHealthLastSync() { return appleHealthLastSync; }
