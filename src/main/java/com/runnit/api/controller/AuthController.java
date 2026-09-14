@@ -111,6 +111,10 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof Long)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Authentication required"));
+        }
         Long userId = (Long) auth.getPrincipal();
         User user = authService.getUserById(userId);
         return ResponseEntity.ok(buildUserResponse(user, userId));
