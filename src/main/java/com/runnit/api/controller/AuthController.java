@@ -343,6 +343,7 @@ public class AuthController {
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
+                .user(user.getUser())
                 .displayName(user.getDisplayName())
                 .avatarUrl(user.getAvatarUrl())
                 .location(user.getLocation())
