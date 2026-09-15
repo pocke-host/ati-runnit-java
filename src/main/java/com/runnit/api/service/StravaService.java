@@ -234,7 +234,7 @@ public class StravaService {
             status.put("connected", u.getStravaAccessToken() != null);
             status.put("lastSync", u.getStravaLastSync() != null ? u.getStravaLastSync().toString() : null);
             return status;
-        }).orElse(Map.of("connected", false, "lastSync", null));
+        }).orElseGet(() -> { Map<String, Object> status = new HashMap<>(); status.put("connected", false); status.put("lastSync", null); return status; });
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

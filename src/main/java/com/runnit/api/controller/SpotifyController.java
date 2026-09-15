@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +18,7 @@ import java.net.URI;
 
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @Slf4j
 @RestController
@@ -37,6 +39,15 @@ public class SpotifyController {
     public ResponseEntity<Void> callback(@RequestParam String code, @RequestParam String state) {
         spotifyService.callback(code, state);
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(frontendUrl + "/devices?spotify=connected")).build();
+    }
+
+    @PostMapping("/mobile-callback")
+    public ResponseEntity<?> mobileCallback(@RequestBody Map<String, String> body) {
+        String code = body.get("code");
+        String state = body.get("state");
+        if (code == null || state == null) return ResponseEntity.badRequest().body(Map.of("error", "code and state are required"));
+        try { spotifyService.callback(code, state); return ResponseEntity.ok(Map.of("connected", true)); }
+        catch (Exception e) { log.error("Mobile Spotify callback failed", e); return ResponseEntity.badRequest().body(Map.of("error", "Spotify connection failed")); }
     }
 
     @GetMapping("/status")

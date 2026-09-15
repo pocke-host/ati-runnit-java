@@ -201,7 +201,7 @@ public class GarminService {
             status.put("connected", u.getGarminAccessToken() != null);
             status.put("lastSync", u.getGarminLastSync() != null ? u.getGarminLastSync().toString() : null);
             return status;
-        }).orElse(Map.of("connected", false, "lastSync", null));
+        }).orElseGet(() -> { Map<String, Object> status = new HashMap<>(); status.put("connected", false); status.put("lastSync", null); return status; });
     }
 
     public String getFrontendUrl() { return frontendUrl; }

@@ -83,6 +83,7 @@ public class WorkoutEventController {
                 return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
 
             if (body.get("title")       != null) ev.setTitle((String) body.get("title"));
+            if (body.get("plannedDate") != null) ev.setPlannedDate(LocalDate.parse((String) body.get("plannedDate")));
             if (body.get("description") != null) ev.setDescription((String) body.get("description"));
             if (body.get("workoutType") != null) ev.setWorkoutType((String) body.get("workoutType"));
             if (body.get("notes")       != null) ev.setNotes((String) body.get("notes"));

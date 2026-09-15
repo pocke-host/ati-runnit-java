@@ -219,7 +219,7 @@ public class CorosService {
             status.put("connected", u.getCorosAccessToken() != null);
             status.put("lastSync", u.getCorosLastSync() != null ? u.getCorosLastSync().toString() : null);
             return status;
-        }).orElse(Map.of("connected", false, "lastSync", null));
+        }).orElseGet(() -> { Map<String, Object> status = new HashMap<>(); status.put("connected", false); status.put("lastSync", null); return status; });
     }
 
     @Transactional

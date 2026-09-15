@@ -34,7 +34,7 @@ public class AppleHealthService {
             status.put("connected", Boolean.TRUE.equals(u.getAppleHealthConnected()));
             status.put("lastSync", u.getAppleHealthLastSync() != null ? u.getAppleHealthLastSync().toString() : null);
             return status;
-        }).orElse(Map.of("connected", false, "lastSync", null));
+        }).orElseGet(() -> { Map<String, Object> status = new HashMap<>(); status.put("connected", false); status.put("lastSync", null); return status; });
     }
 
     // HealthKit permissions are granted natively on-device — this just records that the

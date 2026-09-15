@@ -287,7 +287,7 @@ public class WhoopService {
             status.put("connected", u.getWhoopAccessToken() != null);
             status.put("lastSync", u.getWhoopLastSync() != null ? u.getWhoopLastSync().toString() : null);
             return status;
-        }).orElse(Map.of("connected", false, "lastSync", null));
+        }).orElseGet(() -> { Map<String, Object> status = new HashMap<>(); status.put("connected", false); status.put("lastSync", null); return status; });
     }
 
     public String getFrontendUrl() { return frontendUrl; }
