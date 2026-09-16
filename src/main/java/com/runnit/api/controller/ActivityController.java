@@ -31,6 +31,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.time.DayOfWeek;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
 
 @Slf4j
 @RestController
@@ -104,6 +111,98 @@ public class ActivityController {
             return ResponseEntity.ok(activityService.getFeed(userId, page, size));
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/summary/weekly")
+    public ResponseEntity<?> getWeeklySummary(
+            @RequestParam(required = false) String weekStart,
+            @RequestParam(defaultValue = "UTC") String timezone,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            ZoneId zone;
+            try {
+                zone = ZoneId.of(timezone);
+            } catch (DateTimeException e) {
+                zone = ZoneId.of("UTC");
+            }
+
+            LocalDate requestedDate = weekStart == null || weekStart.isBlank()
+                    ? LocalDate.now(zone)
+                    : LocalDate.parse(weekStart);
+            LocalDate monday = requestedDate.with(DayOfWeek.MONDAY);
+            LocalDate nextMonday = monday.plusDays(7);
+            List<Activity> activities = activityRepository.findByUserIdBetween(
+                    userId, monday.atStartOfDay(), nextMonday.atStartOfDay());
+
+            // Imports are normally idempotent, but protect the summary if an older sync
+            // inserted the same provider activity more than once.
+            Map<String, Activity> unique = new LinkedHashMap<>();
+            for (Activity activity : activities) {
+                String source = activity.getSource() == null ? "MANUAL" : activity.getSource().name();
+                String key = activity.getExternalId() == null || activity.getExternalId().isBlank()
+                        ? "activity:" + activity.getId()
+                        : source + ":" + activity.getExternalId();
+                unique.putIfAbsent(key, activity);
+            }
+
+            Map<String, Integer> sportSeconds = new LinkedHashMap<>();
+            Map<String, Integer> sourceSeconds = new LinkedHashMap<>();
+            Map<LocalDate, Integer> dailySeconds = new LinkedHashMap<>();
+            Map<LocalDate, Integer> dailyCounts = new LinkedHashMap<>();
+            for (int i = 0; i < 7; i++) {
+                dailySeconds.put(monday.plusDays(i), 0);
+                dailyCounts.put(monday.plusDays(i), 0);
+            }
+
+            int totalSeconds = 0;
+            for (Activity activity : unique.values()) {
+                int seconds = activity.getDurationSeconds() == null ? 0 : Math.max(0, activity.getDurationSeconds());
+                String sport = activity.getSportType() == null ? "OTHER" : activity.getSportType().name();
+                String source = activity.getSource() == null ? "MANUAL" : activity.getSource().name();
+                totalSeconds += seconds;
+                sportSeconds.merge(sport, seconds, Integer::sum);
+                sourceSeconds.merge(source, seconds, Integer::sum);
+                LocalDate date = (activity.getPerformedAt() != null ? activity.getPerformedAt() : activity.getCreatedAt()).toLocalDate();
+                dailySeconds.computeIfPresent(date, (ignored, value) -> value + seconds);
+                dailyCounts.computeIfPresent(date, (ignored, value) -> value + 1);
+            }
+
+            List<Map<String, Object>> daily = dailySeconds.keySet().stream().map(date -> {
+                Map<String, Object> row = new HashMap<>();
+                row.put("date", date.toString());
+                row.put("durationSeconds", dailySeconds.get(date));
+                row.put("activityCount", dailyCounts.get(date));
+                return row;
+            }).toList();
+            List<Map<String, Object>> bySport = sportSeconds.entrySet().stream().map(entry -> {
+                Map<String, Object> row = new HashMap<>();
+                row.put("sport", entry.getKey());
+                row.put("durationSeconds", entry.getValue());
+                return row;
+            }).toList();
+            List<Map<String, Object>> bySource = sourceSeconds.entrySet().stream().map(entry -> {
+                Map<String, Object> row = new HashMap<>();
+                row.put("source", entry.getKey());
+                row.put("durationSeconds", entry.getValue());
+                return row;
+            }).toList();
+
+            return ResponseEntity.ok(Map.of(
+                    "weekStart", monday.toString(),
+                    "weekEnd", nextMonday.minusDays(1).toString(),
+                    "totalDurationSeconds", totalSeconds,
+                    "activityCount", unique.size(),
+                    "daily", daily,
+                    "bySport", bySport,
+                    "bySource", bySource
+            ));
+        } catch (DateTimeParseException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "weekStart must be YYYY-MM-DD"));
+        } catch (Exception e) {
+            log.error("Weekly activity summary failed", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
