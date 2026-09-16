@@ -14,6 +14,7 @@ import com.runnit.api.repository.ActivityReactionRepository;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.CommentRepository;
 import com.runnit.api.repository.UserRepository;
+import com.runnit.api.repository.WorkoutEventRepository;
 import com.runnit.api.service.ActivityService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,7 @@ public class ActivityController {
     private final ActivityReactionRepository activityReactionRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
+    private final WorkoutEventRepository workoutEventRepository;
     private final com.runnit.api.repository.NotificationRepository notificationRepository;
     private static final Pattern MENTION_PATTERN = Pattern.compile("@([A-Za-z0-9_.-]{2,30})");
 
@@ -152,22 +154,28 @@ public class ActivityController {
             Map<String, Integer> sourceSeconds = new LinkedHashMap<>();
             Map<LocalDate, Integer> dailySeconds = new LinkedHashMap<>();
             Map<LocalDate, Integer> dailyCounts = new LinkedHashMap<>();
+            Map<LocalDate, Integer> dailyDistance = new LinkedHashMap<>();
             for (int i = 0; i < 7; i++) {
                 dailySeconds.put(monday.plusDays(i), 0);
                 dailyCounts.put(monday.plusDays(i), 0);
+                dailyDistance.put(monday.plusDays(i), 0);
             }
 
             int totalSeconds = 0;
+            int totalDistanceMeters = 0;
             for (Activity activity : unique.values()) {
                 int seconds = activity.getDurationSeconds() == null ? 0 : Math.max(0, activity.getDurationSeconds());
                 String sport = activity.getSportType() == null ? "OTHER" : activity.getSportType().name();
                 String source = activity.getSource() == null ? "MANUAL" : activity.getSource().name();
                 totalSeconds += seconds;
+                int distance = activity.getDistanceMeters() == null ? 0 : Math.max(0, activity.getDistanceMeters());
+                totalDistanceMeters += distance;
                 sportSeconds.merge(sport, seconds, Integer::sum);
                 sourceSeconds.merge(source, seconds, Integer::sum);
                 LocalDate date = (activity.getPerformedAt() != null ? activity.getPerformedAt() : activity.getCreatedAt()).toLocalDate();
                 dailySeconds.computeIfPresent(date, (ignored, value) -> value + seconds);
                 dailyCounts.computeIfPresent(date, (ignored, value) -> value + 1);
+                dailyDistance.computeIfPresent(date, (ignored, value) -> value + distance);
             }
 
             LocalDate previousMonday = monday.minusDays(7);
@@ -185,12 +193,18 @@ public class ActivityController {
             int changePercent = previousTotalSeconds == 0
                     ? (totalSeconds > 0 ? 100 : 0)
                     : (int) Math.round(((totalSeconds - previousTotalSeconds) * 100.0) / previousTotalSeconds);
+            var plannedWorkouts = workoutEventRepository.findByUserIdAndPlannedDateBetweenOrderByPlannedDateAsc(
+                    userId, monday, nextMonday.minusDays(1));
+            int plannedMinutes = plannedWorkouts.stream().mapToInt(w -> w.getDurationMinutes() == null ? 0 : Math.max(0, w.getDurationMinutes())).sum();
+            int completedPlannedMinutes = plannedWorkouts.stream().filter(com.runnit.api.model.WorkoutEvent::isCompleted)
+                    .mapToInt(w -> w.getDurationMinutes() == null ? 0 : Math.max(0, w.getDurationMinutes())).sum();
 
             List<Map<String, Object>> daily = dailySeconds.keySet().stream().map(date -> {
                 Map<String, Object> row = new HashMap<>();
                 row.put("date", date.toString());
                 row.put("durationSeconds", dailySeconds.get(date));
                 row.put("activityCount", dailyCounts.get(date));
+                row.put("distanceMeters", dailyDistance.get(date));
                 return row;
             }).toList();
             List<Map<String, Object>> bySport = sportSeconds.entrySet().stream().map(entry -> {
@@ -206,17 +220,22 @@ public class ActivityController {
                 return row;
             }).toList();
 
-            return ResponseEntity.ok(Map.of(
-                    "weekStart", monday.toString(),
-                    "weekEnd", nextMonday.minusDays(1).toString(),
-                    "totalDurationSeconds", totalSeconds,
-                    "previousTotalDurationSeconds", previousTotalSeconds,
-                    "changePercent", changePercent,
-                    "activityCount", unique.size(),
-                    "daily", daily,
-                    "bySport", bySport,
-                    "bySource", bySource
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("weekStart", monday.toString());
+            response.put("weekEnd", nextMonday.minusDays(1).toString());
+            response.put("totalDurationSeconds", totalSeconds);
+            response.put("totalDistanceMeters", totalDistanceMeters);
+            response.put("previousTotalDurationSeconds", previousTotalSeconds);
+            response.put("changePercent", changePercent);
+            response.put("plannedDurationMinutes", plannedMinutes);
+            response.put("completedPlannedDurationMinutes", completedPlannedMinutes);
+            response.put("plannedCount", plannedWorkouts.size());
+            response.put("completedPlannedCount", plannedWorkouts.stream().filter(com.runnit.api.model.WorkoutEvent::isCompleted).count());
+            response.put("activityCount", unique.size());
+            response.put("daily", daily);
+            response.put("bySport", bySport);
+            response.put("bySource", bySource);
+            return ResponseEntity.ok(response);
         } catch (DateTimeParseException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "weekStart must be YYYY-MM-DD"));
         } catch (Exception e) {
