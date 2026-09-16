@@ -170,6 +170,22 @@ public class ActivityController {
                 dailyCounts.computeIfPresent(date, (ignored, value) -> value + 1);
             }
 
+            LocalDate previousMonday = monday.minusDays(7);
+            int previousTotalSeconds = activityRepository.findByUserIdBetween(
+                    userId, previousMonday.atStartOfDay(), monday.atStartOfDay()).stream()
+                    .collect(Collectors.toMap(
+                            activity -> {
+                                String source = activity.getSource() == null ? "MANUAL" : activity.getSource().name();
+                                return activity.getExternalId() == null || activity.getExternalId().isBlank()
+                                        ? "activity:" + activity.getId() : source + ":" + activity.getExternalId();
+                            },
+                            activity -> activity.getDurationSeconds() == null ? 0 : Math.max(0, activity.getDurationSeconds()),
+                            Integer::sum
+                    )).values().stream().mapToInt(Integer::intValue).sum();
+            int changePercent = previousTotalSeconds == 0
+                    ? (totalSeconds > 0 ? 100 : 0)
+                    : (int) Math.round(((totalSeconds - previousTotalSeconds) * 100.0) / previousTotalSeconds);
+
             List<Map<String, Object>> daily = dailySeconds.keySet().stream().map(date -> {
                 Map<String, Object> row = new HashMap<>();
                 row.put("date", date.toString());
@@ -194,6 +210,8 @@ public class ActivityController {
                     "weekStart", monday.toString(),
                     "weekEnd", nextMonday.minusDays(1).toString(),
                     "totalDurationSeconds", totalSeconds,
+                    "previousTotalDurationSeconds", previousTotalSeconds,
+                    "changePercent", changePercent,
                     "activityCount", unique.size(),
                     "daily", daily,
                     "bySport", bySport,
