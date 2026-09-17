@@ -3,6 +3,9 @@ package com.runnit.api.controller;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.UserRepository;
+import com.runnit.api.repository.MarketplaceEventRepository;
+import com.runnit.api.repository.CoachBookingRepository;
+import com.runnit.api.model.CoachBooking;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,6 +29,8 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
+    private final MarketplaceEventRepository marketplaceEventRepository;
+    private final CoachBookingRepository coachBookingRepository;
 
     // ── Admin role guard ─────────────────────────────────────────────────────
 
@@ -63,6 +68,16 @@ public class AdminController {
                 "coaches",         coaches,
                 "admins",          admins
         ));
+    }
+
+    @GetMapping("/marketplace/analytics")
+    public ResponseEntity<?> marketplaceAnalytics(Authentication auth) {
+        if (!isAdmin(auth)) return forbidden();
+        var eventCounts = marketplaceEventRepository.findAll().stream().collect(java.util.stream.Collectors.groupingBy(com.runnit.api.model.MarketplaceEvent::getEventType, java.util.stream.Collectors.counting()));
+        var paid = coachBookingRepository.findAll().stream().filter(b -> Set.of("PAID", "COMPLETED").contains(b.getStatus())).toList();
+        int gross = paid.stream().mapToInt(CoachBooking::getAmountCents).sum();
+        int commission = paid.stream().mapToInt(CoachBooking::getCommissionCents).sum();
+        return ResponseEntity.ok(Map.of("events", eventCounts, "grossCents", gross, "commissionCents", commission, "paidBookings", paid.size()));
     }
 
     /**
