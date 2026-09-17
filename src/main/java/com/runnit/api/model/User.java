@@ -68,6 +68,9 @@ public class User {
     @Column(name = "subscription_tier", length = 50)
     private String subscriptionTier;
 
+    @Column(name = "launch_pro_granted", nullable = false)
+    private Boolean launchProGranted = false;
+
     @Column(name = "strava_athlete_id")
     private Long stravaAthleteId;
 
@@ -253,6 +256,8 @@ public class User {
     public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
     public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
+    public Boolean getLaunchProGranted() { return launchProGranted; }
+    public void setLaunchProGranted(Boolean launchProGranted) { this.launchProGranted = launchProGranted; }
     public Long getStravaAthleteId() { return stravaAthleteId; }
     public String getStravaAccessToken() { return stravaAccessToken; }
     public String getStravaRefreshToken() { return stravaRefreshToken; }

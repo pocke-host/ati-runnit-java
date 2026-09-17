@@ -54,6 +54,7 @@ public class AuthService {
                 .build();
         
         user = userRepository.save(user);
+        grantLaunchProIfAvailable(user);
         String token = jwtUtil.generateToken(user.getId(), user.getEmail());
         
         Map<String, Object> response = new HashMap<>();
@@ -102,7 +103,7 @@ public class AuthService {
                     }
                     // Brand-new user via OAuth
                     String name = displayName != null ? displayName : email;
-                    return userRepository.save(User.builder()
+                    User newUser = userRepository.save(User.builder()
                             .email(email)
                             .displayName(name)
                             .user(name)
@@ -111,6 +112,8 @@ public class AuthService {
                             .providerId(providerId)
                             .role("athlete")
                             .build());
+                    grantLaunchProIfAvailable(newUser);
+                    return newUser;
                 });
         
         String token = jwtUtil.generateToken(user.getId(), user.getEmail());
@@ -129,6 +132,16 @@ public class AuthService {
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    /** Grants the launch Pro entitlement to the first 100 newly-created accounts. */
+    private void grantLaunchProIfAvailable(User user) {
+        if (Boolean.TRUE.equals(user.getLaunchProGranted())) return;
+        if (userRepository.countByLaunchProGrantedTrue() < 100) {
+            user.setLaunchProGranted(true);
+            userRepository.save(user);
+            log.info("Granted launch Pro access to userId={}", user.getId());
+        }
     }
 
     /**

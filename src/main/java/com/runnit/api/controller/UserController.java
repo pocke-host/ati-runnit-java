@@ -267,7 +267,7 @@ public class UserController {
 
     private UserResponse toFullResponse(User user) {
         String subscriptionStatus = user.getSubscriptionStatus();
-        String subscriptionTier = user.getSubscriptionTier() != null
+        String subscriptionTier = Boolean.TRUE.equals(user.getLaunchProGranted()) ? "premium" : user.getSubscriptionTier() != null
                 ? user.getSubscriptionTier()
                 : deriveSubscriptionTier(subscriptionStatus);
 

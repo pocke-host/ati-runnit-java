@@ -339,7 +339,7 @@ public class AuthController {
 
     private UserResponse buildUserResponse(User user, Long userId) {
         String status = user.getSubscriptionStatus();
-        String tier = ("active".equals(status) || "trialing".equals(status)) ? "pro" : "free";
+        String tier = Boolean.TRUE.equals(user.getLaunchProGranted()) || ("active".equals(status) || "trialing".equals(status)) ? "pro" : "free";
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())

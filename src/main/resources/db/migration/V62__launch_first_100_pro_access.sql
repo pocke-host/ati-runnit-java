@@ -1,0 +1,2 @@
+ALTER TABLE users
+    ADD COLUMN launch_pro_granted TINYINT(1) NOT NULL DEFAULT 0;
