@@ -29,12 +29,14 @@ public class CoachMarketplaceController {
     private final CoachAvailabilityRepository availability;
     private final CoachBookingRepository bookings;
     private final CoachReviewRepository reviews;
+    private final CoachReportRepository reports;
+    private final MarketplaceEventRepository events;
     private final UserRepository users;
     @Value("${stripe.secret.key:}") private String stripeSecretKey;
     @Value("${app.frontend.url:http://localhost:5173}") private String frontendUrl;
 
     @GetMapping("/api/coaches/{coachId}/services")
-    public List<Map<String,Object>> listServices(@PathVariable Long coachId) { return services.findByCoachIdAndActiveTrue(coachId).stream().map(this::serviceMap).toList(); }
+    public List<Map<String,Object>> listServices(@PathVariable Long coachId) { events.save(new MarketplaceEvent("SERVICE_VIEW",coachId,null,null,null)); return services.findByCoachIdAndActiveTrue(coachId).stream().map(this::serviceMap).toList(); }
     @GetMapping("/api/coach/services")
     public List<Map<String,Object>> myServices(Authentication auth) { return services.findByCoachId((Long) auth.getPrincipal()).stream().map(this::serviceMap).toList(); }
 
@@ -66,7 +68,9 @@ public class CoachMarketplaceController {
     @GetMapping("/api/coach/connect/status")
     public ResponseEntity<?> connectStatus(Authentication auth) {
         User coach=users.findById((Long)auth.getPrincipal()).orElseThrow();
-        return ResponseEntity.ok(Map.of("connected", coach.getStripeConnectAccountId()!=null, "accountId", Optional.ofNullable(coach.getStripeConnectAccountId()).orElse(""), "verified", false));
+        boolean connected=coach.getStripeConnectAccountId()!=null; boolean charges=false,payouts=false,details=false;
+        if(connected && !stripeSecretKey.isBlank()) try { Stripe.apiKey=stripeSecretKey; Account a=Account.retrieve(coach.getStripeConnectAccountId()); charges=Boolean.TRUE.equals(a.getChargesEnabled()); payouts=Boolean.TRUE.equals(a.getPayoutsEnabled()); details=Boolean.TRUE.equals(a.getDetailsSubmitted()); } catch(Exception ignored) {}
+        return ResponseEntity.ok(Map.of("connected",connected,"accountId",Optional.ofNullable(coach.getStripeConnectAccountId()).orElse(""),"verified",Boolean.TRUE.equals(coach.getCoachVerified()),"chargesEnabled",charges,"payoutsEnabled",payouts,"detailsSubmitted",details));
     }
 
     @PatchMapping("/api/coach/profile") @Transactional
@@ -75,7 +79,13 @@ public class CoachMarketplaceController {
         if(body.containsKey("monthlyRate")) coach.setMonthlyRate(new java.math.BigDecimal(String.valueOf(body.get("monthlyRate"))));
         if(body.containsKey("sportsCoached")) coach.setSportsCoached(String.join(",",(List<String>)body.get("sportsCoached")));
         if(body.containsKey("experience")) coach.setBio((String)body.get("experience"));
-        return ResponseEntity.ok(Map.of("monthlyRate",Optional.ofNullable(coach.getMonthlyRate()).orElse(java.math.BigDecimal.ZERO),"sportsCoached",coach.getSportsCoached()==null?List.of():Arrays.asList(coach.getSportsCoached().split(","))));
+        if(body.containsKey("specialties")) coach.setCoachSpecialties(String.valueOf(body.get("specialties")));
+        if(body.containsKey("certifications")) coach.setCoachCertifications(String.valueOf(body.get("certifications")));
+        if(body.containsKey("privacy")) { String p=String.valueOf(body.get("privacy")); if(!Set.of("PUBLIC","PRIVATE").contains(p)) return ResponseEntity.badRequest().body(Map.of("error","Privacy must be PUBLIC or PRIVATE")); coach.setCoachPrivacy(p); }
+        if(Boolean.TRUE.equals(body.get("acceptTerms"))) coach.setCoachTermsAcceptedAt(Instant.now());
+        coach.setCoachOnboardingComplete(coach.getCoachTermsAcceptedAt()!=null && coach.getCoachSpecialties()!=null && !coach.getCoachSpecialties().isBlank());
+        users.save(coach);
+        return ResponseEntity.ok(Map.of("monthlyRate",Optional.ofNullable(coach.getMonthlyRate()).orElse(java.math.BigDecimal.ZERO),"sportsCoached",coach.getSportsCoached()==null?List.of():Arrays.asList(coach.getSportsCoached().split(",")),"privacy",coach.getCoachPrivacy(),"onboardingComplete",coach.getCoachOnboardingComplete()));
     }
 
     @PutMapping("/api/coach/services/{id}") @Transactional
@@ -95,7 +105,7 @@ public class CoachMarketplaceController {
         if(s.getCoachId().equals(athleteId))return ResponseEntity.badRequest().body(Map.of("error","You cannot book your own service"));
         CoachBooking b=new CoachBooking(); b.setServiceId(s.getId()); b.setCoachId(s.getCoachId()); b.setAthleteId(athleteId); b.setAmountCents(s.getPriceCents()); b.setCommissionCents(Math.round(s.getPriceCents()*COMMISSION_PERCENT/100f)); b.setCoachAmountCents(s.getPriceCents()-b.getCommissionCents()); b.setStatus("PENDING_PAYMENT");
         if(body.get("scheduledStart")!=null)b.setScheduledStart(Instant.parse((String)body.get("scheduledStart"))); if(body.get("scheduledEnd")!=null)b.setScheduledEnd(Instant.parse((String)body.get("scheduledEnd")));
-        return ResponseEntity.ok(bookingMap(bookings.save(b)));
+        CoachBooking saved=bookings.save(b); events.save(new MarketplaceEvent("BOOKING_CREATED",s.getCoachId(),athleteId,s.getId(),saved.getId())); return ResponseEntity.ok(bookingMap(saved));
     }
 
     @PostMapping("/api/athlete/bookings/{id}/checkout") @Transactional
@@ -105,8 +115,13 @@ public class CoachMarketplaceController {
             CoachBooking b=bookings.findById(id).orElse(null); if(b==null||!b.getAthleteId().equals((Long)auth.getPrincipal())) return ResponseEntity.status(404).body(Map.of("error","Booking not found"));
             User coach=users.findById(b.getCoachId()).orElseThrow(); if(coach.getStripeConnectAccountId()==null)return ResponseEntity.badRequest().body(Map.of("error","Coach has not completed payout setup"));
             Stripe.apiKey=stripeSecretKey;
-            SessionCreateParams params=SessionCreateParams.builder().setMode(SessionCreateParams.Mode.PAYMENT).setSuccessUrl(frontendUrl+"/coaching/booking-success?booking_id="+id).setCancelUrl(frontendUrl+"/coaching/booking-cancelled?booking_id="+id).putMetadata("booking_id",String.valueOf(id)).addLineItem(SessionCreateParams.LineItem.builder().setQuantity(1L).setPriceData(SessionCreateParams.LineItem.PriceData.builder().setCurrency("usd").setUnitAmount(b.getAmountCents().longValue()).setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder().setName("Runnit coaching service").build()).build()).build()).setPaymentIntentData(SessionCreateParams.PaymentIntentData.builder().setApplicationFeeAmount(b.getCommissionCents().longValue()).setTransferData(SessionCreateParams.PaymentIntentData.TransferData.builder().setDestination(coach.getStripeConnectAccountId()).build()).putMetadata("booking_id",String.valueOf(id)).build()).build();
-            Session session=Session.create(params); b.setStripeCheckoutSessionId(session.getId()); bookings.save(b); return ResponseEntity.ok(Map.of("url",session.getUrl()));
+            CoachService service=services.findById(b.getServiceId()).orElseThrow();
+            SessionCreateParams.LineItem.PriceData.Builder price=SessionCreateParams.LineItem.PriceData.builder().setCurrency("usd").setUnitAmount(b.getAmountCents().longValue()).setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder().setName(service.getTitle()).build());
+            SessionCreateParams.Builder session=SessionCreateParams.builder().setSuccessUrl(frontendUrl+"/coaching/booking-success?booking_id="+id).setCancelUrl(frontendUrl+"/coaching/booking-cancelled?booking_id="+id).putMetadata("booking_id",String.valueOf(id)).addLineItem(SessionCreateParams.LineItem.builder().setQuantity(1L).setPriceData("MONTHLY".equals(service.getBillingType()) ? price.setRecurring(SessionCreateParams.LineItem.PriceData.Recurring.builder().setInterval(SessionCreateParams.LineItem.PriceData.Recurring.Interval.MONTH).build()).build() : price.build()).build());
+            if("MONTHLY".equals(service.getBillingType())) session.setMode(SessionCreateParams.Mode.SUBSCRIPTION).setSubscriptionData(SessionCreateParams.SubscriptionData.builder().setApplicationFeePercent(java.math.BigDecimal.valueOf(COMMISSION_PERCENT)).setTransferData(SessionCreateParams.SubscriptionData.TransferData.builder().setDestination(coach.getStripeConnectAccountId()).build()).build());
+            else session.setMode(SessionCreateParams.Mode.PAYMENT).setPaymentIntentData(SessionCreateParams.PaymentIntentData.builder().setApplicationFeeAmount(b.getCommissionCents().longValue()).setTransferData(SessionCreateParams.PaymentIntentData.TransferData.builder().setDestination(coach.getStripeConnectAccountId()).build()).putMetadata("booking_id",String.valueOf(id)).build());
+            SessionCreateParams params=session.build();
+            Session checkoutSession=Session.create(params); b.setStripeCheckoutSessionId(checkoutSession.getId()); bookings.save(b); events.save(new MarketplaceEvent("CHECKOUT_STARTED",b.getCoachId(),b.getAthleteId(),b.getServiceId(),b.getId())); return ResponseEntity.ok(Map.of("url",checkoutSession.getUrl()));
         } catch(Exception e){ return ResponseEntity.internalServerError().body(Map.of("error","Could not start checkout")); }
     }
 
@@ -134,10 +149,18 @@ public class CoachMarketplaceController {
         CoachBooking b=bookings.findById(id).orElse(null);Long uid=(Long)a.getPrincipal();if(b==null||!b.getAthleteId().equals(uid)||!"COMPLETED".equals(b.getStatus()))return ResponseEntity.badRequest().body(Map.of("error","Only completed bookings can be reviewed"));if(reviews.findByBookingId(id).isPresent())return ResponseEntity.status(409).body(Map.of("error","Booking already reviewed"));int rating=intValue(body,"rating");if(rating<1||rating>5)return ResponseEntity.badRequest().body(Map.of("error","Rating must be 1 to 5"));CoachReview r=new CoachReview();r.setBookingId(id);r.setCoachId(b.getCoachId());r.setAthleteId(uid);r.setRating(rating);r.setReviewText((String)body.get("reviewText"));return ResponseEntity.ok(reviewMap(reviews.save(r)));
     }
     @GetMapping("/api/coaches/{coachId}/reviews") public List<Map<String,Object>> coachReviews(@PathVariable Long coachId){return reviews.findByCoachIdOrderByCreatedAtDesc(coachId).stream().map(this::reviewMap).toList();}
+    @PostMapping("/api/marketplace/reports") @Transactional public ResponseEntity<?> report(@RequestBody Map<String,Object> body, Authentication a){
+        Long reporter=(Long)a.getPrincipal(); Long coachId=longValue(body,"coachId"); String reason=required(body,"reason",60); CoachReport r=new CoachReport(); r.setReporterId(reporter); r.setCoachId(coachId); r.setReason(reason); r.setDetails(body.get("details")==null?null:String.valueOf(body.get("details"))); if(body.get("bookingId")!=null)r.setBookingId(longValue(body,"bookingId")); return ResponseEntity.ok(reportMap(reports.save(r)));
+    }
+    @GetMapping("/api/coach/reports") public List<Map<String,Object>> myReports(Authentication a){return reports.findByCoachIdOrderByCreatedAtDesc((Long)a.getPrincipal()).stream().map(this::reportMap).toList();}
+    @GetMapping("/api/coach/marketplace/analytics") public Map<String,Object> analytics(Authentication a){
+        List<MarketplaceEvent> rows=events.findByCoachId((Long)a.getPrincipal()); Map<String,Long> counts=rows.stream().collect(Collectors.groupingBy(MarketplaceEvent::getEventType,Collectors.counting())); return Map.of("events",counts,"serviceViews",counts.getOrDefault("SERVICE_VIEW",0L),"bookings",counts.getOrDefault("BOOKING_CREATED",0L),"checkouts",counts.getOrDefault("CHECKOUT_STARTED",0L));
+    }
 
     private Map<String,Object> serviceMap(CoachService s){Map<String,Object>m=new LinkedHashMap<>();m.put("id",s.getId());m.put("coachId",s.getCoachId());m.put("title",s.getTitle());m.put("description",s.getDescription());m.put("serviceType",s.getServiceType());m.put("billingType",s.getBillingType());m.put("priceCents",s.getPriceCents());m.put("durationMinutes",s.getDurationMinutes());m.put("active",s.getActive());return m;}
     private Map<String,Object> bookingMap(CoachBooking b){Map<String,Object>m=new LinkedHashMap<>();m.put("id",b.getId());m.put("serviceId",b.getServiceId());m.put("coachId",b.getCoachId());m.put("athleteId",b.getAthleteId());m.put("scheduledStart",b.getScheduledStart());m.put("scheduledEnd",b.getScheduledEnd());m.put("status",b.getStatus());m.put("amountCents",b.getAmountCents());m.put("commissionCents",b.getCommissionCents());m.put("coachAmountCents",b.getCoachAmountCents());return m;}
     private Map<String,Object> reviewMap(CoachReview r){Map<String,Object>m=new LinkedHashMap<>();m.put("id",r.getId());m.put("bookingId",r.getBookingId());m.put("coachId",r.getCoachId());m.put("athleteId",r.getAthleteId());m.put("rating",r.getRating());m.put("reviewText",r.getReviewText());m.put("createdAt",r.getCreatedAt());return m;}
+    private Map<String,Object> reportMap(CoachReport r){Map<String,Object>m=new LinkedHashMap<>();m.put("id",r.getId());m.put("coachId",r.getCoachId());m.put("bookingId",r.getBookingId());m.put("reason",r.getReason());m.put("details",r.getDetails());m.put("status",r.getStatus());m.put("createdAt",r.getCreatedAt());return m;}
     private String required(Map<String,Object>b,String k,int max){String v=String.valueOf(b.getOrDefault(k,"")).trim();if(v.isEmpty()||v.length()>max)throw new IllegalArgumentException(k+" is required and must be <= "+max+" characters");return v;}
     private String value(Map<String,Object>b,String k,String d){return b.get(k)==null?d:String.valueOf(b.get(k));} private int intValue(Map<String,Object>b,String k){return ((Number)b.getOrDefault(k,0)).intValue();} private Long longValue(Map<String,Object>b,String k){return ((Number)b.get(k)).longValue();}
 }

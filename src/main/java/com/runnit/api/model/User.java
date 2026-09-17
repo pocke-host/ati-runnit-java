@@ -73,6 +73,13 @@ public class User {
 
     @Column(name = "stripe_connect_account_id", length = 100)
     private String stripeConnectAccountId;
+    @Column(name = "coach_verified") private Boolean coachVerified = false;
+    @Column(name = "coach_onboarding_complete") private Boolean coachOnboardingComplete = false;
+    @Column(name = "coach_specialties", columnDefinition = "TEXT") private String coachSpecialties;
+    @Column(name = "coach_experience", columnDefinition = "TEXT") private String coachExperience;
+    @Column(name = "coach_certifications", columnDefinition = "TEXT") private String coachCertifications;
+    @Column(name = "coach_terms_accepted_at") private Instant coachTermsAcceptedAt;
+    @Column(name = "coach_privacy", length = 20) private String coachPrivacy = "PUBLIC";
 
 
     @Column(name = "strava_athlete_id")
@@ -360,6 +367,13 @@ public class User {
     public void setPushToken(String pushToken) { this.pushToken = pushToken; }
     public String getPushPlatform() { return pushPlatform; }
     public void setPushPlatform(String pushPlatform) { this.pushPlatform = pushPlatform; }
+    public Boolean getCoachVerified(){return coachVerified;} public void setCoachVerified(Boolean v){coachVerified=v;}
+    public Boolean getCoachOnboardingComplete(){return coachOnboardingComplete;} public void setCoachOnboardingComplete(Boolean v){coachOnboardingComplete=v;}
+    public String getCoachSpecialties(){return coachSpecialties;} public void setCoachSpecialties(String v){coachSpecialties=v;}
+    public String getCoachExperience(){return coachExperience;} public void setCoachExperience(String v){coachExperience=v;}
+    public String getCoachCertifications(){return coachCertifications;} public void setCoachCertifications(String v){coachCertifications=v;}
+    public Instant getCoachTermsAcceptedAt(){return coachTermsAcceptedAt;} public void setCoachTermsAcceptedAt(Instant v){coachTermsAcceptedAt=v;}
+    public String getCoachPrivacy(){return coachPrivacy;} public void setCoachPrivacy(String v){coachPrivacy=v;}
 
     public static Builder builder() { return new Builder(); }
 

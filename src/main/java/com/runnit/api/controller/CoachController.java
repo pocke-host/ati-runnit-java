@@ -731,7 +731,7 @@ public class CoachController {
         map.put("role", user.getRole());
         map.put("monthlyRate", user.getMonthlyRate());
         map.put("sportsCoached", user.getSportsCoached() == null ? List.of() : Arrays.asList(user.getSportsCoached().split(",")));
-        map.put("coachVerified", false);
+        map.put("coachVerified", Boolean.TRUE.equals(user.getCoachVerified()));
         return map;
     }
 
