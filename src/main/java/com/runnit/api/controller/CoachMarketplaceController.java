@@ -115,7 +115,7 @@ public class CoachMarketplaceController {
             boolean conflict=bookings.findByCoachIdOrderByCreatedAtDesc(s.getCoachId()).stream().anyMatch(x -> !Set.of("CANCELLED","REFUNDED").contains(x.getStatus()) && x.getScheduledStart()!=null && x.getScheduledEnd()!=null && b.getScheduledStart().isBefore(x.getScheduledEnd()) && b.getScheduledEnd().isAfter(x.getScheduledStart()));
             if(conflict) return ResponseEntity.status(409).body(Map.of("error","That time is already booked"));
         }
-        CoachBooking saved=bookings.save(b); events.save(new MarketplaceEvent("BOOKING_CREATED",s.getCoachId(),athleteId,s.getId(),saved.getId())); notify(s.getCoachId(), athleteId, "COACH_BOOKING_CREATED", "You have a new coaching booking request.", saved.getId()); return ResponseEntity.ok(bookingMap(saved));
+        CoachBooking saved=bookings.save(b); events.save(new MarketplaceEvent("BOOKING_CREATED",s.getCoachId(),athleteId,s.getId(),saved.getId())); notify(s.getCoachId(), athleteId, "COACH_BOOKING_CREATED", "You have a new coaching booking request.", saved.getId()); notify(athleteId, s.getCoachId(), "COACH_BOOKING_REQUESTED", "Your booking request was created. Complete payment to confirm it.", saved.getId()); return ResponseEntity.ok(bookingMap(saved));
     }
 
     @PostMapping("/api/athlete/bookings/{id}/checkout") @Transactional
