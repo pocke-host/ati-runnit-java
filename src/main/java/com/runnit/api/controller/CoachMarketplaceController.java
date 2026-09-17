@@ -69,6 +69,15 @@ public class CoachMarketplaceController {
         return ResponseEntity.ok(Map.of("connected", coach.getStripeConnectAccountId()!=null, "accountId", Optional.ofNullable(coach.getStripeConnectAccountId()).orElse(""), "verified", false));
     }
 
+    @PatchMapping("/api/coach/profile") @Transactional
+    public ResponseEntity<?> updateCoachProfile(@RequestBody Map<String,Object> body, Authentication auth) {
+        User coach=users.findById((Long)auth.getPrincipal()).orElseThrow(); if(!"coach".equalsIgnoreCase(coach.getRole()))return ResponseEntity.status(403).body(Map.of("error","Coach account required"));
+        if(body.containsKey("monthlyRate")) coach.setMonthlyRate(new java.math.BigDecimal(String.valueOf(body.get("monthlyRate"))));
+        if(body.containsKey("sportsCoached")) coach.setSportsCoached(String.join(",",(List<String>)body.get("sportsCoached")));
+        if(body.containsKey("experience")) coach.setBio((String)body.get("experience"));
+        return ResponseEntity.ok(Map.of("monthlyRate",Optional.ofNullable(coach.getMonthlyRate()).orElse(java.math.BigDecimal.ZERO),"sportsCoached",coach.getSportsCoached()==null?List.of():Arrays.asList(coach.getSportsCoached().split(","))));
+    }
+
     @PutMapping("/api/coach/services/{id}") @Transactional
     public ResponseEntity<?> updateService(@PathVariable Long id,@RequestBody Map<String,Object> body,Authentication auth){
         CoachService s=services.findById(id).orElse(null); if(s==null||!s.getCoachId().equals((Long)auth.getPrincipal())) return ResponseEntity.status(404).body(Map.of("error","Service not found"));

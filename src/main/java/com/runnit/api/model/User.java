@@ -68,6 +68,9 @@ public class User {
     @Column(name = "subscription_tier", length = 50)
     private String subscriptionTier;
 
+    @Column(name = "monthly_rate") private java.math.BigDecimal monthlyRate;
+    @Column(name = "sports_coached", columnDefinition = "TEXT") private String sportsCoached;
+
     @Column(name = "stripe_connect_account_id", length = 100)
     private String stripeConnectAccountId;
 
@@ -257,6 +260,10 @@ public class User {
     public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
     public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
+    public java.math.BigDecimal getMonthlyRate() { return monthlyRate; }
+    public void setMonthlyRate(java.math.BigDecimal monthlyRate) { this.monthlyRate = monthlyRate; }
+    public String getSportsCoached() { return sportsCoached; }
+    public void setSportsCoached(String sportsCoached) { this.sportsCoached = sportsCoached; }
     public String getStripeConnectAccountId() { return stripeConnectAccountId; }
     public void setStripeConnectAccountId(String stripeConnectAccountId) { this.stripeConnectAccountId = stripeConnectAccountId; }
     public Long getStravaAthleteId() { return stravaAthleteId; }
