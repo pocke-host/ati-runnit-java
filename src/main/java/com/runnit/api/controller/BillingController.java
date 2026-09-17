@@ -2,10 +2,14 @@ package com.runnit.api.controller;
 
 import com.runnit.api.model.User;
 import com.runnit.api.repository.UserRepository;
+import com.runnit.api.repository.CoachBookingRepository;
+import com.runnit.api.model.CoachBooking;
 import com.stripe.Stripe;
 import com.stripe.model.Customer;
 import com.stripe.model.Event;
 import com.stripe.model.Subscription;
+import com.stripe.model.Dispute;
+import com.stripe.model.Charge;
 import com.stripe.model.billingportal.Session;
 import com.stripe.net.Webhook;
 import com.stripe.param.CustomerCreateParams;
@@ -27,6 +31,7 @@ import java.util.Map;
 public class BillingController {
 
     private final UserRepository userRepository;
+    private final CoachBookingRepository coachBookingRepository;
 
     @Value("${stripe.secret.key:}")
     private String stripeSecretKey;
@@ -132,6 +137,22 @@ public class BillingController {
             log.info("Stripe webhook received: type={}", event.getType());
 
             switch (event.getType()) {
+                case "checkout.session.completed": {
+                    com.stripe.model.checkout.Session checkout = (com.stripe.model.checkout.Session) event.getDataObjectDeserializer().getObject().orElseThrow();
+                    String bookingId = checkout.getMetadata().get("booking_id");
+                    if (bookingId != null) coachBookingRepository.findById(Long.valueOf(bookingId)).ifPresent(b -> { b.setStatus("PAID"); b.setStripePaymentIntentId(checkout.getPaymentIntent()); coachBookingRepository.save(b); });
+                    break;
+                }
+                case "charge.refunded": {
+                    Charge charge = (Charge) event.getDataObjectDeserializer().getObject().orElseThrow();
+                    if (charge.getPaymentIntent() != null) coachBookingRepository.findAll().stream().filter(b -> charge.getPaymentIntent().equals(b.getStripePaymentIntentId())).forEach(b -> { b.setStatus("REFUNDED"); coachBookingRepository.save(b); });
+                    break;
+                }
+                case "charge.dispute.created": {
+                    Dispute dispute = (Dispute) event.getDataObjectDeserializer().getObject().orElseThrow();
+                    if (dispute.getPaymentIntent() != null) coachBookingRepository.findAll().stream().filter(b -> dispute.getPaymentIntent().equals(b.getStripePaymentIntentId())).forEach(b -> { b.setStatus("DISPUTED"); coachBookingRepository.save(b); });
+                    break;
+                }
                 case "customer.subscription.created":
                 case "customer.subscription.updated": {
                     Subscription sub = (Subscription) event.getDataObjectDeserializer()

@@ -1,0 +1,15 @@
+package com.runnit.api.model;
+import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp; import org.hibernate.annotations.UpdateTimestamp;
+import java.time.Instant;
+@Entity @Table(name="coach_bookings")
+public class CoachBooking {
+    @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
+    @Column(name="service_id",nullable=false) private Long serviceId; @Column(name="coach_id",nullable=false) private Long coachId; @Column(name="athlete_id",nullable=false) private Long athleteId;
+    @Column(name="scheduled_start") private Instant scheduledStart; @Column(name="scheduled_end") private Instant scheduledEnd;
+    @Column(nullable=false) private String status="PENDING_PAYMENT"; @Column(name="amount_cents",nullable=false) private Integer amountCents; @Column(name="commission_cents",nullable=false) private Integer commissionCents; @Column(name="coach_amount_cents",nullable=false) private Integer coachAmountCents;
+    @Column(name="stripe_checkout_session_id") private String stripeCheckoutSessionId; @Column(name="stripe_payment_intent_id") private String stripePaymentIntentId; @Column(name="cancellation_reason") private String cancellationReason;
+    @CreationTimestamp @Column(name="created_at",updatable=false) private Instant createdAt; @UpdateTimestamp @Column(name="updated_at") private Instant updatedAt;
+    public CoachBooking(){} public Long getId(){return id;} public Long getServiceId(){return serviceId;} public Long getCoachId(){return coachId;} public Long getAthleteId(){return athleteId;} public Instant getScheduledStart(){return scheduledStart;} public Instant getScheduledEnd(){return scheduledEnd;} public String getStatus(){return status;} public Integer getAmountCents(){return amountCents;} public Integer getCommissionCents(){return commissionCents;} public Integer getCoachAmountCents(){return coachAmountCents;} public String getStripeCheckoutSessionId(){return stripeCheckoutSessionId;} public String getStripePaymentIntentId(){return stripePaymentIntentId;} public String getCancellationReason(){return cancellationReason;} public Instant getCreatedAt(){return createdAt;} public Instant getUpdatedAt(){return updatedAt;}
+    public void setServiceId(Long v){serviceId=v;} public void setCoachId(Long v){coachId=v;} public void setAthleteId(Long v){athleteId=v;} public void setScheduledStart(Instant v){scheduledStart=v;} public void setScheduledEnd(Instant v){scheduledEnd=v;} public void setStatus(String v){status=v;} public void setAmountCents(Integer v){amountCents=v;} public void setCommissionCents(Integer v){commissionCents=v;} public void setCoachAmountCents(Integer v){coachAmountCents=v;} public void setStripeCheckoutSessionId(String v){stripeCheckoutSessionId=v;} public void setStripePaymentIntentId(String v){stripePaymentIntentId=v;} public void setCancellationReason(String v){cancellationReason=v;}
+}

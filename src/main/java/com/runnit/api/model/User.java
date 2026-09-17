@@ -68,6 +68,9 @@ public class User {
     @Column(name = "subscription_tier", length = 50)
     private String subscriptionTier;
 
+    @Column(name = "stripe_connect_account_id", length = 100)
+    private String stripeConnectAccountId;
+
 
     @Column(name = "strava_athlete_id")
     private Long stravaAthleteId;
@@ -254,6 +257,8 @@ public class User {
     public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
     public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
+    public String getStripeConnectAccountId() { return stripeConnectAccountId; }
+    public void setStripeConnectAccountId(String stripeConnectAccountId) { this.stripeConnectAccountId = stripeConnectAccountId; }
     public Long getStravaAthleteId() { return stravaAthleteId; }
     public String getStravaAccessToken() { return stravaAccessToken; }
     public String getStravaRefreshToken() { return stravaRefreshToken; }
