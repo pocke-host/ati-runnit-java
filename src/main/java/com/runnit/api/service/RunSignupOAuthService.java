@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.HttpStatusCodeException;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -64,6 +65,10 @@ public class RunSignupOAuthService {
         return frontendUrl + "/races?runsignup=connected";
     }
 
+    public String failureRedirect(String reason) {
+        return frontendUrl + "/races?runsignup_error=" + enc(reason == null || reason.isBlank() ? "connection_failed" : reason);
+    }
+
     public Map<String, Object> status(Long userId) {
         User u = users.findById(userId).orElseThrow();
         return Map.of("connected", u.getRunSignupRefreshToken() != null,
@@ -81,8 +86,14 @@ public class RunSignupOAuthService {
 
     private Map<String, Object> exchange(String url, MultiValueMap<String, String> body) {
         HttpHeaders h = new HttpHeaders(); h.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        try { return mapper.readValue(http.postForEntity(url, new HttpEntity<>(body, h), String.class).getBody(), new TypeReference<>() {}); }
-        catch (Exception e) { throw new IllegalStateException("RunSignup OAuth token exchange failed", e); }
+        try {
+            String response = http.postForEntity(url, new HttpEntity<>(body, h), String.class).getBody();
+            return mapper.readValue(response, new TypeReference<>() {});
+        } catch (HttpStatusCodeException e) {
+            throw new IllegalStateException("RunSignup OAuth token exchange failed (provider rejected the request)", e);
+        } catch (Exception e) {
+            throw new IllegalStateException("RunSignup OAuth token exchange failed", e);
+        }
     }
     private void saveTokens(User u, Map<String, Object> t) {
         u.setRunSignupAccessToken((String) t.get("access_token"));

@@ -19,8 +19,18 @@ public class RunSignupOAuthController {
     public Map<String, String> connect(Authentication auth) { return Map.of("url", oauth.connect((Long) auth.getPrincipal())); }
 
     @GetMapping("/callback")
-    public ResponseEntity<Void> callback(@RequestParam String code, @RequestParam String state) {
-        return ResponseEntity.status(302).location(URI.create(oauth.callback(code, state))).build();
+    public ResponseEntity<Void> callback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error) {
+        if (error != null || code == null || state == null) {
+            return redirect(oauth.failureRedirect(error == null ? "missing_code" : error));
+        }
+        try {
+            return redirect(oauth.callback(code, state));
+        } catch (Exception e) {
+            return redirect(oauth.failureRedirect("exchange_failed"));
+        }
     }
 
     @PostMapping("/mobile-callback")
@@ -34,4 +44,8 @@ public class RunSignupOAuthController {
 
     @GetMapping("/status")
     public Map<String, Object> status(Authentication auth) { return oauth.status((Long) auth.getPrincipal()); }
+
+    private ResponseEntity<Void> redirect(String location) {
+        return ResponseEntity.status(302).location(URI.create(location)).build();
+    }
 }
