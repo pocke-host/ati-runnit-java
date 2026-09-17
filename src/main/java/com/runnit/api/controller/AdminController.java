@@ -136,6 +136,16 @@ public class AdminController {
         return ResponseEntity.ok(toAdminUserMap(user));
     }
 
+    @PatchMapping("/coaches/{id}/verification")
+    public ResponseEntity<?> verifyCoach(Authentication auth, @PathVariable Long id, @RequestBody Map<String, Boolean> body) {
+        if (!isAdmin(auth)) return forbidden();
+        User coach = userRepository.findById(id).orElse(null);
+        if (coach == null || !"coach".equalsIgnoreCase(coach.getRole())) return ResponseEntity.notFound().build();
+        coach.setCoachVerified(Boolean.TRUE.equals(body.get("verified")));
+        userRepository.save(coach);
+        return ResponseEntity.ok(Map.of("id", id, "coachVerified", coach.getCoachVerified()));
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     private Map<String, Object> toAdminUserMap(User u) {

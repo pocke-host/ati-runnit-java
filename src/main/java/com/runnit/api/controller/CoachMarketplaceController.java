@@ -105,6 +105,13 @@ public class CoachMarketplaceController {
         if(s.getCoachId().equals(athleteId))return ResponseEntity.badRequest().body(Map.of("error","You cannot book your own service"));
         CoachBooking b=new CoachBooking(); b.setServiceId(s.getId()); b.setCoachId(s.getCoachId()); b.setAthleteId(athleteId); b.setAmountCents(s.getPriceCents()); b.setCommissionCents(Math.round(s.getPriceCents()*COMMISSION_PERCENT/100f)); b.setCoachAmountCents(s.getPriceCents()-b.getCommissionCents()); b.setStatus("PENDING_PAYMENT");
         if(body.get("scheduledStart")!=null)b.setScheduledStart(Instant.parse((String)body.get("scheduledStart"))); if(body.get("scheduledEnd")!=null)b.setScheduledEnd(Instant.parse((String)body.get("scheduledEnd")));
+        if(b.getScheduledStart()!=null && b.getScheduledEnd()!=null) {
+            if(!b.getScheduledEnd().isAfter(b.getScheduledStart())) return ResponseEntity.badRequest().body(Map.of("error","Booking end must be after start"));
+            CoachAvailability slot=availability.findByCoachIdOrderByWeekdayAscStartTimeAsc(s.getCoachId()).stream().filter(x -> { try { java.time.ZonedDateTime z=b.getScheduledStart().atZone(java.time.ZoneId.of(x.getTimezone())); return z.getDayOfWeek().getValue()==x.getWeekday() && !z.toLocalTime().isBefore(x.getStartTime()) && !b.getScheduledEnd().atZone(java.time.ZoneId.of(x.getTimezone())).toLocalTime().isAfter(x.getEndTime()); } catch(Exception e){ return false; } }).findFirst().orElse(null);
+            if(slot==null) return ResponseEntity.badRequest().body(Map.of("error","That time is outside the coach's published availability"));
+            boolean conflict=bookings.findByCoachIdOrderByCreatedAtDesc(s.getCoachId()).stream().anyMatch(x -> !Set.of("CANCELLED","REFUNDED").contains(x.getStatus()) && x.getScheduledStart()!=null && x.getScheduledEnd()!=null && b.getScheduledStart().isBefore(x.getScheduledEnd()) && b.getScheduledEnd().isAfter(x.getScheduledStart()));
+            if(conflict) return ResponseEntity.status(409).body(Map.of("error","That time is already booked"));
+        }
         CoachBooking saved=bookings.save(b); events.save(new MarketplaceEvent("BOOKING_CREATED",s.getCoachId(),athleteId,s.getId(),saved.getId())); return ResponseEntity.ok(bookingMap(saved));
     }
 
