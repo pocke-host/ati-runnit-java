@@ -4,6 +4,8 @@ import com.runnit.api.model.*;
 import com.runnit.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
@@ -31,6 +33,7 @@ public class CoachMarketplaceController {
     private final CoachReviewRepository reviews;
     private final CoachReportRepository reports;
     private final MarketplaceEventRepository events;
+    private final NotificationRepository notifications;
     private final UserRepository users;
     @Value("${stripe.secret.key:}") private String stripeSecretKey;
     @Value("${app.frontend.url:http://localhost:5173}") private String frontendUrl;
@@ -112,7 +115,7 @@ public class CoachMarketplaceController {
             boolean conflict=bookings.findByCoachIdOrderByCreatedAtDesc(s.getCoachId()).stream().anyMatch(x -> !Set.of("CANCELLED","REFUNDED").contains(x.getStatus()) && x.getScheduledStart()!=null && x.getScheduledEnd()!=null && b.getScheduledStart().isBefore(x.getScheduledEnd()) && b.getScheduledEnd().isAfter(x.getScheduledStart()));
             if(conflict) return ResponseEntity.status(409).body(Map.of("error","That time is already booked"));
         }
-        CoachBooking saved=bookings.save(b); events.save(new MarketplaceEvent("BOOKING_CREATED",s.getCoachId(),athleteId,s.getId(),saved.getId())); return ResponseEntity.ok(bookingMap(saved));
+        CoachBooking saved=bookings.save(b); events.save(new MarketplaceEvent("BOOKING_CREATED",s.getCoachId(),athleteId,s.getId(),saved.getId())); notify(s.getCoachId(), athleteId, "COACH_BOOKING_CREATED", "You have a new coaching booking request.", saved.getId()); return ResponseEntity.ok(bookingMap(saved));
     }
 
     @PostMapping("/api/athlete/bookings/{id}/checkout") @Transactional
@@ -149,8 +152,15 @@ public class CoachMarketplaceController {
         return Map.of("grossCents",gross,"commissionCents",commission,"netCents",gross-commission,"paidBookings",rows.stream().filter(b->Set.of("PAID","COMPLETED").contains(b.getStatus())).count());
     }
     @GetMapping("/api/athlete/bookings") public List<Map<String,Object>> athleteBookings(Authentication a){return bookings.findByAthleteIdOrderByCreatedAtDesc((Long)a.getPrincipal()).stream().map(this::bookingMap).toList();}
+    @PatchMapping("/api/coach/bookings/{id}/reschedule") @Transactional public ResponseEntity<?> reschedule(@PathVariable Long id,@RequestBody Map<String,Object> body,Authentication a){
+        CoachBooking b=bookings.findById(id).orElse(null); if(b==null||!b.getCoachId().equals((Long)a.getPrincipal())) return ResponseEntity.notFound().build();
+        try { Instant start=Instant.parse(String.valueOf(body.get("scheduledStart"))); Instant end=Instant.parse(String.valueOf(body.get("scheduledEnd"))); if(!end.isAfter(start)) return ResponseEntity.badRequest().body(Map.of("error","End must be after start")); b.setScheduledStart(start); b.setScheduledEnd(end); CoachBooking saved=bookings.save(b); notify(b.getAthleteId(),b.getCoachId(),"COACH_BOOKING_RESCHEDULED","Your coaching booking was rescheduled.",id); return ResponseEntity.ok(bookingMap(saved)); } catch(Exception e){ return ResponseEntity.badRequest().body(Map.of("error","Use ISO timestamps for the new time")); }
+    }
+    @GetMapping(value="/api/bookings/{id}/calendar.ics", produces="text/calendar") public ResponseEntity<String> calendarInvite(@PathVariable Long id,Authentication a){
+        CoachBooking b=bookings.findById(id).orElse(null); Long uid=(Long)a.getPrincipal(); if(b==null||(!b.getCoachId().equals(uid)&&!b.getAthleteId().equals(uid))||b.getScheduledStart()==null||b.getScheduledEnd()==null)return ResponseEntity.notFound().build(); String body="BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:runnit-booking-"+id+"\r\nDTSTART:"+calendarTime(b.getScheduledStart())+"\r\nDTEND:"+calendarTime(b.getScheduledEnd())+"\r\nSUMMARY:Runnit coaching session\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"; return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename= r"+id+".ics").contentType(MediaType.parseMediaType("text/calendar")).body(body);
+    }
     @PostMapping("/api/coach/bookings/{id}/cancel") @Transactional public ResponseEntity<?> cancel(@PathVariable Long id,@RequestBody(required=false) Map<String,Object> body,Authentication a){
-        CoachBooking b=bookings.findById(id).orElse(null);Long uid=(Long)a.getPrincipal();if(b==null||(!b.getCoachId().equals(uid)&&!b.getAthleteId().equals(uid)))return ResponseEntity.status(404).body(Map.of("error","Booking not found")); if(Set.of("COMPLETED","REFUNDED").contains(b.getStatus()))return ResponseEntity.badRequest().body(Map.of("error","Booking cannot be cancelled"));b.setStatus("CANCELLATION_REQUESTED");b.setCancellationReason(body==null?null:(String)body.get("reason"));return ResponseEntity.ok(bookingMap(bookings.save(b)));
+        CoachBooking b=bookings.findById(id).orElse(null);Long uid=(Long)a.getPrincipal();if(b==null||(!b.getCoachId().equals(uid)&&!b.getAthleteId().equals(uid)))return ResponseEntity.status(404).body(Map.of("error","Booking not found")); if(Set.of("COMPLETED","REFUNDED").contains(b.getStatus()))return ResponseEntity.badRequest().body(Map.of("error","Booking cannot be cancelled")); if(uid.equals(b.getAthleteId())&&b.getScheduledStart()!=null&&b.getScheduledStart().minusSeconds((long)b.getCancellationPolicyHours()*3600).isBefore(Instant.now()))return ResponseEntity.badRequest().body(Map.of("error","This booking is inside the cancellation window"));b.setStatus("CANCELLATION_REQUESTED");b.setCancellationReason(body==null?null:(String)body.get("reason")); notify(uid.equals(b.getAthleteId())?b.getCoachId():b.getAthleteId(),uid,"COACH_BOOKING_CANCELLED","A coaching booking cancellation was requested.",id);return ResponseEntity.ok(bookingMap(bookings.save(b)));
     }
     @PostMapping("/api/athlete/bookings/{id}/review") @Transactional public ResponseEntity<?> review(@PathVariable Long id,@RequestBody Map<String,Object> body,Authentication a){
         CoachBooking b=bookings.findById(id).orElse(null);Long uid=(Long)a.getPrincipal();if(b==null||!b.getAthleteId().equals(uid)||!"COMPLETED".equals(b.getStatus()))return ResponseEntity.badRequest().body(Map.of("error","Only completed bookings can be reviewed"));if(reviews.findByBookingId(id).isPresent())return ResponseEntity.status(409).body(Map.of("error","Booking already reviewed"));int rating=intValue(body,"rating");if(rating<1||rating>5)return ResponseEntity.badRequest().body(Map.of("error","Rating must be 1 to 5"));CoachReview r=new CoachReview();r.setBookingId(id);r.setCoachId(b.getCoachId());r.setAthleteId(uid);r.setRating(rating);r.setReviewText((String)body.get("reviewText"));return ResponseEntity.ok(reviewMap(reviews.save(r)));
@@ -168,6 +178,8 @@ public class CoachMarketplaceController {
     private Map<String,Object> bookingMap(CoachBooking b){Map<String,Object>m=new LinkedHashMap<>();m.put("id",b.getId());m.put("serviceId",b.getServiceId());m.put("coachId",b.getCoachId());m.put("athleteId",b.getAthleteId());m.put("scheduledStart",b.getScheduledStart());m.put("scheduledEnd",b.getScheduledEnd());m.put("status",b.getStatus());m.put("amountCents",b.getAmountCents());m.put("commissionCents",b.getCommissionCents());m.put("coachAmountCents",b.getCoachAmountCents());return m;}
     private Map<String,Object> reviewMap(CoachReview r){Map<String,Object>m=new LinkedHashMap<>();m.put("id",r.getId());m.put("bookingId",r.getBookingId());m.put("coachId",r.getCoachId());m.put("athleteId",r.getAthleteId());m.put("rating",r.getRating());m.put("reviewText",r.getReviewText());m.put("createdAt",r.getCreatedAt());return m;}
     private Map<String,Object> reportMap(CoachReport r){Map<String,Object>m=new LinkedHashMap<>();m.put("id",r.getId());m.put("coachId",r.getCoachId());m.put("bookingId",r.getBookingId());m.put("reason",r.getReason());m.put("details",r.getDetails());m.put("status",r.getStatus());m.put("createdAt",r.getCreatedAt());return m;}
+    private void notify(Long recipient,Long actor,String type,String message,Long ref){ users.findById(recipient).ifPresent(u->notifications.save(Notification.builder().user(u).actor(users.findById(actor).orElse(null)).type(type).message(message).referenceId(ref).referenceType("COACH_BOOKING").build())); }
+    private String calendarTime(Instant i){return java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(java.time.ZoneOffset.UTC).format(i);}
     private String required(Map<String,Object>b,String k,int max){String v=String.valueOf(b.getOrDefault(k,"")).trim();if(v.isEmpty()||v.length()>max)throw new IllegalArgumentException(k+" is required and must be <= "+max+" characters");return v;}
     private String value(Map<String,Object>b,String k,String d){return b.get(k)==null?d:String.valueOf(b.get(k));} private int intValue(Map<String,Object>b,String k){return ((Number)b.getOrDefault(k,0)).intValue();} private Long longValue(Map<String,Object>b,String k){return ((Number)b.get(k)).longValue();}
 }

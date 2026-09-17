@@ -4,6 +4,8 @@ import com.runnit.api.model.User;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.CoachBookingRepository;
 import com.runnit.api.model.CoachBooking;
+import com.runnit.api.model.StripeWebhookEvent;
+import com.runnit.api.repository.StripeWebhookEventRepository;
 import com.stripe.Stripe;
 import com.stripe.model.Customer;
 import com.stripe.model.Event;
@@ -32,6 +34,7 @@ public class BillingController {
 
     private final UserRepository userRepository;
     private final CoachBookingRepository coachBookingRepository;
+    private final StripeWebhookEventRepository stripeWebhookEventRepository;
 
     @Value("${stripe.secret.key:}")
     private String stripeSecretKey;
@@ -135,12 +138,14 @@ public class BillingController {
             Stripe.apiKey = stripeSecretKey;
             Event event = Webhook.constructEvent(payload, sigHeader, webhookSecret);
             log.info("Stripe webhook received: type={}", event.getType());
+            if (stripeWebhookEventRepository.existsById(event.getId())) return ResponseEntity.ok(Map.of("received", true, "duplicate", true));
+            stripeWebhookEventRepository.save(new StripeWebhookEvent(event.getId(), event.getType()));
 
             switch (event.getType()) {
                 case "checkout.session.completed": {
                     com.stripe.model.checkout.Session checkout = (com.stripe.model.checkout.Session) event.getDataObjectDeserializer().getObject().orElseThrow();
                     String bookingId = checkout.getMetadata().get("booking_id");
-                    if (bookingId != null) coachBookingRepository.findById(Long.valueOf(bookingId)).ifPresent(b -> { b.setStatus("PAID"); b.setStripePaymentIntentId(checkout.getPaymentIntent()); coachBookingRepository.save(b); });
+                    if (bookingId != null) coachBookingRepository.findById(Long.valueOf(bookingId)).ifPresent(b -> { b.setStatus("PAID"); b.setStripePaymentIntentId(checkout.getPaymentIntent()); b.setStripeSubscriptionId(checkout.getSubscription()); coachBookingRepository.save(b); });
                     break;
                 }
                 case "charge.refunded": {
@@ -153,6 +158,11 @@ public class BillingController {
                     if (dispute.getPaymentIntent() != null) coachBookingRepository.findAll().stream().filter(b -> dispute.getPaymentIntent().equals(b.getStripePaymentIntentId())).forEach(b -> { b.setStatus("DISPUTED"); coachBookingRepository.save(b); });
                     break;
                 }
+                case "invoice.payment_failed": {
+                    com.stripe.model.Invoice invoice = (com.stripe.model.Invoice) event.getDataObjectDeserializer().getObject().orElseThrow();
+                    if (invoice.getSubscription() != null) coachBookingRepository.findByStripeSubscriptionId(invoice.getSubscription()).forEach(b -> { b.setStatus("PAYMENT_FAILED"); coachBookingRepository.save(b); });
+                    break;
+                }
                 case "customer.subscription.created":
                 case "customer.subscription.updated": {
                     Subscription sub = (Subscription) event.getDataObjectDeserializer()
@@ -163,6 +173,7 @@ public class BillingController {
                 case "customer.subscription.deleted": {
                     Subscription sub = (Subscription) event.getDataObjectDeserializer()
                             .getObject().orElseThrow();
+                    coachBookingRepository.findByStripeSubscriptionId(sub.getId()).forEach(b -> { b.setStatus("CANCELLED"); coachBookingRepository.save(b); });
                     updateUserSubscription(sub.getCustomer(), "canceled");
                     break;
                 }
