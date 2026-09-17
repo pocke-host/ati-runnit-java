@@ -154,6 +154,7 @@ public class AdminController {
                 "email",              u.getEmail() != null ? u.getEmail() : "",
                 "displayName",        u.getDisplayName() != null ? u.getDisplayName() : "",
                 "role",               u.getRole() != null ? u.getRole() : "athlete",
+                "coachVerified",      Boolean.TRUE.equals(u.getCoachVerified()),
                 "subscriptionStatus", u.getSubscriptionStatus() != null ? u.getSubscriptionStatus() : "none",
                 "authProvider",       u.getAuthProvider() != null ? u.getAuthProvider().name() : "EMAIL",
                 "createdAt",          u.getCreatedAt() != null ? u.getCreatedAt().toString() : ""
