@@ -4,4 +4,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 public interface TrainingFolderRepository extends JpaRepository<TrainingFolder, Long> {
     List<TrainingFolder> findByUserIdOrderByCreatedAtDesc(Long userId);
+    List<TrainingFolder> findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(String name, String description);
 }
