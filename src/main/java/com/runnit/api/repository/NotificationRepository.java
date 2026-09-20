@@ -17,6 +17,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     long countByUser_IdAndReadFalse(Long userId);
 
+    boolean existsByUser_IdAndTypeAndReferenceTypeAndReadFalse(Long userId, String type, String referenceType);
+
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.user.id = :userId AND n.type = :type")
+    void deleteByUserIdAndType(@Param("userId") Long userId, @Param("type") String type);
+
     @Modifying
     @Query("UPDATE Notification n SET n.read = true WHERE n.user.id = :userId AND n.read = false")
     void markAllReadByUserId(Long userId);

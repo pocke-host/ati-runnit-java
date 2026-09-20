@@ -113,6 +113,7 @@ public class WhoopService {
         user.setWhoopTokenExpiresAt(Instant.now().getEpochSecond() + expiresIn);
         user.setWhoopOauthState(null);
         userRepository.save(user);
+        clearResolvedReconnectNotifications(user.getId());
 
         // Needed so incoming webhook events (keyed by WHOOP's own user_id) can be
         // mapped back to a Runnit user — without this the webhook has no way to
@@ -286,6 +287,7 @@ public class WhoopService {
             Map<String, Object> status = new HashMap<>();
             status.put("connected", u.getWhoopAccessToken() != null);
             status.put("lastSync", u.getWhoopLastSync() != null ? u.getWhoopLastSync().toString() : null);
+            if (u.getWhoopAccessToken() != null) clearResolvedReconnectNotifications(u.getId());
             return status;
         }).orElseGet(() -> { Map<String, Object> status = new HashMap<>(); status.put("connected", false); status.put("lastSync", null); return status; });
     }
@@ -512,18 +514,13 @@ public class WhoopService {
                 return user.getWhoopAccessToken();
             }
         } catch (HttpClientErrorException e) {
-            // Only 400/401 actually mean the refresh token itself is dead (e.g. invalid_grant) —
-            // WHOOP won't accept it again on a later retry, so clearing tokens here makes
-            // getStatus() correctly report connected=false instead of silently claiming the
-            // connection is still good while every sync quietly no-ops.
-            //
-            // 429 (and any other 4xx) is NOT that — it's WHOOP rate-limiting us, most likely
-            // from the per-minute backstop scheduler running across every connected user.
-            // Treating it the same as invalid_grant was wiping perfectly good connections on
-            // ordinary rate-limit responses, forcing users to reconnect for no real reason.
-            // Leave the tokens in place and let getValidAccessToken() retry on the next attempt.
+            // Only an explicit invalid_grant/invalid_token response means the refresh token
+            // itself is dead. Generic 400s can be a provider/configuration issue, while 429
+            // is rate limiting. Neither should tell the athlete that their connection expired.
             HttpStatusCode status = e.getStatusCode();
-            if (status == HttpStatus.BAD_REQUEST || status == HttpStatus.UNAUTHORIZED) {
+            String body = e.getResponseBodyAsString().toLowerCase(Locale.ROOT);
+            boolean invalidGrant = body.contains("invalid_grant") || body.contains("invalid_token");
+            if ((status == HttpStatus.BAD_REQUEST || status == HttpStatus.UNAUTHORIZED) && invalidGrant) {
                 log.warn("WHOOP token refresh rejected for user {} (needs reconnect): {}", user.getId(), e.getMessage());
                 markNeedsReconnect(user);
             } else {
@@ -543,13 +540,16 @@ public class WhoopService {
         user.setWhoopTokenExpiresAt(null);
         userRepository.save(user);
 
-        notificationRepository.save(Notification.builder()
-                .user(user)
-                .type("WHOOP_NEEDS_RECONNECT")
-                .message("Your WHOOP connection expired. Reconnect it in Devices to keep syncing recovery and workout data.")
-                .actor(null)
-                .referenceType("WHOOP")
-                .build());
+        if (!notificationRepository.existsByUser_IdAndTypeAndReferenceTypeAndReadFalse(
+                user.getId(), "WHOOP_NEEDS_RECONNECT", "WHOOP")) {
+            notificationRepository.save(Notification.builder()
+                    .user(user)
+                    .type("WHOOP_NEEDS_RECONNECT")
+                    .message("WHOOP needs attention. Reconnect it in Devices to resume recovery and workout syncing.")
+                    .actor(null)
+                    .referenceType("WHOOP")
+                    .build());
+        }
 
         // In-app notifications go unseen if the user doesn't open the app — email
         // is the only channel in this codebase today that reaches them regardless.
@@ -559,6 +559,11 @@ public class WhoopService {
         } catch (Exception e) {
             log.warn("WHOOP reconnect email failed for user {}: {}", user.getId(), e.getMessage());
         }
+    }
+
+    /** Remove obsolete reconnect alerts once WHOOP has proved the connection is healthy. */
+    private void clearResolvedReconnectNotifications(Long userId) {
+        notificationRepository.deleteByUserIdAndType(userId, "WHOOP_NEEDS_RECONNECT");
     }
 
     private Map<String, Object> exchangeCodeForToken(String code) {
