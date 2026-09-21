@@ -30,7 +30,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -325,6 +327,20 @@ public class WhoopService {
         OffsetDateTime end = OffsetDateTime.parse((String) workout.get("end"));
         int durationSeconds = (int) (end.toEpochSecond() - start.toEpochSecond());
 
+        // WHOOP returns start/end in UTC, plus the user's local offset separately.
+        // Persisting start.toLocalDateTime() discards that offset and makes a morning
+        // workout appear in the prior evening for users west of UTC.
+        ZoneOffset workoutOffset = start.getOffset();
+        Object rawTimezoneOffset = workout.get("timezone_offset");
+        if (rawTimezoneOffset != null) {
+            try {
+                workoutOffset = ZoneOffset.of(rawTimezoneOffset.toString());
+            } catch (RuntimeException e) {
+                log.warn("WHOOP workout {} has invalid timezone_offset '{}'; using timestamp offset", externalId, rawTimezoneOffset);
+            }
+        }
+        LocalDateTime performedAt = start.toInstant().atOffset(workoutOffset).toLocalDateTime();
+
         Double kilojoule = getDouble(score, "kilojoule");
         Integer calories = kilojoule != null ? (int) Math.round(kilojoule / 4.184) : null;
 
@@ -342,7 +358,7 @@ public class WhoopService {
                 .averageHeartRate(getInt(score, "average_heart_rate"))
                 .maxHeartRate(getInt(score, "max_heart_rate"))
                 .elevationGain(getInt(score, "altitude_gain_meter"))
-                .performedAt(start.toLocalDateTime())
+                .performedAt(performedAt)
                 // sport_type is a fixed DB enum (RUN/BIKE/SWIM/HIKE/WALK/OTHER) — WHOOP supports ~100
                 // named activities, most of which correctly fall to OTHER (no STRENGTH/YOGA/etc. category
                 // exists yet). Without this, the specific WHOOP activity name is silently discarded the

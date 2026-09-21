@@ -22,6 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -36,6 +38,7 @@ import java.time.DayOfWeek;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
@@ -115,6 +118,88 @@ public class ActivityController {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /** Download the authenticated athlete's deduplicated workouts as CSV. */
+    @GetMapping(value = "/export", produces = "text/csv")
+    public ResponseEntity<?> exportActivities(
+            @RequestParam(defaultValue = "week") String period,
+            @RequestParam(required = false) String anchorDate,
+            @RequestParam(defaultValue = "UTC") String timezone,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            ZoneId zone;
+            try {
+                zone = ZoneId.of(timezone);
+            } catch (DateTimeException e) {
+                zone = ZoneId.of("UTC");
+            }
+
+            LocalDate anchor = anchorDate == null || anchorDate.isBlank()
+                    ? LocalDate.now(zone)
+                    : LocalDate.parse(anchorDate);
+            LocalDate startDate;
+            LocalDate endDate;
+            String normalizedPeriod = period.trim().toLowerCase();
+            if ("month".equals(normalizedPeriod)) {
+                startDate = anchor.withDayOfMonth(1);
+                endDate = startDate.plusMonths(1);
+            } else if ("week".equals(normalizedPeriod)) {
+                startDate = anchor.with(DayOfWeek.MONDAY);
+                endDate = startDate.plusDays(7);
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "period must be week or month"));
+            }
+
+            List<Activity> activities = activityRepository.findByUserIdBetween(
+                    userId, startDate.atStartOfDay(), endDate.atStartOfDay());
+            Map<String, Activity> unique = new LinkedHashMap<>();
+            for (Activity activity : activities) {
+                String source = activity.getSource() == null ? "MANUAL" : activity.getSource().name();
+                String key = activity.getExternalId() == null || activity.getExternalId().isBlank()
+                        ? "activity:" + activity.getId()
+                        : source + ":" + activity.getExternalId();
+                unique.putIfAbsent(key, activity);
+            }
+
+            StringBuilder csv = new StringBuilder("date,sport,source,duration_minutes,distance_km,calories,elevation_m,avg_hr,max_hr,listening_track,listening_artist\n");
+            DateTimeFormatter timestamp = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            for (Activity activity : unique.values()) {
+                LocalDateTime performedAt = activity.getPerformedAt() != null ? activity.getPerformedAt() : activity.getCreatedAt();
+                csv.append(csvCell(performedAt == null ? "" : timestamp.format(performedAt))).append(',')
+                        .append(csvCell(activity.getSportType() == null ? "" : activity.getSportType().name())).append(',')
+                        .append(csvCell(activity.getSource() == null ? "MANUAL" : activity.getSource().name())).append(',')
+                        .append(activity.getDurationSeconds() == null ? 0 : Math.max(0, activity.getDurationSeconds()) / 60.0).append(',')
+                        .append(activity.getDistanceMeters() == null ? "" : String.format(java.util.Locale.US, "%.3f", activity.getDistanceMeters() / 1000.0)).append(',')
+                        .append(csvCell(activity.getCalories())).append(',')
+                        .append(csvCell(activity.getElevationGain())).append(',')
+                        .append(csvCell(activity.getAverageHeartRate())).append(',')
+                        .append(csvCell(activity.getMaxHeartRate())).append(',')
+                        .append(csvCell(activity.getListeningTrack())).append(',')
+                        .append(csvCell(activity.getListeningArtist())).append('\n');
+            }
+
+            String filename = "runnit-workouts-" + normalizedPeriod + "-" + startDate + ".csv";
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                    .body(csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (DateTimeParseException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "anchorDate must be YYYY-MM-DD"));
+        } catch (Exception e) {
+            log.error("Activity export failed", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private String csvCell(Object value) {
+        if (value == null) return "";
+        String text = String.valueOf(value);
+        if (text.contains(",") || text.contains("\"") || text.contains("\n") || text.contains("\r")) {
+            return "\"" + text.replace("\"", "\"\"") + "\"";
+        }
+        return text;
     }
 
     @GetMapping("/summary/weekly")
