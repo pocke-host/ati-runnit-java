@@ -46,6 +46,7 @@ public class ActivityService {
     private final AdaptivePlanService adaptivePlanService;
     private final StrengthExerciseRepository strengthExerciseRepository;
     private final StrengthSetRepository strengthSetRepository;
+    private final RewardsService rewardsService;
 
     @Transactional
     public Activity createActivity(Long userId, ActivityRequest request) {
@@ -74,6 +75,7 @@ public class ActivityService {
                 .build();
 
         Activity saved = activityRepository.save(activity);
+        rewardsService.awardForActivity(saved);
         try {
             adaptivePlanService.onActivityRecorded(saved);
         } catch (Exception e) {
@@ -103,6 +105,7 @@ public class ActivityService {
                 .source(Activity.Source.MANUAL)
                 .build();
         activity = activityRepository.save(activity);
+        rewardsService.awardForActivity(activity);
 
         int exerciseOrder = 0;
         for (StrengthExerciseRequest exerciseReq : request.getExercises()) {
