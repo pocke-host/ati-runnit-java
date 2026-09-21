@@ -8,6 +8,7 @@ import com.runnit.api.model.StripeWebhookEvent;
 import com.runnit.api.repository.StripeWebhookEventRepository;
 import com.runnit.api.repository.NotificationRepository;
 import com.runnit.api.model.Notification;
+import com.runnit.api.service.RewardsService;
 import com.stripe.Stripe;
 import com.stripe.model.Customer;
 import com.stripe.model.Event;
@@ -38,6 +39,7 @@ public class BillingController {
     private final CoachBookingRepository coachBookingRepository;
     private final StripeWebhookEventRepository stripeWebhookEventRepository;
     private final NotificationRepository notificationRepository;
+    private final RewardsService rewardsService;
 
     @Value("${stripe.secret.key:}")
     private String stripeSecretKey;
@@ -147,6 +149,10 @@ public class BillingController {
             switch (event.getType()) {
                 case "checkout.session.completed": {
                     com.stripe.model.checkout.Session checkout = (com.stripe.model.checkout.Session) event.getDataObjectDeserializer().getObject().orElseThrow();
+                    if (checkout.getMetadata() != null && checkout.getMetadata().get("reward_redemption_id") != null) {
+                        rewardsService.completePaidCheckout(checkout.getId());
+                        break;
+                    }
                     String bookingId = checkout.getMetadata().get("booking_id");
                     if (bookingId != null) coachBookingRepository.findById(Long.valueOf(bookingId)).ifPresent(b -> { b.setStatus("PAID"); b.setStripePaymentIntentId(checkout.getPaymentIntent()); b.setStripeSubscriptionId(checkout.getSubscription()); coachBookingRepository.save(b); notifyBookingParty(b.getAthleteId(), b.getCoachId(), "COACH_BOOKING_CONFIRMED", "Your coaching booking is confirmed.", b.getId()); notifyBookingParty(b.getCoachId(), b.getAthleteId(), "COACH_BOOKING_PAID", "A coaching booking has been paid and confirmed.", b.getId()); });
                     break;

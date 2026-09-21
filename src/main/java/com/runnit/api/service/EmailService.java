@@ -81,6 +81,22 @@ public class EmailService {
         }
     }
 
+    /** Best-effort transactional email for rewards fulfillment updates. */
+    public void sendRewardUpdate(String toEmail, String rewardTitle, String status) {
+        if (mailSender == null) {
+            log.warn("[email] SMTP not configured — skipping reward update to {}", toEmail);
+            return;
+        }
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromAddress); helper.setTo(toEmail);
+            helper.setSubject("Your RUNNIT reward: " + status.toLowerCase());
+            helper.setText("<p>Your RUNNIT reward <strong>" + rewardTitle + "</strong> is now <strong>" + status + "</strong>.</p><p>View your rewards at <a href=\"" + frontendUrl + "/rewards\">runnit.live/rewards</a>.</p>", true);
+            mailSender.send(message);
+        } catch (Exception e) { log.warn("[email] Failed to send reward update to {}: {}", toEmail, e.getMessage()); }
+    }
+
     private String buildWhoopReconnectHtml(String devicesLink) {
         return """
             <!DOCTYPE html>

@@ -15,11 +15,24 @@ public class RewardRedemption {
     @Column(nullable = false) private String status = "REQUESTED";
     @Column(name = "shipping_name") private String shippingName;
     @Column(name = "shipping_address", columnDefinition = "TEXT") private String shippingAddress;
+    @Column(name = "apparel_size") private String apparelSize;
+    @Column(name = "subtotal_cents") private Integer subtotalCents;
+    @Column(name = "shipping_cents") private Integer shippingCents;
+    @Column(name = "tax_cents") private Integer taxCents;
+    @Column(name = "total_cents") private Integer totalCents;
+    @Column(name = "shipping_method") private String shippingMethod;
+    @Column(name = "external_checkout_session_id") private String externalCheckoutSessionId;
+    @Column(name = "cancellation_reason") private String cancellationReason;
+    @Column(name = "shipped_at") private Instant shippedAt;
+    @Column(name = "fulfilled_at") private Instant fulfilledAt;
+    @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @CreationTimestamp @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
 
     public Long getId(){return id;} public User getUser(){return user;} public RewardCatalogItem getReward(){return reward;}
     public Integer getPointsCost(){return pointsCost;} public Integer getPriceCents(){return priceCents;} public String getStatus(){return status;}
     public String getShippingName(){return shippingName;} public String getShippingAddress(){return shippingAddress;} public Instant getCreatedAt(){return createdAt;}
+    public String getApparelSize(){return apparelSize;} public Integer getSubtotalCents(){return subtotalCents;} public Integer getShippingCents(){return shippingCents;} public Integer getTaxCents(){return taxCents;} public Integer getTotalCents(){return totalCents;} public String getShippingMethod(){return shippingMethod;} public String getExternalCheckoutSessionId(){return externalCheckoutSessionId;} public String getCancellationReason(){return cancellationReason;} public Instant getShippedAt(){return shippedAt;} public Instant getFulfilledAt(){return fulfilledAt;}
+    public void setStatus(String v){status=v;} public void setApparelSize(String v){apparelSize=v;} public void setCancellationReason(String v){cancellationReason=v;} public void setShippedAt(Instant v){shippedAt=v;} public void setFulfilledAt(Instant v){fulfilledAt=v;} public void setExternalCheckoutSessionId(String v){externalCheckoutSessionId=v;} public void setSubtotalCents(Integer v){subtotalCents=v;} public void setShippingCents(Integer v){shippingCents=v;} public void setTaxCents(Integer v){taxCents=v;} public void setTotalCents(Integer v){totalCents=v;} public void setShippingMethod(String v){shippingMethod=v;}
     public static RewardRedemption of(User u, RewardCatalogItem r, String name, String address){
         RewardRedemption x=new RewardRedemption(); x.user=u; x.reward=r; x.pointsCost=r.getPointsCost(); x.priceCents=r.getPriceCents(); x.shippingName=name; x.shippingAddress=address; return x;
     }

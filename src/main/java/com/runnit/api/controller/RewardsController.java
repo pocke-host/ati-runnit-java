@@ -24,4 +24,16 @@ public class RewardsController {
         try { return ResponseEntity.ok(rewards.redeem((Long) auth.getPrincipal(), rewardId, body)); }
         catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
     }
+
+    @PostMapping("/{rewardId}/checkout")
+    public ResponseEntity<?> checkout(@PathVariable Long rewardId, @RequestBody(required = false) Map<String, String> body, Authentication auth) {
+        try { return ResponseEntity.ok(rewards.createPaidCheckout((Long) auth.getPrincipal(), rewardId, body)); }
+        catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
+    }
+
+    @PostMapping("/redemptions/{id}/cancel")
+    public ResponseEntity<?> cancel(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body, Authentication auth) {
+        try { return ResponseEntity.ok(rewards.cancel((Long) auth.getPrincipal(), id, body == null ? null : body.get("reason"))); }
+        catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
+    }
 }
