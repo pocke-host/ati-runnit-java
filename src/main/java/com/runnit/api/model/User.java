@@ -81,6 +81,12 @@ public class User {
     @Column(name = "coach_terms_accepted_at") private Instant coachTermsAcceptedAt;
     @Column(name = "coach_privacy", length = 20) private String coachPrivacy = "PUBLIC";
 
+    @Column(name = "strava_athlete_id") private Long stravaAthleteId;
+    @Column(name = "strava_access_token", columnDefinition = "TEXT") private String stravaAccessToken;
+    @Column(name = "strava_refresh_token", columnDefinition = "TEXT") private String stravaRefreshToken;
+    @Column(name = "strava_token_expires_at") private Long stravaTokenExpiresAt;
+    @Column(name = "strava_oauth_state", length = 100) private String stravaOauthState;
+    @Column(name = "strava_last_sync") private Instant stravaLastSync;
 
     @Column(name = "garmin_access_token", columnDefinition = "TEXT")
     private String garminAccessToken;
@@ -283,6 +289,18 @@ public class User {
     public void setMonthlyRate(java.math.BigDecimal monthlyRate) { this.monthlyRate = monthlyRate; }
     public String getSportsCoached() { return sportsCoached; }
     public void setSportsCoached(String sportsCoached) { this.sportsCoached = sportsCoached; }
+    public Long getStravaAthleteId() { return stravaAthleteId; }
+    public void setStravaAthleteId(Long v) { this.stravaAthleteId = v; }
+    public String getStravaAccessToken() { return stravaAccessToken; }
+    public void setStravaAccessToken(String v) { this.stravaAccessToken = v; }
+    public String getStravaRefreshToken() { return stravaRefreshToken; }
+    public void setStravaRefreshToken(String v) { this.stravaRefreshToken = v; }
+    public Long getStravaTokenExpiresAt() { return stravaTokenExpiresAt; }
+    public void setStravaTokenExpiresAt(Long v) { this.stravaTokenExpiresAt = v; }
+    public String getStravaOauthState() { return stravaOauthState; }
+    public void setStravaOauthState(String v) { this.stravaOauthState = v; }
+    public Instant getStravaLastSync() { return stravaLastSync; }
+    public void setStravaLastSync(Instant v) { this.stravaLastSync = v; }
     public String getStripeConnectAccountId() { return stripeConnectAccountId; }
     public void setStripeConnectAccountId(String stripeConnectAccountId) { this.stripeConnectAccountId = stripeConnectAccountId; }
     public String getGarminAccessToken() { return garminAccessToken; }

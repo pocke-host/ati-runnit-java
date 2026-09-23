@@ -46,6 +46,8 @@ public class SecurityConfig {
                     "/api/integrations/coros/callback",
                     "/api/coros-coach/callback",
                     "/api/spotify/callback",
+                    "/api/integrations/strava/callback",
+                    "/api/strava/webhook",
                     "/api/integrations/runsignup/oauth/callback",
                     "/api/coros/webhook",
                     "/api/integrations/google-calendar/callback",
