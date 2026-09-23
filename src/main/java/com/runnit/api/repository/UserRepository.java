@@ -32,6 +32,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByWhoopOauthState(String state);
     Optional<User> findByOuraOauthState(String state);
     List<User> findByOuraAccessTokenIsNotNull();
+    Optional<User> findByFitbitGoogleOauthState(String state);
+    List<User> findByFitbitGoogleAccessTokenIsNotNull();
     Optional<User> findByWhoopUserId(Long whoopUserId);
 
     @org.springframework.data.jpa.repository.Query(

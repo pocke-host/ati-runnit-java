@@ -28,6 +28,23 @@ public class RewardRedemption {
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @CreationTimestamp @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
 
+    /**
+     * The database column is NOT NULL, and Hibernate includes null fields in
+     * the insert statement. Set both timestamps in the entity lifecycle so a
+     * redemption cannot fail before MySQL gets a chance to apply its default.
+     */
+    @PrePersist
+    void onCreate() {
+        Instant now = Instant.now();
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
     public Long getId(){return id;} public User getUser(){return user;} public RewardCatalogItem getReward(){return reward;}
     public Integer getPointsCost(){return pointsCost;} public Integer getPriceCents(){return priceCents;} public String getStatus(){return status;}
     public String getShippingName(){return shippingName;} public String getShippingAddress(){return shippingAddress;} public Instant getCreatedAt(){return createdAt;}

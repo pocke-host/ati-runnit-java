@@ -53,6 +53,7 @@ public class SecurityConfig {
                     "/api/integrations/google-calendar/callback",
                     "/api/integrations/whoop/callback",
                     "/api/integrations/oura/callback",
+                    "/api/integrations/fitbit/callback",
                     "/api/integrations/whoop/webhook",
                     "/api/billing/webhook",
                     "/api/billing/revenuecat-webhook"

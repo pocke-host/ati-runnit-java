@@ -218,6 +218,21 @@ public class User {
     @Column(name = "oura_last_sync")
     private Instant ouraLastSync;
 
+    @Column(name = "fitbit_google_access_token", columnDefinition = "TEXT")
+    private String fitbitGoogleAccessToken;
+    @Column(name = "fitbit_google_refresh_token", columnDefinition = "TEXT")
+    private String fitbitGoogleRefreshToken;
+    @Column(name = "fitbit_google_token_expires_at")
+    private Long fitbitGoogleTokenExpiresAt;
+    @Column(name = "fitbit_google_oauth_state", length = 255)
+    private String fitbitGoogleOauthState;
+    @Column(name = "fitbit_google_health_user_id", length = 255)
+    private String fitbitGoogleHealthUserId;
+    @Column(name = "fitbit_google_legacy_user_id", length = 255)
+    private String fitbitGoogleLegacyUserId;
+    @Column(name = "fitbit_google_last_sync")
+    private Instant fitbitGoogleLastSync;
+
     @Column(name = "invite_code", length = 20)
     private String inviteCode;
 
@@ -386,6 +401,20 @@ public class User {
     public void setOuraOauthState(String value) { this.ouraOauthState = value; }
     public Instant getOuraLastSync() { return ouraLastSync; }
     public void setOuraLastSync(Instant value) { this.ouraLastSync = value; }
+    public String getFitbitGoogleAccessToken() { return fitbitGoogleAccessToken; }
+    public void setFitbitGoogleAccessToken(String value) { this.fitbitGoogleAccessToken = value; }
+    public String getFitbitGoogleRefreshToken() { return fitbitGoogleRefreshToken; }
+    public void setFitbitGoogleRefreshToken(String value) { this.fitbitGoogleRefreshToken = value; }
+    public Long getFitbitGoogleTokenExpiresAt() { return fitbitGoogleTokenExpiresAt; }
+    public void setFitbitGoogleTokenExpiresAt(Long value) { this.fitbitGoogleTokenExpiresAt = value; }
+    public String getFitbitGoogleOauthState() { return fitbitGoogleOauthState; }
+    public void setFitbitGoogleOauthState(String value) { this.fitbitGoogleOauthState = value; }
+    public String getFitbitGoogleHealthUserId() { return fitbitGoogleHealthUserId; }
+    public void setFitbitGoogleHealthUserId(String value) { this.fitbitGoogleHealthUserId = value; }
+    public String getFitbitGoogleLegacyUserId() { return fitbitGoogleLegacyUserId; }
+    public void setFitbitGoogleLegacyUserId(String value) { this.fitbitGoogleLegacyUserId = value; }
+    public Instant getFitbitGoogleLastSync() { return fitbitGoogleLastSync; }
+    public void setFitbitGoogleLastSync(Instant value) { this.fitbitGoogleLastSync = value; }
     public String getInviteCode() { return inviteCode; }
     public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
     public String getPushToken() { return pushToken; }
