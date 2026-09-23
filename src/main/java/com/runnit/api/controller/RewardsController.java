@@ -6,7 +6,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/rewards")
 @RequiredArgsConstructor
@@ -16,7 +18,10 @@ public class RewardsController {
     @GetMapping
     public ResponseEntity<?> dashboard(Authentication auth) {
         try { return ResponseEntity.ok(rewards.dashboard((Long) auth.getPrincipal())); }
-        catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
+        catch (Exception e) {
+            log.error("Rewards dashboard failed for user {}", auth == null ? "unknown" : auth.getPrincipal(), e);
+            return ResponseEntity.status(503).body(Map.of("error", "Rewards are temporarily unavailable. Please try again shortly."));
+        }
     }
 
     @PostMapping("/{rewardId}/redeem")
