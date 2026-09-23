@@ -63,7 +63,7 @@ public class GoogleCalendarService {
         user.setGoogleCalendarOauthState(state);
         userRepository.save(user);
 
-        // Unlike WHOOP/Strava/COROS in this codebase, this used to build the URL via raw
+        // Unlike token-rotating integrations in this codebase, this used to build the URL via raw
         // string concatenation instead of a proper query-param encoder — harmless with
         // today's values (no reserved characters in client_id/redirect_uri/scope) but a
         // real inconsistency, and unsafe if any of those values ever change.
@@ -203,7 +203,7 @@ public class GoogleCalendarService {
         return body;
     }
 
-    // Google's refresh tokens aren't single-use the way WHOOP/Strava/COROS's are, so a
+    // Google's refresh tokens aren't single-use the way some device integrations are, so a
     // losing race here wouldn't reject anything — but locking still avoids redundant
     // concurrent refresh calls, and keeps this consistent with the other integrations.
     private final Map<Long, Object> googleCalendarRefreshLocks = new ConcurrentHashMap<>();

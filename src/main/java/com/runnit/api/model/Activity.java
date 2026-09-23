@@ -80,7 +80,7 @@ public class Activity {
 
     // When the workout actually happened — distinct from createdAt (row-insertion time, via
     // @CreationTimestamp, not overridable). For manual/live-tracked activities these are the same
-    // moment so it's a non-issue; for device-synced activities (Strava/Garmin/Coros/WHOOP) a bulk
+    // moment so it's a non-issue; for device-synced activities a bulk
     // history sync can insert 90 days of rows in one batch, and without this field every single one
     // gets stamped with the sync moment instead of its real date.
     @Column(name = "performed_at")

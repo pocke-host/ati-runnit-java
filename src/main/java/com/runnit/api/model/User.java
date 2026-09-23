@@ -82,24 +82,6 @@ public class User {
     @Column(name = "coach_privacy", length = 20) private String coachPrivacy = "PUBLIC";
 
 
-    @Column(name = "strava_athlete_id")
-    private Long stravaAthleteId;
-
-    @Column(name = "strava_access_token", columnDefinition = "TEXT")
-    private String stravaAccessToken;
-
-    @Column(name = "strava_refresh_token", columnDefinition = "TEXT")
-    private String stravaRefreshToken;
-
-    @Column(name = "strava_token_expires_at")
-    private Long stravaTokenExpiresAt;
-
-    @Column(name = "strava_oauth_state", length = 100)
-    private String stravaOauthState;
-
-    @Column(name = "strava_last_sync")
-    private Instant stravaLastSync;
-
     @Column(name = "garmin_access_token", columnDefinition = "TEXT")
     private String garminAccessToken;
 
@@ -303,18 +285,6 @@ public class User {
     public void setSportsCoached(String sportsCoached) { this.sportsCoached = sportsCoached; }
     public String getStripeConnectAccountId() { return stripeConnectAccountId; }
     public void setStripeConnectAccountId(String stripeConnectAccountId) { this.stripeConnectAccountId = stripeConnectAccountId; }
-    public Long getStravaAthleteId() { return stravaAthleteId; }
-    public String getStravaAccessToken() { return stravaAccessToken; }
-    public String getStravaRefreshToken() { return stravaRefreshToken; }
-    public Long getStravaTokenExpiresAt() { return stravaTokenExpiresAt; }
-    public String getStravaOauthState() { return stravaOauthState; }
-    public void setStravaAthleteId(Long stravaAthleteId) { this.stravaAthleteId = stravaAthleteId; }
-    public void setStravaAccessToken(String stravaAccessToken) { this.stravaAccessToken = stravaAccessToken; }
-    public void setStravaRefreshToken(String stravaRefreshToken) { this.stravaRefreshToken = stravaRefreshToken; }
-    public void setStravaTokenExpiresAt(Long stravaTokenExpiresAt) { this.stravaTokenExpiresAt = stravaTokenExpiresAt; }
-    public void setStravaOauthState(String stravaOauthState) { this.stravaOauthState = stravaOauthState; }
-    public Instant getStravaLastSync() { return stravaLastSync; }
-    public void setStravaLastSync(Instant stravaLastSync) { this.stravaLastSync = stravaLastSync; }
     public String getGarminAccessToken() { return garminAccessToken; }
     public void setGarminAccessToken(String garminAccessToken) { this.garminAccessToken = garminAccessToken; }
     public String getGarminAccessTokenSecret() { return garminAccessTokenSecret; }

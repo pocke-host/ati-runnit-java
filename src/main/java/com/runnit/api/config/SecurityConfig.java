@@ -41,8 +41,6 @@ public class SecurityConfig {
                     "/api/events",
                     "/api/stats",
                     "/api/newsletter/**",
-                    "/api/integrations/strava/callback",
-                    "/api/strava/webhook",
                     "/api/garmin/oauth/callback",
                     "/api/garmin/oauth/webhook",
                     "/api/integrations/coros/callback",

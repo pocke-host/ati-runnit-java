@@ -234,7 +234,7 @@ public class AdaptivePlanService {
         }
 
         // R2b — deep fatigue, no recovery data (non-WHOOP fallback): recoveryScore is only ever
-        // populated from WHOOP today, so R2 above silently never fires for Garmin/COROS/Strava/
+        // populated from WHOOP today, so R2 above silently never fires for other integrations.
         // Apple Health users regardless of how fatigued their training load says they are. TSB
         // alone is a real, device-agnostic signal — soften (not downgrade) on it alone, since we're
         // missing the corroborating recovery signal R2 relies on. Skipped entirely if a recovery
