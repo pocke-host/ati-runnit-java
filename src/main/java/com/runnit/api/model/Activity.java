@@ -41,6 +41,9 @@ public class Activity {
     @Column(name = "average_pace")
     private Double averagePace;
 
+    @Column(name = "average_cadence")
+    private Double averageCadence;
+
     @Column(name = "route_polyline", columnDefinition = "TEXT")
     private String routePolyline;
 
@@ -106,6 +109,7 @@ public class Activity {
     public Integer getAverageHeartRate() { return averageHeartRate; }
     public Integer getMaxHeartRate() { return maxHeartRate; }
     public Double getAveragePace() { return averagePace; }
+    public Double getAverageCadence() { return averageCadence; }
     public String getRoutePolyline() { return routePolyline; }
     public Double getStartLat() { return startLat; }
     public Double getStartLng() { return startLng; }
@@ -132,6 +136,7 @@ public class Activity {
     public void setAverageHeartRate(Integer averageHeartRate) { this.averageHeartRate = averageHeartRate; }
     public void setMaxHeartRate(Integer maxHeartRate) { this.maxHeartRate = maxHeartRate; }
     public void setAveragePace(Double averagePace) { this.averagePace = averagePace; }
+    public void setAverageCadence(Double averageCadence) { this.averageCadence = averageCadence; }
     public void setRoutePolyline(String routePolyline) { this.routePolyline = routePolyline; }
     public void setStartLat(Double startLat) { this.startLat = startLat; }
     public void setStartLng(Double startLng) { this.startLng = startLng; }
@@ -156,6 +161,7 @@ public class Activity {
         private Integer averageHeartRate;
         private Integer maxHeartRate;
         private Double averagePace;
+        private Double averageCadence;
         private String routePolyline;
         private Double startLat;
         private Double startLng;
@@ -177,6 +183,7 @@ public class Activity {
         public Builder averageHeartRate(Integer averageHeartRate) { this.averageHeartRate = averageHeartRate; return this; }
         public Builder maxHeartRate(Integer maxHeartRate) { this.maxHeartRate = maxHeartRate; return this; }
         public Builder averagePace(Double averagePace) { this.averagePace = averagePace; return this; }
+        public Builder averageCadence(Double averageCadence) { this.averageCadence = averageCadence; return this; }
         public Builder routePolyline(String routePolyline) { this.routePolyline = routePolyline; return this; }
         public Builder startLat(Double startLat) { this.startLat = startLat; return this; }
         public Builder startLng(Double startLng) { this.startLng = startLng; return this; }
@@ -200,6 +207,7 @@ public class Activity {
             a.averageHeartRate = this.averageHeartRate;
             a.maxHeartRate = this.maxHeartRate;
             a.averagePace = this.averagePace;
+            a.averageCadence = this.averageCadence;
             a.routePolyline = this.routePolyline;
             a.startLat = this.startLat;
             // Default to "now" — correct for manual/live-tracked activities (the common builder() caller).
@@ -218,5 +226,5 @@ public class Activity {
     }
 
     public enum SportType { RUN, BIKE, SWIM, HIKE, WALK, STRENGTH, OTHER }
-    public enum Source { MANUAL, GARMIN, STRAVA, APPLE_WATCH, COROS, APPLE_HEALTH, WHOOP }
+    public enum Source { MANUAL, GARMIN, STRAVA, APPLE_WATCH, COROS, APPLE_HEALTH, WHOOP, OURA }
 }

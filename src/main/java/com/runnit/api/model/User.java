@@ -203,6 +203,21 @@ public class User {
     @Column(name = "whoop_last_sync")
     private Instant whoopLastSync;
 
+    @Column(name = "oura_access_token", columnDefinition = "TEXT")
+    private String ouraAccessToken;
+
+    @Column(name = "oura_refresh_token", columnDefinition = "TEXT")
+    private String ouraRefreshToken;
+
+    @Column(name = "oura_token_expires_at")
+    private Long ouraTokenExpiresAt;
+
+    @Column(name = "oura_oauth_state", length = 255)
+    private String ouraOauthState;
+
+    @Column(name = "oura_last_sync")
+    private Instant ouraLastSync;
+
     @Column(name = "invite_code", length = 20)
     private String inviteCode;
 
@@ -361,6 +376,16 @@ public class User {
     public void setWhoopUserId(Long whoopUserId) { this.whoopUserId = whoopUserId; }
     public Instant getWhoopLastSync() { return whoopLastSync; }
     public void setWhoopLastSync(Instant whoopLastSync) { this.whoopLastSync = whoopLastSync; }
+    public String getOuraAccessToken() { return ouraAccessToken; }
+    public void setOuraAccessToken(String value) { this.ouraAccessToken = value; }
+    public String getOuraRefreshToken() { return ouraRefreshToken; }
+    public void setOuraRefreshToken(String value) { this.ouraRefreshToken = value; }
+    public Long getOuraTokenExpiresAt() { return ouraTokenExpiresAt; }
+    public void setOuraTokenExpiresAt(Long value) { this.ouraTokenExpiresAt = value; }
+    public String getOuraOauthState() { return ouraOauthState; }
+    public void setOuraOauthState(String value) { this.ouraOauthState = value; }
+    public Instant getOuraLastSync() { return ouraLastSync; }
+    public void setOuraLastSync(Instant value) { this.ouraLastSync = value; }
     public String getInviteCode() { return inviteCode; }
     public void setInviteCode(String inviteCode) { this.inviteCode = inviteCode; }
     public String getPushToken() { return pushToken; }

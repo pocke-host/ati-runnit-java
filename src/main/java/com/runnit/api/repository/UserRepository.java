@@ -4,6 +4,7 @@ import com.runnit.api.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -29,6 +30,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByCorosUserId(String corosUserId);
     Optional<User> findByGoogleCalendarOauthState(String state);
     Optional<User> findByWhoopOauthState(String state);
+    Optional<User> findByOuraOauthState(String state);
+    List<User> findByOuraAccessTokenIsNotNull();
     Optional<User> findByWhoopUserId(Long whoopUserId);
 
     @org.springframework.data.jpa.repository.Query(

@@ -63,6 +63,7 @@ public class ActivityService {
                 .averageHeartRate(request.getAverageHeartRate())
                 .maxHeartRate(request.getMaxHeartRate())
                 .averagePace(request.getAveragePace())
+                .averageCadence(request.getAverageCadence())
                 .routePolyline(request.getRoutePolyline())
                 .startLat(request.getStartLat())
                 .startLng(request.getStartLng())

@@ -36,6 +36,7 @@ public class FeedActivityDTO {
     private Integer elevationGain;
     private Integer calories;
     private Double averagePace;
+    private Double averageCadence;
     private Integer averageHeartRate;
     private String routePolyline;
     private Double startLat;
@@ -72,6 +73,7 @@ public class FeedActivityDTO {
         dto.elevationGain = a.getElevationGain();
         dto.calories = a.getCalories();
         dto.averagePace = a.getAveragePace();
+        dto.averageCadence = a.getAverageCadence();
         dto.averageHeartRate = a.getAverageHeartRate();
         dto.routePolyline = a.getRoutePolyline();
         dto.startLat = a.getStartLat();
@@ -97,6 +99,7 @@ public class FeedActivityDTO {
     public Integer getElevationGain() { return elevationGain; }
     public Integer getCalories() { return calories; }
     public Double getAveragePace() { return averagePace; }
+    public Double getAverageCadence() { return averageCadence; }
     public Integer getAverageHeartRate() { return averageHeartRate; }
     public String getRoutePolyline() { return routePolyline; }
     public Double getStartLat() { return startLat; }

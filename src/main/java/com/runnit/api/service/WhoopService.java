@@ -346,6 +346,14 @@ public class WhoopService {
 
         String whoopSportName = (String) workout.get("sport_name");
         Activity.SportType mappedType = mapSportType(whoopSportName);
+        Integer distanceMeters = getInt(score, "distance_meter");
+        // Activity.averagePace is normalized as meters/second across integrations.
+        // The UI converts that speed into swim pace or bike speed by sport.
+        Double averageSpeed = durationSeconds > 0 && distanceMeters != null && distanceMeters > 0
+                ? distanceMeters / (double) durationSeconds : null;
+        // WHOOP does not currently guarantee cadence on every workout. Preserve it
+        // when a device/payload supplies one, but never fabricate a value.
+        Double averageCadence = firstDouble(score, "average_cadence", "cadence");
 
         Activity activity = Activity.builder()
                 .user(user)
@@ -353,10 +361,12 @@ public class WhoopService {
                 .source(Activity.Source.WHOOP)
                 .sportType(mappedType)
                 .durationSeconds(durationSeconds)
-                .distanceMeters(getInt(score, "distance_meter"))
+                .distanceMeters(distanceMeters)
                 .calories(calories)
                 .averageHeartRate(getInt(score, "average_heart_rate"))
                 .maxHeartRate(getInt(score, "max_heart_rate"))
+                .averagePace(averageSpeed)
+                .averageCadence(averageCadence)
                 .elevationGain(getInt(score, "altitude_gain_meter"))
                 .performedAt(performedAt)
                 // sport_type is a fixed DB enum (RUN/BIKE/SWIM/HIKE/WALK/OTHER) — WHOOP supports ~100
@@ -612,6 +622,14 @@ public class WhoopService {
     private Double getDouble(Map<String, Object> map, String key) {
         Object val = map.get(key);
         return val instanceof Number ? ((Number) val).doubleValue() : null;
+    }
+
+    private Double firstDouble(Map<String, Object> map, String... keys) {
+        for (String key : keys) {
+            Double value = getDouble(map, key);
+            if (value != null && value > 0) return value;
+        }
+        return null;
     }
 
     private long getLong(Map<String, Object> map, String key) {

@@ -163,7 +163,7 @@ public class ActivityController {
                 unique.putIfAbsent(key, activity);
             }
 
-            StringBuilder csv = new StringBuilder("date,sport,source,duration_minutes,distance_km,calories,elevation_m,avg_hr,max_hr,listening_track,listening_artist\n");
+            StringBuilder csv = new StringBuilder("date,sport,source,duration_minutes,distance_km,calories,elevation_m,avg_hr,max_hr,avg_speed_mps,avg_cadence,listening_track,listening_artist\n");
             DateTimeFormatter timestamp = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
             for (Activity activity : unique.values()) {
                 LocalDateTime performedAt = activity.getPerformedAt() != null ? activity.getPerformedAt() : activity.getCreatedAt();
@@ -176,6 +176,8 @@ public class ActivityController {
                         .append(csvCell(activity.getElevationGain())).append(',')
                         .append(csvCell(activity.getAverageHeartRate())).append(',')
                         .append(csvCell(activity.getMaxHeartRate())).append(',')
+                        .append(csvCell(activity.getAveragePace())).append(',')
+                        .append(csvCell(activity.getAverageCadence())).append(',')
                         .append(csvCell(activity.getListeningTrack())).append(',')
                         .append(csvCell(activity.getListeningArtist())).append('\n');
             }
