@@ -11,10 +11,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import java.util.List;
 import java.util.Map;
@@ -36,9 +39,31 @@ public class SpotifyController {
     }
 
     @GetMapping("/callback")
-    public ResponseEntity<Void> callback(@RequestParam String code, @RequestParam String state) {
-        spotifyService.callback(code, state);
-        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(frontendUrl + "/devices?spotify=connected")).build();
+    public ResponseEntity<Void> callback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error) {
+        if (StringUtils.hasText(error) || !StringUtils.hasText(code) || !StringUtils.hasText(state)) {
+            log.info("Spotify authorization was not completed: {}", error == null ? "missing_code_or_state" : error);
+            return redirectToDevices("error", error == null ? "missing_code_or_state" : error);
+        }
+        try {
+            spotifyService.callback(code, state);
+            return redirectToDevices("connected", null);
+        } catch (Exception e) {
+            log.warn("Spotify authorization callback failed: {}", e.getMessage());
+            return redirectToDevices("error", "authorization_failed");
+        }
+    }
+
+    private ResponseEntity<Void> redirectToDevices(String status, String reason) {
+        String location = frontendUrl + "/devices?spotify=" + enc(status);
+        if (reason != null) location += "&reason=" + enc(reason);
+        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(location)).build();
+    }
+
+    private String enc(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     @PostMapping("/mobile-callback")
@@ -61,6 +86,48 @@ public class SpotifyController {
             @RequestParam(required = false) Long before,
             Authentication auth) {
         return ResponseEntity.ok(spotifyService.recentlyPlayed((Long) auth.getPrincipal(), after, before));
+    }
+
+    @GetMapping("/currently-playing")
+    public ResponseEntity<?> currentlyPlaying(Authentication auth) {
+        return ResponseEntity.ok(spotifyService.currentlyPlaying((Long) auth.getPrincipal()));
+    }
+
+    @GetMapping("/queue")
+    public ResponseEntity<?> queue(Authentication auth) {
+        return ResponseEntity.ok(spotifyService.queue((Long) auth.getPrincipal()));
+    }
+
+    @GetMapping("/playlists")
+    public ResponseEntity<?> playlists(Authentication auth) {
+        return ResponseEntity.ok(spotifyService.playlists((Long) auth.getPrincipal()));
+    }
+
+    @GetMapping("/{type}/{id}")
+    public ResponseEntity<?> catalog(@PathVariable String type, @PathVariable String id) {
+        return ResponseEntity.ok(spotifyService.catalog(type, id));
+    }
+
+    @PostMapping("/playlists")
+    public ResponseEntity<?> createPlaylist(@RequestBody Map<String, Object> body, Authentication auth) {
+        String name = (String) body.get("name");
+        String description = (String) body.get("description");
+        boolean isPublic = Boolean.TRUE.equals(body.get("public"));
+        return ResponseEntity.ok(spotifyService.createPlaylist((Long) auth.getPrincipal(), name, description, isPublic));
+    }
+
+    @PostMapping("/playlists/{playlistId}/tracks")
+    public ResponseEntity<?> addTracks(@PathVariable String playlistId, @RequestBody Map<String, Object> body, Authentication auth) {
+        Object rawUris = body.get("uris");
+        if (!(rawUris instanceof List<?> list)) return ResponseEntity.badRequest().body(Map.of("error", "uris must be an array"));
+        List<String> uris = list.stream().filter(String.class::isInstance).map(String.class::cast).toList();
+        return ResponseEntity.ok(spotifyService.addTracks((Long) auth.getPrincipal(), playlistId, uris));
+    }
+
+    @PostMapping("/playback/{action}")
+    public ResponseEntity<?> playback(@PathVariable String action, @RequestBody(required = false) Map<String, Object> body, Authentication auth) {
+        spotifyService.playback((Long) auth.getPrincipal(), action, body);
+        return ResponseEntity.noContent().build();
     }
 
     /**

@@ -34,7 +34,15 @@ public class SpotifyService {
     private static final String SEARCH_URL = "https://api.spotify.com/v1/search";
     private static final String AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
     private static final String RECENTLY_PLAYED_URL = "https://api.spotify.com/v1/me/player/recently-played";
-    private static final String USER_SCOPE = "user-read-recently-played";
+    private static final String USER_SCOPE = String.join(" ",
+            "user-read-recently-played",
+            "user-read-currently-playing",
+            "user-read-playback-state",
+            "user-modify-playback-state",
+            "playlist-read-private",
+            "playlist-read-collaborative",
+            "playlist-modify-public",
+            "playlist-modify-private");
 
     @Value("${spotify.client.id:}")
     private String clientId;
@@ -106,6 +114,57 @@ public class SpotifyService {
         return parseRecentlyPlayed(response.getBody());
     }
 
+    public JsonNode currentlyPlaying(Long userId) {
+        return userGet(userId, "/v1/me/player?market=US");
+    }
+
+    public JsonNode queue(Long userId) {
+        return userGet(userId, "/v1/me/player/queue");
+    }
+
+    public JsonNode playlists(Long userId) {
+        return userGet(userId, "/v1/me/playlists?limit=50");
+    }
+
+    public JsonNode catalog(String type, String id) {
+        if (!List.of("artists", "albums", "shows").contains(type)) {
+            throw new IllegalArgumentException("Unsupported Spotify catalog type");
+        }
+        return catalogGet("/v1/" + type + "/" + encPath(id));
+    }
+
+    public JsonNode createPlaylist(Long userId, String name, String description, boolean isPublic) {
+        if (name == null || name.isBlank()) throw new IllegalArgumentException("Playlist name is required");
+        JsonNode profile = userGet(userId, "/v1/me");
+        String spotifyUserId = profile.path("id").asText(null);
+        if (spotifyUserId == null || spotifyUserId.isBlank()) throw new IllegalStateException("Spotify profile unavailable");
+        Map<String, Object> payload = Map.of(
+                "name", name.trim(),
+                "public", isPublic,
+                "collaborative", false,
+                "description", description == null ? "Created from RUNNIT" : description.trim());
+        return userPost(userId, "/v1/users/" + encPath(spotifyUserId) + "/playlists", payload);
+    }
+
+    public JsonNode addTracks(Long userId, String playlistId, List<String> uris) {
+        if (playlistId == null || playlistId.isBlank() || uris == null || uris.isEmpty()) {
+            throw new IllegalArgumentException("Playlist and at least one track are required");
+        }
+        return userPost(userId, "/v1/playlists/" + encPath(playlistId) + "/tracks", Map.of("uris", uris));
+    }
+
+    public void playback(Long userId, String action, Map<String, Object> body) {
+        String path = switch (action) {
+            case "pause" -> "/v1/me/player/pause";
+            case "resume" -> "/v1/me/player/play";
+            case "next" -> "/v1/me/player/next";
+            case "previous" -> "/v1/me/player/previous";
+            case "seek" -> "/v1/me/player/seek";
+            default -> throw new IllegalArgumentException("Unsupported playback action");
+        };
+        userPut(userId, path, body == null ? Map.of() : body);
+    }
+
     /**
      * Search Spotify tracks by query string.
      * Returns up to 10 track maps, each containing id, name, artist, albumName,
@@ -121,7 +180,7 @@ public class SpotifyService {
         try {
             String accessToken = getAccessToken();
             String url = SEARCH_URL + "?q=" + java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8)
-                    + "&type=track&limit=10";
+                    + "&type=track,episode&limit=10";
 
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(accessToken);
@@ -203,6 +262,52 @@ public class SpotifyService {
         return user.getSpotifyAccessToken();
     }
 
+    private JsonNode userGet(Long userId, String path) {
+        User user = userRepository.findById(userId).orElseThrow();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(userAccessToken(user));
+        ResponseEntity<String> response = restTemplate.exchange("https://api.spotify.com" + path,
+                HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        return parseJson(response.getBody());
+    }
+
+    private JsonNode catalogGet(String path) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(getAccessToken());
+        ResponseEntity<String> response = restTemplate.exchange("https://api.spotify.com" + path,
+                HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        return parseJson(response.getBody());
+    }
+
+    private JsonNode userPost(Long userId, String path, Map<String, Object> payload) {
+        User user = userRepository.findById(userId).orElseThrow();
+        HttpHeaders headers = jsonHeaders(userAccessToken(user));
+        ResponseEntity<String> response = restTemplate.exchange("https://api.spotify.com" + path,
+                HttpMethod.POST, new HttpEntity<>(payload, headers), String.class);
+        return parseJson(response.getBody());
+    }
+
+    private void userPut(Long userId, String path, Map<String, Object> payload) {
+        User user = userRepository.findById(userId).orElseThrow();
+        HttpHeaders headers = jsonHeaders(userAccessToken(user));
+        restTemplate.exchange("https://api.spotify.com" + path, HttpMethod.PUT,
+                new HttpEntity<>(payload, headers), String.class);
+    }
+
+    private HttpHeaders jsonHeaders(String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
+    }
+
+    private JsonNode parseJson(String body) {
+        try { return objectMapper.readTree(body == null || body.isBlank() ? "{}" : body); }
+        catch (Exception e) { throw new IllegalStateException("Could not parse Spotify response", e); }
+    }
+
+    private String encPath(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8); }
+
     private Map<String, Object> tokenResponse(HttpEntity<MultiValueMap<String, String>> request) {
         try {
             ResponseEntity<String> response = restTemplate.postForEntity(TOKEN_URL, request, String.class);
@@ -240,8 +345,15 @@ public class SpotifyService {
         track.put("id", item.path("id").asText(null));
         track.put("name", item.path("name").asText(null));
         JsonNode artists = item.path("artists");
-        track.put("artist", artists.isArray() && !artists.isEmpty() ? artists.get(0).path("name").asText(null) : null);
-        track.put("albumName", item.path("album").path("name").asText(null));
+        String artist = artists.isArray() && !artists.isEmpty() ? artists.get(0).path("name").asText(null) : null;
+        if (artist == null || artist.isBlank()) artist = item.path("show").path("name").asText(null);
+        track.put("artist", artist);
+        String albumName = item.path("album").path("name").asText(null);
+        if (albumName == null || albumName.isBlank()) albumName = item.path("show").path("name").asText(null);
+        track.put("albumName", albumName);
+        JsonNode images = item.path("album").path("images");
+        if (!images.isArray() || images.isEmpty()) images = item.path("show").path("images");
+        track.put("imageUrl", images.isArray() && !images.isEmpty() ? images.get(0).path("url").asText(null) : null);
         track.put("externalUrl", item.path("external_urls").path("spotify").asText(null));
         track.put("durationMs", item.path("duration_ms").asLong(0));
         return track;
@@ -269,6 +381,12 @@ public class SpotifyService {
                 track.put("previewUrl", nullIfEmpty(item.path("preview_url").asText(null)));
 
                 tracks.add(track);
+            }
+            for (JsonNode item : root.path("episodes").path("items")) {
+                Map<String, Object> episode = parseTrack(item);
+                episode.put("contentType", "episode");
+                episode.put("previewUrl", nullIfEmpty(item.path("audio_preview_url").asText(null)));
+                tracks.add(episode);
             }
         } catch (Exception e) {
             log.error("Failed to parse Spotify track search response: {}", e.getMessage(), e);
