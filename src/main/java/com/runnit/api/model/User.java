@@ -80,6 +80,7 @@ public class User {
     @Column(name = "coach_certifications", columnDefinition = "TEXT") private String coachCertifications;
     @Column(name = "coach_terms_accepted_at") private Instant coachTermsAcceptedAt;
     @Column(name = "coach_privacy", length = 20) private String coachPrivacy = "PUBLIC";
+    @Column(name = "coach_suspended", nullable = false) private Boolean coachSuspended = false;
 
     @Column(name = "strava_athlete_id") private Long stravaAthleteId;
     @Column(name = "strava_access_token", columnDefinition = "TEXT") private String stravaAccessToken;
@@ -416,6 +417,7 @@ public class User {
     public String getCoachCertifications(){return coachCertifications;} public void setCoachCertifications(String v){coachCertifications=v;}
     public Instant getCoachTermsAcceptedAt(){return coachTermsAcceptedAt;} public void setCoachTermsAcceptedAt(Instant v){coachTermsAcceptedAt=v;}
     public String getCoachPrivacy(){return coachPrivacy;} public void setCoachPrivacy(String v){coachPrivacy=v;}
+    public Boolean getCoachSuspended(){return coachSuspended;} public void setCoachSuspended(Boolean v){coachSuspended=v;}
 
     public static Builder builder() { return new Builder(); }
 

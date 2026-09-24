@@ -39,7 +39,7 @@ public class CoachMarketplaceController {
     @Value("${app.frontend.url:http://localhost:5173}") private String frontendUrl;
 
     @GetMapping("/api/coaches/{coachId}/services")
-    public List<Map<String,Object>> listServices(@PathVariable Long coachId) { events.save(new MarketplaceEvent("SERVICE_VIEW",coachId,null,null,null)); return services.findByCoachIdAndActiveTrue(coachId).stream().map(this::serviceMap).toList(); }
+    public List<Map<String,Object>> listServices(@PathVariable Long coachId) { User coach=users.findById(coachId).orElse(null); if(coach==null||Boolean.TRUE.equals(coach.getCoachSuspended())) return List.of(); events.save(new MarketplaceEvent("SERVICE_VIEW",coachId,null,null,null)); return services.findByCoachIdAndActiveTrue(coachId).stream().map(this::serviceMap).toList(); }
     @GetMapping("/api/coach/services")
     public List<Map<String,Object>> myServices(Authentication auth) { return services.findByCoachId((Long) auth.getPrincipal()).stream().map(this::serviceMap).toList(); }
 
@@ -104,7 +104,7 @@ public class CoachMarketplaceController {
 
     @PostMapping("/api/coach/bookings") @Transactional
     public ResponseEntity<?> createBooking(@RequestBody Map<String,Object> body,Authentication auth){
-        Long athleteId=(Long)auth.getPrincipal(); Long serviceId=longValue(body,"serviceId"); CoachService s=services.findById(serviceId).orElse(null); if(s==null||!Boolean.TRUE.equals(s.getActive()))return ResponseEntity.status(404).body(Map.of("error","Service not found"));
+        Long athleteId=(Long)auth.getPrincipal(); Long serviceId=longValue(body,"serviceId"); CoachService s=services.findById(serviceId).orElse(null); if(s==null||!Boolean.TRUE.equals(s.getActive()))return ResponseEntity.status(404).body(Map.of("error","Service not found")); User coach=users.findById(s.getCoachId()).orElse(null); if(coach==null||Boolean.TRUE.equals(coach.getCoachSuspended()))return ResponseEntity.status(404).body(Map.of("error","Service not found"));
         if(s.getCoachId().equals(athleteId))return ResponseEntity.badRequest().body(Map.of("error","You cannot book your own service"));
         CoachBooking b=new CoachBooking(); b.setServiceId(s.getId()); b.setCoachId(s.getCoachId()); b.setAthleteId(athleteId); b.setAmountCents(s.getPriceCents()); b.setCommissionCents(Math.round(s.getPriceCents()*COMMISSION_PERCENT/100f)); b.setCoachAmountCents(s.getPriceCents()-b.getCommissionCents()); b.setStatus("PENDING_PAYMENT");
         if(body.get("scheduledStart")!=null)b.setScheduledStart(Instant.parse((String)body.get("scheduledStart"))); if(body.get("scheduledEnd")!=null)b.setScheduledEnd(Instant.parse((String)body.get("scheduledEnd")));

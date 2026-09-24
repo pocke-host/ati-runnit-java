@@ -5,7 +5,10 @@ import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.MarketplaceEventRepository;
 import com.runnit.api.repository.CoachBookingRepository;
+import com.runnit.api.repository.CoachReportRepository;
+import com.runnit.api.repository.CoachVerificationHistoryRepository;
 import com.runnit.api.model.CoachBooking;
+import com.runnit.api.model.CoachVerificationHistory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,6 +34,8 @@ public class AdminController {
     private final ActivityRepository activityRepository;
     private final MarketplaceEventRepository marketplaceEventRepository;
     private final CoachBookingRepository coachBookingRepository;
+    private final CoachReportRepository coachReportRepository;
+    private final CoachVerificationHistoryRepository verificationHistoryRepository;
 
     // ── Admin role guard ─────────────────────────────────────────────────────
 
@@ -152,13 +157,60 @@ public class AdminController {
     }
 
     @PatchMapping("/coaches/{id}/verification")
-    public ResponseEntity<?> verifyCoach(Authentication auth, @PathVariable Long id, @RequestBody Map<String, Boolean> body) {
+    public ResponseEntity<?> verifyCoach(Authentication auth, @PathVariable Long id, @RequestBody Map<String, Object> body) {
         if (!isAdmin(auth)) return forbidden();
         User coach = userRepository.findById(id).orElse(null);
         if (coach == null || !"coach".equalsIgnoreCase(coach.getRole())) return ResponseEntity.notFound().build();
-        coach.setCoachVerified(Boolean.TRUE.equals(body.get("verified")));
+        boolean verified = Boolean.TRUE.equals(body.get("verified"));
+        coach.setCoachVerified(verified);
         userRepository.save(coach);
-        return ResponseEntity.ok(Map.of("id", id, "coachVerified", coach.getCoachVerified()));
+        CoachVerificationHistory history = new CoachVerificationHistory();
+        history.setCoachId(id); history.setAdminId((Long) auth.getPrincipal()); history.setVerified(verified);
+        history.setAction(verified ? "VERIFIED" : "UNVERIFIED");
+        history.setNote(body.get("note") == null ? null : String.valueOf(body.get("note")));
+        verificationHistoryRepository.save(history);
+        return ResponseEntity.ok(Map.of("id", id, "coachVerified", coach.getCoachVerified(), "historyId", history.getId()));
+    }
+
+    @GetMapping("/coaches/{id}/verification-history")
+    public ResponseEntity<?> verificationHistory(Authentication auth, @PathVariable Long id) {
+        if (!isAdmin(auth)) return forbidden();
+        return ResponseEntity.ok(verificationHistoryRepository.findByCoachIdOrderByCreatedAtDesc(id).stream().map(h -> Map.of(
+                "id", h.getId(), "coachId", h.getCoachId(), "adminId", h.getAdminId(), "verified", h.isVerified(),
+                "action", h.getAction(), "note", h.getNote() == null ? "" : h.getNote(), "createdAt", h.getCreatedAt()
+        )).toList());
+    }
+
+    @GetMapping("/coach-reports")
+    public ResponseEntity<?> coachReports(Authentication auth, @RequestParam(required = false) String status) {
+        if (!isAdmin(auth)) return forbidden();
+        return ResponseEntity.ok(coachReportRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+                .filter(r -> status == null || status.isBlank() || status.equalsIgnoreCase(r.getStatus()))
+                .map(r -> Map.of("id", r.getId(), "reporterId", r.getReporterId(), "coachId", r.getCoachId(),
+                        "bookingId", r.getBookingId() == null ? 0L : r.getBookingId(), "reason", r.getReason(),
+                        "details", r.getDetails() == null ? "" : r.getDetails(), "status", r.getStatus(), "createdAt", r.getCreatedAt()))
+                .toList());
+    }
+
+    @PatchMapping("/coach-reports/{id}")
+    public ResponseEntity<?> updateCoachReport(Authentication auth, @PathVariable Long id, @RequestBody Map<String, String> body) {
+        if (!isAdmin(auth)) return forbidden();
+        var report = coachReportRepository.findById(id).orElse(null);
+        if (report == null) return ResponseEntity.notFound().build();
+        String status = body.getOrDefault("status", "REVIEWED").toUpperCase();
+        if (!Set.of("OPEN", "REVIEWED", "RESOLVED", "DISMISSED").contains(status)) return ResponseEntity.badRequest().body(Map.of("error", "Unsupported report status"));
+        report.setStatus(status); coachReportRepository.save(report);
+        return ResponseEntity.ok(Map.of("id", id, "status", status));
+    }
+
+    @PatchMapping("/coaches/{id}/suspension")
+    public ResponseEntity<?> suspendCoach(Authentication auth, @PathVariable Long id, @RequestBody Map<String, Object> body) {
+        if (!isAdmin(auth)) return forbidden();
+        User coach = userRepository.findById(id).orElse(null);
+        if (coach == null || !"coach".equalsIgnoreCase(coach.getRole())) return ResponseEntity.notFound().build();
+        boolean suspended = Boolean.TRUE.equals(body.get("suspended"));
+        coach.setCoachSuspended(suspended); userRepository.save(coach);
+        return ResponseEntity.ok(Map.of("id", id, "coachSuspended", suspended));
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -170,6 +222,7 @@ public class AdminController {
                 "displayName",        u.getDisplayName() != null ? u.getDisplayName() : "",
                 "role",               u.getRole() != null ? u.getRole() : "athlete",
                 "coachVerified",      Boolean.TRUE.equals(u.getCoachVerified()),
+                "coachSuspended",     Boolean.TRUE.equals(u.getCoachSuspended()),
                 "subscriptionStatus", u.getSubscriptionStatus() != null ? u.getSubscriptionStatus() : "none",
                 "authProvider",       u.getAuthProvider() != null ? u.getAuthProvider().name() : "EMAIL",
                 "createdAt",          u.getCreatedAt() != null ? u.getCreatedAt().toString() : ""

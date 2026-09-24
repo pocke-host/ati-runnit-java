@@ -16,5 +16,5 @@ public class CoachReport {
     @CreationTimestamp @Column(name="created_at", updatable=false) private Instant createdAt;
     public CoachReport() {}
     public Long getId(){return id;} public Long getReporterId(){return reporterId;} public Long getCoachId(){return coachId;} public Long getBookingId(){return bookingId;} public String getReason(){return reason;} public String getDetails(){return details;} public String getStatus(){return status;} public Instant getCreatedAt(){return createdAt;}
-    public void setReporterId(Long v){reporterId=v;} public void setCoachId(Long v){coachId=v;} public void setBookingId(Long v){bookingId=v;} public void setReason(String v){reason=v;} public void setDetails(String v){details=v;}
+    public void setReporterId(Long v){reporterId=v;} public void setCoachId(Long v){coachId=v;} public void setBookingId(Long v){bookingId=v;} public void setReason(String v){reason=v;} public void setDetails(String v){details=v;} public void setStatus(String v){status=v;}
 }
