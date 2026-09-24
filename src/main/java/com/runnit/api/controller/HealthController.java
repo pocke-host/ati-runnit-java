@@ -12,12 +12,16 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import org.springframework.http.HttpStatus;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.runnit.api.monitoring.MonitoringService;
 
 @RestController
 @RequestMapping("/api/health")
 public class HealthController {
     private final DataSource dataSource;
-    public HealthController(DataSource dataSource) { this.dataSource = dataSource; }
+    private final MonitoringService monitoring;
+    @Autowired
+    public HealthController(DataSource dataSource, org.springframework.beans.factory.ObjectProvider<MonitoringService> monitoringProvider) { this.dataSource = dataSource; this.monitoring = monitoringProvider.getIfAvailable(); }
     
     @GetMapping
     public ResponseEntity<?> health(HttpServletRequest request) {
@@ -30,6 +34,7 @@ public class HealthController {
             "requestId", request.getHeader("X-Request-Id") == null ? "" : request.getHeader("X-Request-Id")
             ));
         } catch (Exception ex) {
+            if (monitoring != null) monitoring.increment("database_connection_failures");
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("status", "DOWN", "service", "runnit-api", "database", "DOWN", "timestamp", Instant.now(), "requestId", request.getHeader("X-Request-Id") == null ? "" : request.getHeader("X-Request-Id")));
         }
     }

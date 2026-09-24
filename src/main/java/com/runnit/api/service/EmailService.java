@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.runnit.api.monitoring.MonitoringService;
 
 import jakarta.mail.internet.MimeMessage;
 
@@ -24,6 +26,11 @@ public class EmailService {
     @Value("${app.frontend.url:https://runnit.live}")
     private String frontendUrl;
 
+    @Autowired(required = false)
+    private MonitoringService monitoring;
+
+    private void recordFailure() { if (monitoring != null) monitoring.increment("email_failures"); }
+
     /**
      * Sends a password-reset email containing a one-time link.
      * The link expires in 60 minutes (controlled by AuthService token TTL).
@@ -34,6 +41,7 @@ public class EmailService {
 
         if (mailSender == null) {
             log.error("[email] SMTP not configured — cannot deliver password reset email to {}", toEmail);
+            recordFailure();
             throw new RuntimeException("Email service is not configured. Please contact support.");
         }
 
@@ -49,6 +57,7 @@ public class EmailService {
             log.info("[email] Password reset sent to {}", toEmail);
         } catch (Exception e) {
             log.error("[email] Failed to send password reset to {}: {}", toEmail, e.getMessage());
+            recordFailure();
             throw new RuntimeException("Failed to send reset email", e);
         }
     }
@@ -62,6 +71,7 @@ public class EmailService {
     public void sendWhoopReconnectNeeded(String toEmail) {
         if (mailSender == null) {
             log.warn("[email] SMTP not configured — skipping WHOOP reconnect email to {}", toEmail);
+            recordFailure();
             return;
         }
 
@@ -78,6 +88,7 @@ public class EmailService {
             log.info("[email] WHOOP reconnect nudge sent to {}", toEmail);
         } catch (Exception e) {
             log.warn("[email] Failed to send WHOOP reconnect nudge to {}: {}", toEmail, e.getMessage());
+            recordFailure();
         }
     }
 
@@ -85,6 +96,7 @@ public class EmailService {
     public void sendRewardUpdate(String toEmail, String rewardTitle, String status) {
         if (mailSender == null) {
             log.warn("[email] SMTP not configured — skipping reward update to {}", toEmail);
+            recordFailure();
             return;
         }
         try {
@@ -94,7 +106,7 @@ public class EmailService {
             helper.setSubject("Your RUNNIT reward: " + status.toLowerCase());
             helper.setText("<p>Your RUNNIT reward <strong>" + rewardTitle + "</strong> is now <strong>" + status + "</strong>.</p><p>View your rewards at <a href=\"" + frontendUrl + "/rewards\">runnit.live/rewards</a>.</p>", true);
             mailSender.send(message);
-        } catch (Exception e) { log.warn("[email] Failed to send reward update to {}: {}", toEmail, e.getMessage()); }
+        } catch (Exception e) { log.warn("[email] Failed to send reward update to {}: {}", toEmail, e.getMessage()); recordFailure(); }
     }
 
     private String buildWhoopReconnectHtml(String devicesLink) {

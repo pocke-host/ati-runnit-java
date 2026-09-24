@@ -30,5 +30,10 @@ public class RequestIdFilter implements Filter {
             MDC.remove("requestId");
         }
     }
-    private void classify(String path) { if (path.contains("whoop") || path.contains("coros")) monitoring.increment("sync_failures"); if (path.contains("billing") || path.contains("stripe")) monitoring.increment("payment_failures"); }
+    private void classify(String path) {
+        if (path.contains("whoop") || path.contains("coros") || path.contains("oura") || path.contains("fitbit") || path.contains("garmin") || path.contains("apple-health")) monitoring.increment("sync_failures");
+        if (path.contains("billing") || path.contains("stripe")) monitoring.increment("payment_failures");
+        if (path.contains("spotify")) monitoring.increment("spotify_failures");
+        if (path.contains("email") || path.contains("newsletter")) monitoring.increment("email_failures");
+    }
 }
