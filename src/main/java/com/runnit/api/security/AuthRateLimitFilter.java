@@ -18,7 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Sliding-window rate limiter for auth endpoints.
- * In-memory only — sufficient for single-instance beta deployment.
+ * In-memory only — suitable for a single-instance deployment; use a shared
+ * store before horizontally scaling the API.
  * Replace with Redis-backed solution before horizontal scaling.
  */
 @Slf4j
