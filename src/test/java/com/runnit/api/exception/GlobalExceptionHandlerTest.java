@@ -69,11 +69,10 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleValidation_returns400WithDetails() {
-        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         BindingResult bindingResult = mock(BindingResult.class);
         FieldError fieldError = new FieldError("obj", "email", "must not be blank");
-        when(ex.getBindingResult()).thenReturn(bindingResult);
         when(bindingResult.getFieldErrors()).thenReturn(List.of(fieldError));
+        MethodArgumentNotValidException ex = new MethodArgumentNotValidException(null, bindingResult);
 
         ResponseEntity<Map<String, Object>> response = handler.handleValidation(ex);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
