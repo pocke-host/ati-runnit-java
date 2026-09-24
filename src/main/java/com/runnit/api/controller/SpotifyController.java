@@ -126,6 +126,16 @@ public class SpotifyController {
         return ResponseEntity.ok(spotifyService.createPlaylist((Long) auth.getPrincipal(), name, description, isPublic));
     }
 
+    @PostMapping("/playlists/from-history")
+    public ResponseEntity<?> createPlaylistFromHistory(@RequestBody(required = false) Map<String, Object> body, Authentication auth) {
+        String period = body == null ? "week" : String.valueOf(body.getOrDefault("period", "week"));
+        String name = body == null ? null : (String) body.get("name");
+        if (!"week".equalsIgnoreCase(period) && !"month".equalsIgnoreCase(period)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "period must be week or month"));
+        }
+        return ResponseEntity.ok(spotifyService.createPlaylistFromHistory((Long) auth.getPrincipal(), period, name));
+    }
+
     @PostMapping("/playlists/{playlistId}/tracks")
     public ResponseEntity<?> addTracks(@PathVariable String playlistId, @RequestBody Map<String, Object> body, Authentication auth) {
         Object rawUris = body.get("uris");

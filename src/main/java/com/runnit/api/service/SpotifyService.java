@@ -209,6 +209,28 @@ public class SpotifyService {
         return userPost(userId, "/v1/users/" + encPath(spotifyUserId) + "/playlists", payload);
     }
 
+    /** Creates a private playlist from the user's recent Spotify workout soundtrack. */
+    public JsonNode createPlaylistFromHistory(Long userId, String period, String name) {
+        long days = "month".equalsIgnoreCase(period) ? 30 : 7;
+        long after = Instant.now().minusSeconds(days * 24 * 60 * 60).toEpochMilli();
+        List<Map<String, Object>> recent = recentlyPlayed(userId, after, null);
+        List<String> uris = recent.stream()
+                .map(row -> row.get("id"))
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .filter(id -> !id.isBlank())
+                .distinct()
+                .map(id -> "spotify:track:" + id)
+                .limit(100)
+                .toList();
+        if (uris.isEmpty()) throw new IllegalStateException("No recent Spotify tracks found");
+        JsonNode playlist = createPlaylist(userId,
+                name == null || name.isBlank() ? "RUNNIT soundtrack" : name,
+                "A RUNNIT workout soundtrack from your recent listening history.", false);
+        addTracks(userId, playlist.path("id").asText(), uris);
+        return playlist;
+    }
+
     public JsonNode addTracks(Long userId, String playlistId, List<String> uris) {
         if (playlistId == null || playlistId.isBlank() || uris == null || uris.isEmpty()) {
             throw new IllegalArgumentException("Playlist and at least one track are required");
