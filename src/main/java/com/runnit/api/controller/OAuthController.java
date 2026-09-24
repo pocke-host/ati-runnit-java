@@ -6,6 +6,7 @@ import com.runnit.api.model.User;
 import com.runnit.api.security.AppleTokenValidator;
 import com.runnit.api.service.AuthService;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +61,7 @@ public class OAuthController {
     @GetMapping("/google")
     public void initiateGoogleLogin(HttpServletResponse response) throws IOException {
         String state = generateState();
+        setOAuthStateCookie(response, state);
         String url = "https://accounts.google.com/o/oauth2/v2/auth"
                 + "?client_id=" + encode(googleClientId)
                 + "&redirect_uri=" + encode(googleRedirectUri)
@@ -75,8 +77,11 @@ public class OAuthController {
     public void googleCallback(
             @RequestParam String code,
             @RequestParam(required = false) String state,
-            HttpServletResponse response) throws IOException {
+            HttpServletRequest request,
+        HttpServletResponse response) throws IOException {
         try {
+            validateOAuthState(request, state);
+            clearOAuthStateCookie(response);
             // Exchange authorization code for access token
             MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
             params.add("code", code);
@@ -116,6 +121,7 @@ public class OAuthController {
             setJwtCookie(response, (String) result.get("token"));
             response.sendRedirect(frontendUrl + "/oauth-callback");
         } catch (Exception e) {
+            clearOAuthStateCookie(response);
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Google OAuth callback failed", e);
             response.sendRedirect(frontendUrl + "/oauth-callback?error=google_auth_failed");
@@ -127,6 +133,7 @@ public class OAuthController {
     @GetMapping("/apple")
     public void initiateAppleLogin(HttpServletResponse response) throws IOException {
         String state = generateState();
+        setOAuthStateCookie(response, state);
         String url = "https://appleid.apple.com/auth/authorize"
                 + "?client_id=" + encode(appleClientId)
                 + "&redirect_uri=" + encode(appleRedirectUri)
@@ -144,8 +151,11 @@ public class OAuthController {
             @RequestParam(name = "id_token", required = false) String idToken,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String user,
-            HttpServletResponse response) throws IOException {
+            HttpServletRequest request,
+        HttpServletResponse response) throws IOException {
         try {
+            validateOAuthState(request, state);
+            clearOAuthStateCookie(response);
             if (idToken == null) {
                 response.sendRedirect(frontendUrl + "/oauth-callback?error=missing_token");
                 return;
@@ -177,6 +187,7 @@ public class OAuthController {
             setJwtCookie(response, (String) result.get("token"));
             response.sendRedirect(frontendUrl + "/oauth-callback");
         } catch (Exception e) {
+            clearOAuthStateCookie(response);
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             log.error("Apple OAuth callback failed", e);
             response.sendRedirect(frontendUrl + "/oauth-callback?error=apple_auth_failed");
@@ -193,6 +204,44 @@ public class OAuthController {
 
     private String encode(String value) {
         return URLEncoder.encode(value != null ? value : "", StandardCharsets.UTF_8);
+    }
+
+    private void setOAuthStateCookie(HttpServletResponse response, String state) {
+        Cookie cookie = new Cookie("runnit_oauth_state", state);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(600);
+        cookie.setAttribute("SameSite", "None");
+        response.addCookie(cookie);
+    }
+
+    private void clearOAuthStateCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie("runnit_oauth_state", "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        cookie.setAttribute("SameSite", "None");
+        response.addCookie(cookie);
+    }
+
+    private void validateOAuthState(HttpServletRequest request, String returnedState) {
+        String expectedState = null;
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("runnit_oauth_state".equals(cookie.getName())) {
+                    expectedState = cookie.getValue();
+                    break;
+                }
+            }
+        }
+        if (expectedState == null || returnedState == null || !java.security.MessageDigest.isEqual(
+                expectedState.getBytes(StandardCharsets.UTF_8),
+                returnedState.getBytes(StandardCharsets.UTF_8))) {
+            throw new IllegalArgumentException("OAuth state validation failed");
+        }
     }
 
     private void setJwtCookie(HttpServletResponse response, String token) {
