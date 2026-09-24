@@ -96,6 +96,10 @@ public class AppleTokenValidator {
         String sub   = claims.getSubject();                    // stable Apple user ID
         String email = claims.get("email", String.class);      // may be null (private relay) or relay address
 
+        if (sub == null || sub.isBlank()) {
+            throw new UnauthorizedException("Apple identity token has no subject");
+        }
+
         return new AppleClaims(sub, email);
     }
 

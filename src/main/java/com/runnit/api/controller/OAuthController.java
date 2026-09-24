@@ -3,6 +3,7 @@ package com.runnit.api.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.runnit.api.model.User;
+import com.runnit.api.security.AppleTokenValidator;
 import com.runnit.api.service.AuthService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -31,6 +32,7 @@ public class OAuthController {
     private final AuthService authService;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+    private final AppleTokenValidator appleTokenValidator;
 
     @Value("${google.client.id:}")
     private String googleClientId;
@@ -149,18 +151,10 @@ public class OAuthController {
                 return;
             }
 
-            // Decode the id_token JWT payload (middle segment) to extract sub + email.
-            // TODO: verify signature against Apple's public keys before going live.
-            String[] parts = idToken.split("\\.");
-            if (parts.length < 2) {
-                response.sendRedirect(frontendUrl + "/oauth-callback?error=invalid_token");
-                return;
-            }
-
-            String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
-            JsonNode claims = objectMapper.readTree(payload);
-            String providerId = claims.get("sub").asText();
-            String email = claims.path("email").asText(null);
+            // Validate the signature and issuer/audience/expiry before trusting claims.
+            AppleTokenValidator.AppleClaims claims = appleTokenValidator.validate(idToken);
+            String providerId = claims.sub();
+            String email = claims.email();
 
             // Apple only sends the user's name on the very first authorization
             String displayName = email;
