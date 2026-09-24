@@ -45,6 +45,19 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
         @org.springframework.data.repository.query.Param("endAt") java.time.LocalDateTime endAt
     );
 
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT a FROM Activity a WHERE a.user.id = :userId " +
+        "AND COALESCE(a.performedAt, a.createdAt) >= :startAt " +
+        "AND COALESCE(a.performedAt, a.createdAt) < :endAt " +
+        "AND a.listeningTrack IS NOT NULL " +
+        "ORDER BY COALESCE(a.performedAt, a.createdAt) ASC"
+    )
+    java.util.List<Activity> findListeningActivitiesBetween(
+        @org.springframework.data.repository.query.Param("userId") Long userId,
+        @org.springframework.data.repository.query.Param("startAt") java.time.LocalDateTime startAt,
+        @org.springframework.data.repository.query.Param("endAt") java.time.LocalDateTime endAt
+    );
+
     // Sorted by performedAt (actual workout time), not createdAt (row-insert time) — a bulk
     // device sync inserts many historical rows back-to-back, all with nearly identical
     // createdAt but genuinely different performedAt. COALESCE falls back to createdAt only

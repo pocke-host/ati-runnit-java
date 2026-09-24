@@ -15,6 +15,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import com.runnit.api.model.User;
 import com.runnit.api.repository.UserRepository;
+import com.runnit.api.repository.ActivityRepository;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -25,6 +26,12 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Comparator;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -56,15 +63,17 @@ public class SpotifyService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
+    private final ActivityRepository activityRepository;
 
     // In-memory token cache
     private String cachedAccessToken;
     private long tokenExpiryEpochMs = 0;
 
-    public SpotifyService(RestTemplate restTemplate, ObjectMapper objectMapper, UserRepository userRepository) {
+    public SpotifyService(RestTemplate restTemplate, ObjectMapper objectMapper, UserRepository userRepository, ActivityRepository activityRepository) {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.userRepository = userRepository;
+        this.activityRepository = activityRepository;
     }
 
     public String connect(Long userId) {
@@ -124,6 +133,60 @@ public class SpotifyService {
 
     public JsonNode playlists(Long userId) {
         return userGet(userId, "/v1/me/playlists?limit=50");
+    }
+
+    /**
+     * Summarizes tracks attached to Runnit activities. This deliberately uses
+     * activity data instead of Spotify's recently-played endpoint so a summary
+     * represents what the athlete listened to during workouts, not unrelated
+     * listening from the rest of the day.
+     */
+    public Map<String, Object> listeningSummary(Long userId, String period) {
+        String normalized = "month".equalsIgnoreCase(period) ? "month" : "week";
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate startDate = "month".equals(normalized) ? today.withDayOfMonth(1) : today.minusDays(6);
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = today.plusDays(1).atStartOfDay();
+        var activities = activityRepository.findListeningActivitiesBetween(userId, start, end);
+
+        Map<String, Long> trackCounts = activities.stream().collect(Collectors.groupingBy(
+                a -> a.getListeningTrack() + " — " + (a.getListeningArtist() == null ? "Unknown artist" : a.getListeningArtist()),
+                LinkedHashMap::new, Collectors.counting()));
+        Map<String, Long> artistCounts = activities.stream().collect(Collectors.groupingBy(
+                a -> a.getListeningArtist() == null ? "Unknown artist" : a.getListeningArtist(),
+                LinkedHashMap::new, Collectors.counting()));
+
+        List<Map<String, Object>> topTracks = trackCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(5)
+                .map(entry -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("track", entry.getKey());
+                    row.put("plays", entry.getValue());
+                    return row;
+                }).toList();
+        List<Map<String, Object>> topArtists = artistCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(5)
+                .map(entry -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("artist", entry.getKey());
+                    row.put("plays", entry.getValue());
+                    return row;
+                })
+                .toList();
+
+        long workoutSeconds = activities.stream().mapToLong(a -> a.getDurationSeconds() == null ? 0 : a.getDurationSeconds()).sum();
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("period", normalized);
+        result.put("startDate", startDate.toString());
+        result.put("endDate", today.toString());
+        result.put("activitiesWithListening", activities.size());
+        result.put("uniqueTracks", trackCounts.size());
+        result.put("workoutMinutes", Math.round(workoutSeconds / 60.0));
+        result.put("topTracks", topTracks);
+        result.put("topArtists", topArtists);
+        return result;
     }
 
     public JsonNode catalog(String type, String id) {

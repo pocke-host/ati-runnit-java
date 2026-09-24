@@ -7,11 +7,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import java.io.IOException;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 
 @Component
 public class RequestIdFilter implements Filter {
     private final MonitoringService monitoring;
-    public RequestIdFilter(MonitoringService monitoring) { this.monitoring = monitoring; }
+    public RequestIdFilter(ObjectProvider<MonitoringService> monitoringProvider) { this.monitoring = monitoringProvider.getIfAvailable(); }
 
     @Override public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         HttpServletRequest http = (HttpServletRequest) request; HttpServletResponse out = (HttpServletResponse) response;
@@ -20,10 +21,12 @@ public class RequestIdFilter implements Filter {
         try { chain.doFilter(request, response); }
         finally {
             int status = out.getStatus(); String path = http.getRequestURI();
-            if (status >= 500) { monitoring.increment("http_5xx"); classify(path); }
-            if ("/api/auth/login".equals(path) && status >= 400) monitoring.increment("login_failures");
-            if (path.contains("/oauth") && status >= 400) monitoring.increment("oauth_callback_failures");
-            if (path.contains("/webhook") && status >= 400) monitoring.increment("webhook_failures");
+            if (monitoring != null) {
+                if (status >= 500) { monitoring.increment("http_5xx"); classify(path); }
+                if ("/api/auth/login".equals(path) && status >= 400) monitoring.increment("login_failures");
+                if (path.contains("/oauth") && status >= 400) monitoring.increment("oauth_callback_failures");
+                if (path.contains("/webhook") && status >= 400) monitoring.increment("webhook_failures");
+            }
             MDC.remove("requestId");
         }
     }

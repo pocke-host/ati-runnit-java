@@ -88,6 +88,16 @@ public class SpotifyController {
         return ResponseEntity.ok(spotifyService.recentlyPlayed((Long) auth.getPrincipal(), after, before));
     }
 
+    @GetMapping("/listening-summary")
+    public ResponseEntity<?> listeningSummary(
+            @RequestParam(defaultValue = "week") String period,
+            Authentication auth) {
+        if (!"week".equalsIgnoreCase(period) && !"month".equalsIgnoreCase(period)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "period must be week or month"));
+        }
+        return ResponseEntity.ok(spotifyService.listeningSummary((Long) auth.getPrincipal(), period));
+    }
+
     @GetMapping("/currently-playing")
     public ResponseEntity<?> currentlyPlaying(Authentication auth) {
         return ResponseEntity.ok(spotifyService.currentlyPlaying((Long) auth.getPrincipal()));
