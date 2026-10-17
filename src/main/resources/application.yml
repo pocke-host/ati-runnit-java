@@ -3,9 +3,9 @@ spring:
     name: runnit-api
 
   datasource:
-    url: jdbc:mysql://localhost:3306/runnit_db?createDatabaseIfNotExist=true&serverTimezone=UTC
-    username: runnit_user
-    password: runnit_pass
+    url: jdbc:mysql://${DB_HOST:localhost}/${DB_NAME:runnit_db}?createDatabaseIfNotExist=true&serverTimezone=UTC
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -23,20 +23,20 @@ spring:
     locations: classpath:db/migration
 
 jwt:
-  secret: runnit-super-secret-key-please-change-in-production-minimum-256-bits
-  expiration: 86400000
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:900000}
 
 aws:
   s3:
-    bucket-name: runnit-uploads-dev
-    region: us-west-2
-  access-key-id: your-access-key
-  secret-access-key: your-secret-key
+    bucket-name: ${S3_BUCKET_NAME:runnit-uploads}
+    region: ${AWS_REGION:us-west-2}
+  access-key-id: ${AWS_ACCESS_KEY_ID}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY}
 
 server:
   port: 8080
 
 logging:
   level:
-    com.runnit.api: DEBUG
+    com.runnit.api: ${RUNNIT_LOG_LEVEL:INFO}
 

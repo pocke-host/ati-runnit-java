@@ -37,11 +37,19 @@ public class StravaOAuthController {
 
     /** POST /api/strava/webhook — Strava pushes activity events here */
     @PostMapping
-    public ResponseEntity<Void> event(@RequestBody Map<String, Object> event) {
+    public ResponseEntity<?> event(@RequestBody Map<String, Object> event) {
+        if (event == null || !(event.get("object_id") instanceof Number)
+                || !(event.get("owner_id") instanceof Number)
+                || !(event.get("object_type") instanceof String)
+                || !(event.get("aspect_type") instanceof String)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid Strava event"));
+        }
         try {
             stravaService.handleWebhookEvent(event);
-        } catch (Exception ignored) {
-            // Always return 200 to Strava so it doesn't retry
+        } catch (Exception ex) {
+            // A failed import must be retried by Strava. Returning 200 here would
+            // permanently drop the event and leave the user's history stale.
+            return ResponseEntity.status(500).body(Map.of("error", "Webhook processing failed"));
         }
         return ResponseEntity.ok().build();
     }

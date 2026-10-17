@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -123,6 +124,7 @@ public class GarminService {
     // 20 pages * 50 = 1000 activities per sync — safety cap, not an expected ceiling.
     private static final int MAX_SYNC_PAGES = 20;
     private static final int PAGE_SIZE = 50;
+    private static final int MAX_PROVIDER_ATTEMPTS = 3;
 
     @Transactional
     public int syncActivities(User user) {
@@ -147,22 +149,11 @@ public class GarminService {
                 int offset = page * PAGE_SIZE;
                 String urlStr = ACTIVITIES_URL + "?start=" + offset + "&limit=" + PAGE_SIZE;
 
-                URL url = new URL(urlStr);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                consumer.sign(conn);
-                conn.connect();
-
-                if (conn.getResponseCode() != 200) break;
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) sb.append(line);
-                reader.close();
+                String responseBody = fetchActivitiesPage(consumer, urlStr);
+                if (responseBody == null) break;
 
                 List<Map<String, Object>> activities = objectMapper.readValue(
-                        sb.toString(), new TypeReference<>() {});
+                        responseBody, new TypeReference<>() {});
                 if (activities.isEmpty()) break;
 
                 for (Map<String, Object> act : activities) {
@@ -180,6 +171,51 @@ public class GarminService {
             log.warn("Garmin activity sync failed for user {}: {}", user.getId(), e.getMessage());
             return 0;
         }
+    }
+
+    /**
+     * Garmin can return transient 429/5xx responses while a user's history is
+     * being backfilled. Retry only those responses, and keep the cap small so
+     * a provider outage cannot pin an async worker indefinitely.
+     */
+    private String fetchActivitiesPage(OAuthConsumer consumer, String urlStr) throws Exception {
+        for (int attempt = 0; attempt < MAX_PROVIDER_ATTEMPTS; attempt++) {
+            HttpURLConnection conn = null;
+            try {
+                URL url = new URL(urlStr);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(15_000);
+                conn.setReadTimeout(30_000);
+                consumer.sign(conn);
+                conn.connect();
+
+                int status = conn.getResponseCode();
+                if (status == 200) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) sb.append(line);
+                        return sb.toString();
+                    }
+                }
+
+                boolean retryable = status == 429 || status >= 500;
+                if (!retryable || attempt == MAX_PROVIDER_ATTEMPTS - 1) {
+                    log.warn("Garmin activity page returned HTTP {} for {}", status, urlStr);
+                    return null;
+                }
+
+                long retryAfterSeconds = conn.getHeaderFieldLong("Retry-After", -1L);
+                long waitMillis = retryAfterSeconds > 0
+                        ? Math.min(TimeUnit.SECONDS.toMillis(retryAfterSeconds), 4_000L)
+                        : (attempt == 0 ? 500L : 1_000L);
+                Thread.sleep(waitMillis);
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }
+        return null;
     }
 
     /** Disconnect Garmin — clear all tokens */

@@ -52,6 +52,10 @@ public class AppleHealthController {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> samples = (List<Map<String, Object>>) body.get("samples");
             if (samples == null) samples = List.of();
+            if (samples.size() > 2000) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "A sync request may contain at most 2000 samples"));
+            }
 
             int imported = appleHealthService.syncActivities(userId, samples);
             return ResponseEntity.ok(Map.of("imported", imported, "message", imported + " activities synced"));

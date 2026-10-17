@@ -86,15 +86,26 @@ public class MomentService {
     public MomentResponse getMomentById(Long id, Long currentUserId) {
         Moment moment = momentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Moment not found"));
+        if (!canView(moment.getUser(), currentUserId)) {
+            throw new ResourceNotFoundException("Moment not found");
+        }
         return buildMomentResponse(moment, currentUserId);
     }
     
     public Page<MomentResponse> getUserMoments(Long userId, Long currentUserId, int page, int size) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!canView(user, currentUserId)) {
+            throw new ResourceNotFoundException("User not found");
+        }
         
         Page<Moment> moments = momentRepository.findByUserOrderByCreatedAtDesc(user, PageRequest.of(page, size));
         return moments.map(moment -> buildMomentResponse(moment, currentUserId));
+    }
+
+    private boolean canView(User user, Long viewerId) {
+        return viewerId != null && user.getId().equals(viewerId)
+                || Boolean.TRUE.equals(user.getIsPublic());
     }
     
     private MomentResponse buildMomentResponse(Moment moment, Long currentUserId) {

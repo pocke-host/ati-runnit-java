@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -49,6 +51,8 @@ public class StravaService {
     private static final String STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
     private static final String STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities";
     private static final String STRAVA_ACTIVITY_URL = "https://www.strava.com/api/v3/activities/";
+    private static final int MAX_HISTORY_PAGES = 10;
+    private static final int HISTORY_PAGE_SIZE = 50;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -130,16 +134,21 @@ public class StravaService {
         headers.setBearerAuth(token);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-        ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
-                STRAVA_ACTIVITIES_URL + "?per_page=50&after=" + after,
-                HttpMethod.GET, entity,
-                new ParameterizedTypeReference<>() {});
-
-        if (response.getBody() == null) return 0;
-
         int imported = 0;
-        for (Map<String, Object> stravaActivity : response.getBody()) {
-            if (saveStravaActivity(user, stravaActivity)) imported++;
+        for (int page = 1; page <= MAX_HISTORY_PAGES; page++) {
+            ResponseEntity<List<Map<String, Object>>> response = exchangeWithBackoff(
+                    STRAVA_ACTIVITIES_URL + "?per_page=" + HISTORY_PAGE_SIZE
+                            + "&page=" + page + "&after=" + after,
+                    entity,
+                    new ParameterizedTypeReference<>() {});
+
+            List<Map<String, Object>> pageActivities = response.getBody();
+            if (pageActivities == null || pageActivities.isEmpty()) break;
+
+            for (Map<String, Object> stravaActivity : pageActivities) {
+                if (saveStravaActivity(user, stravaActivity)) imported++;
+            }
+            if (pageActivities.size() < HISTORY_PAGE_SIZE) break;
         }
 
         user.setStravaLastSync(Instant.now());
@@ -179,10 +188,10 @@ public class StravaService {
                 headers.setBearerAuth(token);
                 HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-                ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                        STRAVA_ACTIVITY_URL + activityId,
-                        HttpMethod.GET, entity,
-                        new ParameterizedTypeReference<>() {});
+                    ResponseEntity<Map<String, Object>> response = exchangeWithBackoff(
+                            STRAVA_ACTIVITY_URL + activityId,
+                            entity,
+                            new ParameterizedTypeReference<>() {});
 
                 if (response.getBody() != null) {
                     saveStravaActivity(user, response.getBody());
@@ -191,6 +200,7 @@ public class StravaService {
                 }
             } catch (Exception e) {
                 log.warn("Failed to import Strava webhook activity {} for athlete {}: {}", activityId, stravaAthleteId, e.getMessage());
+                throw new IllegalStateException("Strava webhook activity import failed", e);
             }
         });
     }
@@ -312,6 +322,48 @@ public class StravaService {
             return response.getBody();
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    private <T> ResponseEntity<T> exchangeWithBackoff(
+            String url,
+            HttpEntity<Void> entity,
+            ParameterizedTypeReference<T> responseType) {
+        Throwable lastFailure = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                return restTemplate.exchange(url, HttpMethod.GET, entity, responseType);
+            } catch (RestClientResponseException ex) {
+                lastFailure = ex;
+                int status = ex.getStatusCode().value();
+                if (status != 429 && status < 500) throw ex;
+                if (attempt == 2) break;
+                sleepBeforeRetry(ex, attempt);
+            } catch (ResourceAccessException ex) {
+                lastFailure = ex;
+                if (attempt == 2) break;
+                sleepBeforeRetry(null, attempt);
+            }
+        }
+        throw new IllegalStateException("Strava request failed after retries", lastFailure);
+    }
+
+    private void sleepBeforeRetry(RestClientResponseException ex, int attempt) {
+        long delayMillis = 500L * (1L << attempt);
+        String retryAfter = ex == null || ex.getResponseHeaders() == null
+                ? null : ex.getResponseHeaders().getFirst("Retry-After");
+        if (retryAfter != null) {
+            try {
+                delayMillis = Math.min(5000L, Math.max(delayMillis, Long.parseLong(retryAfter) * 1000L));
+            } catch (NumberFormatException ignored) {
+                // Keep the bounded exponential backoff.
+            }
+        }
+        try {
+            Thread.sleep(Math.min(delayMillis, 5000L));
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Strava retry interrupted", interrupted);
         }
     }
 

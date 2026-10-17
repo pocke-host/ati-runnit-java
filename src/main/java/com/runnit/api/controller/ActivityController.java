@@ -16,6 +16,7 @@ import com.runnit.api.repository.CommentRepository;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.WorkoutEventRepository;
 import com.runnit.api.service.ActivityService;
+import com.runnit.api.util.SanitizationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -98,7 +99,13 @@ public class ActivityController {
         try {
             Long viewerUserId = (Long) auth.getPrincipal();
             Long targetUserId = userId != null ? userId : viewerUserId;
-            Page<FeedActivityDTO> activities = activityService.getUserActivities(targetUserId, page, size, viewerUserId);
+            User targetUser = userRepository.findById(targetUserId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            if (!canViewUser(targetUser, viewerUserId)) {
+                return ResponseEntity.notFound().build();
+            }
+            Page<FeedActivityDTO> activities = activityService.getUserActivities(
+                    targetUserId, Math.max(0, page), clampPageSize(size), viewerUserId);
             return ResponseEntity.ok(activities);
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
@@ -113,7 +120,7 @@ public class ActivityController {
             Authentication auth) {
         try {
             Long userId = (Long) auth.getPrincipal();
-            return ResponseEntity.ok(activityService.getFeed(userId, page, size));
+            return ResponseEntity.ok(activityService.getFeed(userId, Math.max(0, page), clampPageSize(size)));
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -336,6 +343,9 @@ public class ActivityController {
         try {
             Long viewerUserId = auth != null ? (Long) auth.getPrincipal() : null;
             Activity activity = activityService.getActivityById(id);
+            if (!canViewActivity(activity, viewerUserId)) {
+                return ResponseEntity.notFound().build();
+            }
             FeedActivityDTO dto = FeedActivityDTO.from(activity);
 
             List<Long> ids = List.of(activity.getId());
@@ -386,8 +396,15 @@ public class ActivityController {
     }
 
     @GetMapping("/{id}/comments")
-    public ResponseEntity<?> getComments(@PathVariable Long id) {
+    public ResponseEntity<?> getComments(@PathVariable Long id, Authentication auth) {
         try {
+            Activity activity = activityRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Activity not found"));
+            Long viewerUserId = auth != null && auth.getPrincipal() instanceof Long
+                    ? (Long) auth.getPrincipal() : null;
+            if (!canViewActivity(activity, viewerUserId)) {
+                return ResponseEntity.notFound().build();
+            }
             List<CommentResponse> comments = commentRepository.findByActivityIdOrderByCreatedAtAsc(id)
                     .stream().map(this::toCommentResponse).collect(Collectors.toList());
             return ResponseEntity.ok(comments);
@@ -411,11 +428,19 @@ public class ActivityController {
                     .orElseThrow(() -> new RuntimeException("User not found"));
             Activity activity = activityRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Activity not found"));
+            if (!canViewActivity(activity, userId)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            String text = SanitizationUtil.sanitizeAndLimit(body.get("text"), 2000);
+            if (text == null || text.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Comment text is required"));
+            }
 
             Comment comment = Comment.builder()
                     .user(user)
                     .activity(activity)
-                    .content(body.get("text"))
+                    .content(text)
                     .build();
             if (body.get("parentId") != null && !body.get("parentId").isBlank()) {
                 comment.setParentId(Long.valueOf(body.get("parentId")));
@@ -423,7 +448,7 @@ public class ActivityController {
             comment.setMediaUrl(body.get("mediaUrl"));
             comment.setMediaType(body.get("mediaType"));
             comment = commentRepository.save(comment);
-            notifyMentionedUsers(body.get("text"), user, activity.getId());
+            notifyMentionedUsers(text, user, activity.getId());
             return ResponseEntity.ok(toCommentResponse(comment));
         } catch (RuntimeException e) {
             Map<String, String> error = new HashMap<>();
@@ -443,6 +468,9 @@ public class ActivityController {
                     .orElseThrow(() -> new RuntimeException("User not found"));
             Activity activity = activityRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Activity not found"));
+            if (!canViewActivity(activity, userId)) {
+                return ResponseEntity.notFound().build();
+            }
 
             String rawType = body.containsKey("type") ? body.get("type") : body.get("reactionType");
             Reaction.ReactionType type = Reaction.ReactionType.valueOf(rawType.toUpperCase());
@@ -516,6 +544,11 @@ public class ActivityController {
             Authentication auth) {
         try {
             Long userId = (Long) auth.getPrincipal();
+            Activity activity = activityRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Activity not found"));
+            if (!canViewActivity(activity, userId)) {
+                return ResponseEntity.notFound().build();
+            }
             Reaction.ReactionType reactionType = Reaction.ReactionType.valueOf(type.toUpperCase());
             activityReactionRepository.deleteByActivityIdAndUserIdAndType(id, userId, reactionType);
             return ResponseEntity.ok(Map.of("message", "Reaction removed"));
@@ -556,5 +589,19 @@ public class ActivityController {
                 }
             });
         }
+    }
+
+    private boolean canViewActivity(Activity activity, Long viewerUserId) {
+        return viewerUserId != null && activity.getUser().getId().equals(viewerUserId)
+                || Boolean.TRUE.equals(activity.getUser().getIsPublic());
+    }
+
+    private boolean canViewUser(User user, Long viewerUserId) {
+        return viewerUserId != null && user.getId().equals(viewerUserId)
+                || Boolean.TRUE.equals(user.getIsPublic());
+    }
+
+    private int clampPageSize(int size) {
+        return Math.max(1, Math.min(size, 50));
     }
 }

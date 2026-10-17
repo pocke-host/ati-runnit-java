@@ -66,7 +66,7 @@ public class MomentController {
             Authentication auth) {
         try {
             Long userId = (Long) auth.getPrincipal();
-            Page<MomentResponse> feed = momentService.getFeed(userId, page, size);
+            Page<MomentResponse> feed = momentService.getFeed(userId, Math.max(0, page), clampPageSize(size));
             return ResponseEntity.ok(feed);
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
@@ -108,8 +108,15 @@ public class MomentController {
     }
 
     @GetMapping("/{id}/comments")
-    public ResponseEntity<?> getComments(@PathVariable Long id) {
+    public ResponseEntity<?> getComments(@PathVariable Long id, Authentication auth) {
         try {
+            Moment moment = momentRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Moment not found"));
+            Long viewerId = auth != null && auth.getPrincipal() instanceof Long
+                    ? (Long) auth.getPrincipal() : null;
+            if (!canView(moment.getUser(), viewerId)) {
+                return ResponseEntity.notFound().build();
+            }
             List<CommentResponse> comments = commentRepository.findByMomentIdOrderByCreatedAtAsc(id)
                     .stream().map(this::toCommentResponse).collect(Collectors.toList());
             return ResponseEntity.ok(comments);
@@ -133,6 +140,9 @@ public class MomentController {
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
             Moment moment = momentRepository.findById(id)
                     .orElseThrow(() -> new ResourceNotFoundException("Moment not found"));
+            if (!canView(moment.getUser(), userId)) {
+                return ResponseEntity.notFound().build();
+            }
             String text = SanitizationUtil.sanitizeAndLimit(body.get("text"), 1000);
             if (text == null || text.isBlank()) {
                 throw new BadRequestException("Comment text is required");
@@ -165,7 +175,8 @@ public class MomentController {
             Authentication auth) {
         try {
             Long currentUserId = (Long) auth.getPrincipal();
-            Page<MomentResponse> moments = momentService.getUserMoments(userId, currentUserId, page, size);
+            Page<MomentResponse> moments = momentService.getUserMoments(
+                    userId, currentUserId, Math.max(0, page), clampPageSize(size));
             return ResponseEntity.ok(moments);
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
@@ -204,5 +215,14 @@ public class MomentController {
                 }
             });
         }
+    }
+
+    private boolean canView(User user, Long viewerId) {
+        return viewerId != null && user.getId().equals(viewerId)
+                || Boolean.TRUE.equals(user.getIsPublic());
+    }
+
+    private int clampPageSize(int size) {
+        return Math.max(1, Math.min(size, 50));
     }
 }

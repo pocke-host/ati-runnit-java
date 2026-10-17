@@ -36,11 +36,16 @@ public class UserController {
     private final RaceBookmarkRepository raceBookmarkRepository;
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getUserProfile(@PathVariable Long id) {
+    public ResponseEntity<?> getUserProfile(@PathVariable Long id, Authentication auth) {
         try {
             User user = userRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("User not found"));
-            return ResponseEntity.ok(toFullResponse(user));
+            Long viewerId = auth == null || !(auth.getPrincipal() instanceof Long)
+                    ? null : (Long) auth.getPrincipal();
+            if (!canViewUser(user, viewerId)) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(toFullResponse(user, id.equals(viewerId)));
         } catch (RuntimeException e) {
             log.warn("User profile not found: id={}", id);
             return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
@@ -61,8 +66,9 @@ public class UserController {
             if (body.containsKey("avatarUrl"))          user.setAvatarUrl((String) body.get("avatarUrl"));
             if (body.containsKey("bio"))                user.setBio((String) body.get("bio"));
             if (body.containsKey("isPublic"))           user.setIsPublic((Boolean) body.get("isPublic"));
-            if (body.containsKey("role"))               user.setRole((String) body.get("role"));
-            if (body.containsKey("onboardingComplete")) user.setOnboardingComplete((Boolean) body.get("onboardingComplete"));
+            // Role and onboarding state are server-controlled. Never accept either
+            // field from a self-service profile update: allowing this would let a
+            // normal athlete promote themselves to admin or bypass onboarding.
 
             userRepository.save(user);
             return ResponseEntity.ok(toFullResponse(user));
@@ -188,7 +194,12 @@ public class UserController {
     @GetMapping("/{id}/race-history")
     public ResponseEntity<?> getRaceHistory(@PathVariable Long id, Authentication auth) {
         try {
-            userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+            User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+            Long viewerId = auth == null || !(auth.getPrincipal() instanceof Long)
+                    ? null : (Long) auth.getPrincipal();
+            if (!canViewUser(user, viewerId)) {
+                return ResponseEntity.notFound().build();
+            }
             List<Map<String, Object>> activities = activityRepository
                     .findByUserIdOrderByCreatedAtDesc(id, PageRequest.of(0, 200)).getContent().stream()
                     .filter(a -> a.getSportType() == Activity.SportType.RUN && isRaceDistance(a.getDistanceMeters()))
@@ -266,6 +277,10 @@ public class UserController {
     // ── Helper ────────────────────────────────────────────────────────────────
 
     private UserResponse toFullResponse(User user) {
+        return toFullResponse(user, true);
+    }
+
+    private UserResponse toFullResponse(User user, boolean includePrivateFields) {
         String subscriptionStatus = user.getSubscriptionStatus();
         String subscriptionTier = user.getSubscriptionTier() != null
                 ? user.getSubscriptionTier()
@@ -273,7 +288,7 @@ public class UserController {
 
         return UserResponse.builder()
                 .id(user.getId())
-                .email(user.getEmail())
+                .email(includePrivateFields ? user.getEmail() : null)
                 .user(user.getUser())
                 .displayName(user.getDisplayName())
                 .avatarUrl(user.getAvatarUrl())
@@ -282,17 +297,22 @@ public class UserController {
                 .primarySport(user.getSport())
                 .bio(user.getBio())
                 .isPublic(user.getIsPublic())
-                .role(user.getRole())
-                .onboardingComplete(user.getOnboardingComplete())
+                .role(includePrivateFields ? user.getRole() : null)
+                .onboardingComplete(includePrivateFields ? user.getOnboardingComplete() : null)
                 .unitSystem(user.getUnitSystem())
                 .archetype(user.getArchetype())
-                .subscriptionStatus(subscriptionStatus)
-                .subscriptionTier(subscriptionTier)
+                .subscriptionStatus(includePrivateFields ? subscriptionStatus : null)
+                .subscriptionTier(includePrivateFields ? subscriptionTier : null)
                 .followerCount(followRepository.countByFollowingUserId(user.getId()))
                 .followingCount(followRepository.countByFollowerUserId(user.getId()))
                 .activityCount(activityRepository.countByUserId(user.getId()))
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    private boolean canViewUser(User user, Long viewerId) {
+        return viewerId != null && user.getId().equals(viewerId)
+                || Boolean.TRUE.equals(user.getIsPublic());
     }
 
     private String deriveSubscriptionTier(String subscriptionStatus) {
