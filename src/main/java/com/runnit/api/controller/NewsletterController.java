@@ -5,6 +5,7 @@ import com.runnit.api.repository.WaitlistRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -34,18 +35,29 @@ public class NewsletterController {
             return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
         }
 
-        if (waitlistRepository.existsByEmail(email.toLowerCase().trim())) {
+        email = email.trim().toLowerCase();
+        if (email.length() > 255 || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Enter a valid email"));
+        }
+
+        if (waitlistRepository.existsByEmail(email)) {
             return ResponseEntity.ok(Map.of("message", "already_joined"));
         }
 
         WaitlistEntry entry = WaitlistEntry.builder()
-                .email(email.toLowerCase().trim())
+                .email(email)
                 .name(body.get("name"))
                 .trainingFor(body.get("trainingFor"))
                 .trainsWith(body.get("trainsWith"))
                 .build();
 
-        waitlistRepository.save(entry);
+        try {
+            waitlistRepository.save(entry);
+        } catch (DataIntegrityViolationException duplicate) {
+            // Two tabs or two people can submit the same address at the same time.
+            // The unique database constraint remains the source of truth.
+            return ResponseEntity.ok(Map.of("message", "already_joined"));
+        }
         log.info("[waitlist] new signup: {} (training: {})", entry.getEmail(), entry.getTrainingFor());
 
         return ResponseEntity.ok(Map.of("message", "joined"));

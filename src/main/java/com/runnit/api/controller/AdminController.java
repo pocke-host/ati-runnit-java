@@ -7,14 +7,18 @@ import com.runnit.api.repository.MarketplaceEventRepository;
 import com.runnit.api.repository.CoachBookingRepository;
 import com.runnit.api.repository.CoachReportRepository;
 import com.runnit.api.repository.CoachVerificationHistoryRepository;
+import com.runnit.api.repository.WaitlistRepository;
 import com.runnit.api.model.CoachBooking;
 import com.runnit.api.model.CoachVerificationHistory;
+import com.runnit.api.model.WaitlistEntry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +40,7 @@ public class AdminController {
     private final CoachBookingRepository coachBookingRepository;
     private final CoachReportRepository coachReportRepository;
     private final CoachVerificationHistoryRepository verificationHistoryRepository;
+    private final WaitlistRepository waitlistRepository;
 
     // ── Admin role guard ─────────────────────────────────────────────────────
 
@@ -83,6 +88,42 @@ public class AdminController {
         int gross = paid.stream().mapToInt(CoachBooking::getAmountCents).sum();
         int commission = paid.stream().mapToInt(CoachBooking::getCommissionCents).sum();
         return ResponseEntity.ok(Map.of("events", eventCounts, "grossCents", gross, "commissionCents", commission, "paidBookings", paid.size()));
+    }
+
+    /**
+     * GET /api/admin/waitlist
+     * Returns the most recent waitlist entries for launch operations.
+     */
+    @GetMapping("/waitlist")
+    public ResponseEntity<?> waitlist(Authentication auth) {
+        if (!isAdmin(auth)) return forbidden();
+        List<WaitlistEntry> entries = waitlistRepository.findTop100ByOrderByCreatedAtDesc();
+        return ResponseEntity.ok(Map.of(
+                "total", waitlistRepository.count(),
+                "entries", entries.stream().map(this::toWaitlistMap).toList()
+        ));
+    }
+
+    /**
+     * GET /api/admin/waitlist/export
+     * Downloads the full waitlist as an admin-only CSV.
+     */
+    @GetMapping(value = "/waitlist/export", produces = "text/csv")
+    public ResponseEntity<String> exportWaitlist(Authentication auth) {
+        if (!isAdmin(auth)) return ResponseEntity.status(403).body("error,Admin access required\n");
+
+        StringBuilder csv = new StringBuilder("email,name,training_for,trains_with,created_at\n");
+        waitlistRepository.findAll(Sort.by(Sort.Direction.ASC, "createdAt"))
+                .forEach(entry -> csv.append(csvValue(entry.getEmail())).append(',')
+                        .append(csvValue(entry.getName())).append(',')
+                        .append(csvValue(entry.getTrainingFor())).append(',')
+                        .append(csvValue(entry.getTrainsWith())).append(',')
+                        .append(csvValue(entry.getCreatedAt() == null ? null : entry.getCreatedAt().toString())).append('\n'));
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=RUNNIT-waitlist.csv")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csv.toString());
     }
 
     /**
@@ -227,5 +268,21 @@ public class AdminController {
                 "authProvider",       u.getAuthProvider() != null ? u.getAuthProvider().name() : "EMAIL",
                 "createdAt",          u.getCreatedAt() != null ? u.getCreatedAt().toString() : ""
         );
+    }
+
+    private Map<String, Object> toWaitlistMap(WaitlistEntry entry) {
+        return Map.of(
+                "id", entry.getId(),
+                "email", entry.getEmail() == null ? "" : entry.getEmail(),
+                "name", entry.getName() == null ? "" : entry.getName(),
+                "trainingFor", entry.getTrainingFor() == null ? "" : entry.getTrainingFor(),
+                "trainsWith", entry.getTrainsWith() == null ? "" : entry.getTrainsWith(),
+                "createdAt", entry.getCreatedAt() == null ? "" : entry.getCreatedAt().toString()
+        );
+    }
+
+    private String csvValue(String value) {
+        if (value == null) return "";
+        return "\"" + value.replace("\"", "\"\"") + "\"";
     }
 }
