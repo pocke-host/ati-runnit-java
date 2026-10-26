@@ -285,9 +285,10 @@ public class AuthController {
     /**
      * POST /api/auth/onboarding
      *
-     * Completes the user's onboarding flow by persisting their city, sport, and
-     * optional bio, then computing and storing their athlete archetype.
-     * Body: { "city": "Austin", "sport": "RUN", "bio": "Optional bio" }
+     * Completes the user's onboarding flow by persisting their city, sport,
+     * training preferences, and optional target event, then computing and
+     * storing their athlete archetype.
+     * Body: city, sport, goal, level, trainingDays, and optional target-event fields.
      */
     @PostMapping("/onboarding")
     public ResponseEntity<?> completeOnboarding(
@@ -303,6 +304,7 @@ public class AuthController {
         String city = body.get("city");
         String sport = body.get("sport");
         String bio = body.get("bio");
+        String targetEventDate = body.get("targetEventDate");
 
         if (StringUtils.hasText(city)) {
             user.setLocation(city);
@@ -313,6 +315,23 @@ public class AuthController {
         if (StringUtils.hasText(bio)) {
             user.setBio(bio);
         }
+        if (StringUtils.hasText(body.get("goal"))) user.setOnboardingGoal(body.get("goal"));
+        if (StringUtils.hasText(body.get("level"))) user.setExperienceLevel(body.get("level"));
+        if (StringUtils.hasText(body.get("trainingDays"))) user.setTrainingDays(body.get("trainingDays"));
+        if (StringUtils.hasText(body.get("targetEventId"))) user.setTargetEventId(body.get("targetEventId"));
+        if (StringUtils.hasText(body.get("targetEventProvider"))) user.setTargetEventProvider(body.get("targetEventProvider"));
+        if (StringUtils.hasText(body.get("targetEventName"))) user.setTargetEventName(body.get("targetEventName"));
+        if (StringUtils.hasText(targetEventDate)) {
+            try {
+                user.setTargetEventDate(java.time.LocalDate.parse(targetEventDate));
+            } catch (java.time.format.DateTimeParseException e) {
+                return ResponseEntity.badRequest().body(Map.of("error", "targetEventDate must be YYYY-MM-DD"));
+            }
+        }
+        if (StringUtils.hasText(body.get("targetEventSport"))) user.setTargetEventSport(body.get("targetEventSport"));
+        if (StringUtils.hasText(body.get("targetEventUrl"))) user.setTargetEventUrl(body.get("targetEventUrl"));
+        if (StringUtils.hasText(body.get("targetEventCity"))) user.setTargetEventCity(body.get("targetEventCity"));
+        if (StringUtils.hasText(body.get("targetEventState"))) user.setTargetEventState(body.get("targetEventState"));
 
         user.setOnboardingComplete(true);
 
@@ -359,6 +378,17 @@ public class AuthController {
                 .createdAt(user.getCreatedAt())
                 .unitSystem(user.getUnitSystem())
                 .archetype(user.getArchetype())
+                .onboardingGoal(user.getOnboardingGoal())
+                .experienceLevel(user.getExperienceLevel())
+                .trainingDays(user.getTrainingDays())
+                .targetEventId(user.getTargetEventId())
+                .targetEventProvider(user.getTargetEventProvider())
+                .targetEventName(user.getTargetEventName())
+                .targetEventDate(user.getTargetEventDate())
+                .targetEventSport(user.getTargetEventSport())
+                .targetEventUrl(user.getTargetEventUrl())
+                .targetEventCity(user.getTargetEventCity())
+                .targetEventState(user.getTargetEventState())
                 .subscriptionStatus(status)
                 .subscriptionTier(tier)
                 .build();

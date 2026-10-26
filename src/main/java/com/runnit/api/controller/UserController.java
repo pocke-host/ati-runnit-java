@@ -99,9 +99,16 @@ public class UserController {
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             if (body.containsKey("unitSystem")) user.setUnitSystem(body.get("unitSystem"));
+            if (body.containsKey("goal")) user.setOnboardingGoal(body.get("goal"));
+            if (body.containsKey("level")) user.setExperienceLevel(body.get("level"));
+            if (body.containsKey("trainingDays")) user.setTrainingDays(body.get("trainingDays"));
 
             userRepository.save(user);
-            return ResponseEntity.ok(Map.of("unitSystem", user.getUnitSystem()));
+            return ResponseEntity.ok(Map.of(
+                    "unitSystem", user.getUnitSystem(),
+                    "goal", user.getOnboardingGoal() == null ? "" : user.getOnboardingGoal(),
+                    "level", user.getExperienceLevel() == null ? "" : user.getExperienceLevel(),
+                    "trainingDays", user.getTrainingDays() == null ? "" : user.getTrainingDays()));
         } catch (RuntimeException e) {
             log.error("Failed to update preferences: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -301,6 +308,17 @@ public class UserController {
                 .onboardingComplete(includePrivateFields ? user.getOnboardingComplete() : null)
                 .unitSystem(user.getUnitSystem())
                 .archetype(user.getArchetype())
+                .onboardingGoal(includePrivateFields ? user.getOnboardingGoal() : null)
+                .experienceLevel(includePrivateFields ? user.getExperienceLevel() : null)
+                .trainingDays(includePrivateFields ? user.getTrainingDays() : null)
+                .targetEventId(includePrivateFields ? user.getTargetEventId() : null)
+                .targetEventProvider(includePrivateFields ? user.getTargetEventProvider() : null)
+                .targetEventName(includePrivateFields ? user.getTargetEventName() : null)
+                .targetEventDate(includePrivateFields ? user.getTargetEventDate() : null)
+                .targetEventSport(includePrivateFields ? user.getTargetEventSport() : null)
+                .targetEventUrl(includePrivateFields ? user.getTargetEventUrl() : null)
+                .targetEventCity(includePrivateFields ? user.getTargetEventCity() : null)
+                .targetEventState(includePrivateFields ? user.getTargetEventState() : null)
                 .subscriptionStatus(includePrivateFields ? subscriptionStatus : null)
                 .subscriptionTier(includePrivateFields ? subscriptionTier : null)
                 .followerCount(followRepository.countByFollowingUserId(user.getId()))

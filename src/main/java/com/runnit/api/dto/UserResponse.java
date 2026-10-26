@@ -1,6 +1,7 @@
 package com.runnit.api.dto;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 public class UserResponse {
     private Long id;
@@ -24,6 +25,17 @@ public class UserResponse {
     private String subscriptionStatus;
     private String subscriptionTier;
     private Boolean isFollowing;
+    private String onboardingGoal;
+    private String experienceLevel;
+    private String trainingDays;
+    private String targetEventId;
+    private String targetEventProvider;
+    private String targetEventName;
+    private LocalDate targetEventDate;
+    private String targetEventSport;
+    private String targetEventUrl;
+    private String targetEventCity;
+    private String targetEventState;
 
     public UserResponse() {}
 
@@ -48,6 +60,17 @@ public class UserResponse {
     public String getSubscriptionStatus() { return subscriptionStatus; }
     public String getSubscriptionTier() { return subscriptionTier; }
     public Boolean getIsFollowing() { return isFollowing; }
+    public String getOnboardingGoal() { return onboardingGoal; }
+    public String getExperienceLevel() { return experienceLevel; }
+    public String getTrainingDays() { return trainingDays; }
+    public String getTargetEventId() { return targetEventId; }
+    public String getTargetEventProvider() { return targetEventProvider; }
+    public String getTargetEventName() { return targetEventName; }
+    public LocalDate getTargetEventDate() { return targetEventDate; }
+    public String getTargetEventSport() { return targetEventSport; }
+    public String getTargetEventUrl() { return targetEventUrl; }
+    public String getTargetEventCity() { return targetEventCity; }
+    public String getTargetEventState() { return targetEventState; }
 
     public void setId(Long id) { this.id = id; }
     public void setEmail(String email) { this.email = email; }
@@ -70,6 +93,17 @@ public class UserResponse {
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
     public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
     public void setIsFollowing(Boolean isFollowing) { this.isFollowing = isFollowing; }
+    public void setOnboardingGoal(String value) { this.onboardingGoal = value; }
+    public void setExperienceLevel(String value) { this.experienceLevel = value; }
+    public void setTrainingDays(String value) { this.trainingDays = value; }
+    public void setTargetEventId(String value) { this.targetEventId = value; }
+    public void setTargetEventProvider(String value) { this.targetEventProvider = value; }
+    public void setTargetEventName(String value) { this.targetEventName = value; }
+    public void setTargetEventDate(LocalDate value) { this.targetEventDate = value; }
+    public void setTargetEventSport(String value) { this.targetEventSport = value; }
+    public void setTargetEventUrl(String value) { this.targetEventUrl = value; }
+    public void setTargetEventCity(String value) { this.targetEventCity = value; }
+    public void setTargetEventState(String value) { this.targetEventState = value; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -95,6 +129,17 @@ public class UserResponse {
         private String subscriptionStatus;
         private String subscriptionTier;
         private Boolean isFollowing;
+        private String onboardingGoal;
+        private String experienceLevel;
+        private String trainingDays;
+        private String targetEventId;
+        private String targetEventProvider;
+        private String targetEventName;
+        private LocalDate targetEventDate;
+        private String targetEventSport;
+        private String targetEventUrl;
+        private String targetEventCity;
+        private String targetEventState;
 
         public Builder id(Long id) { this.id = id; return this; }
         public Builder email(String email) { this.email = email; return this; }
@@ -117,6 +162,17 @@ public class UserResponse {
         public Builder subscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; return this; }
         public Builder subscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; return this; }
         public Builder isFollowing(Boolean isFollowing) { this.isFollowing = isFollowing; return this; }
+        public Builder onboardingGoal(String value) { this.onboardingGoal = value; return this; }
+        public Builder experienceLevel(String value) { this.experienceLevel = value; return this; }
+        public Builder trainingDays(String value) { this.trainingDays = value; return this; }
+        public Builder targetEventId(String value) { this.targetEventId = value; return this; }
+        public Builder targetEventProvider(String value) { this.targetEventProvider = value; return this; }
+        public Builder targetEventName(String value) { this.targetEventName = value; return this; }
+        public Builder targetEventDate(LocalDate value) { this.targetEventDate = value; return this; }
+        public Builder targetEventSport(String value) { this.targetEventSport = value; return this; }
+        public Builder targetEventUrl(String value) { this.targetEventUrl = value; return this; }
+        public Builder targetEventCity(String value) { this.targetEventCity = value; return this; }
+        public Builder targetEventState(String value) { this.targetEventState = value; return this; }
 
         public UserResponse build() {
             UserResponse r = new UserResponse();
@@ -141,6 +197,17 @@ public class UserResponse {
             r.subscriptionStatus = this.subscriptionStatus;
             r.subscriptionTier = this.subscriptionTier;
             r.isFollowing = this.isFollowing;
+            r.onboardingGoal = this.onboardingGoal;
+            r.experienceLevel = this.experienceLevel;
+            r.trainingDays = this.trainingDays;
+            r.targetEventId = this.targetEventId;
+            r.targetEventProvider = this.targetEventProvider;
+            r.targetEventName = this.targetEventName;
+            r.targetEventDate = this.targetEventDate;
+            r.targetEventSport = this.targetEventSport;
+            r.targetEventUrl = this.targetEventUrl;
+            r.targetEventCity = this.targetEventCity;
+            r.targetEventState = this.targetEventState;
             return r;
         }
     }

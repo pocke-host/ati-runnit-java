@@ -257,6 +257,7 @@ public class EventsController {
 
         Map<String, Object> ev = new LinkedHashMap<>();
         ev.put("id",          "far_" + Math.abs(name.hashCode()) + "_" + date);
+        ev.put("provider",    "FindARace");
         ev.put("name",        name);
         ev.put("date",        date);
         ev.put("sport",       sport);

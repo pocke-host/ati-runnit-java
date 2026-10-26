@@ -56,6 +56,39 @@ public class User {
     @Column(name = "onboarding_complete")
     private Boolean onboardingComplete = false;
 
+    @Column(name = "onboarding_goal", length = 50)
+    private String onboardingGoal;
+
+    @Column(name = "experience_level", length = 50)
+    private String experienceLevel;
+
+    @Column(name = "training_days", length = 20)
+    private String trainingDays;
+
+    @Column(name = "target_event_id", length = 100)
+    private String targetEventId;
+
+    @Column(name = "target_event_provider", length = 50)
+    private String targetEventProvider;
+
+    @Column(name = "target_event_name", length = 255)
+    private String targetEventName;
+
+    @Column(name = "target_event_date")
+    private java.time.LocalDate targetEventDate;
+
+    @Column(name = "target_event_sport", length = 50)
+    private String targetEventSport;
+
+    @Column(name = "target_event_url", length = 500)
+    private String targetEventUrl;
+
+    @Column(name = "target_event_city", length = 100)
+    private String targetEventCity;
+
+    @Column(name = "target_event_state", length = 100)
+    private String targetEventState;
+
     @Column(name = "archetype", length = 50)
     private String archetype;
 
@@ -260,6 +293,17 @@ public class User {
     public Boolean getIsPublic() { return isPublic; }
     public String getRole() { return role; }
     public Boolean getOnboardingComplete() { return onboardingComplete; }
+    public String getOnboardingGoal() { return onboardingGoal; }
+    public String getExperienceLevel() { return experienceLevel; }
+    public String getTrainingDays() { return trainingDays; }
+    public String getTargetEventId() { return targetEventId; }
+    public String getTargetEventProvider() { return targetEventProvider; }
+    public String getTargetEventName() { return targetEventName; }
+    public java.time.LocalDate getTargetEventDate() { return targetEventDate; }
+    public String getTargetEventSport() { return targetEventSport; }
+    public String getTargetEventUrl() { return targetEventUrl; }
+    public String getTargetEventCity() { return targetEventCity; }
+    public String getTargetEventState() { return targetEventState; }
     public String getArchetype() { return archetype; }
     public String getStripeCustomerId() { return stripeCustomerId; }
     public String getSubscriptionStatus() { return subscriptionStatus; }
@@ -282,6 +326,17 @@ public class User {
     public void setIsPublic(Boolean isPublic) { this.isPublic = isPublic; }
     public void setRole(String role) { this.role = role; }
     public void setOnboardingComplete(Boolean onboardingComplete) { this.onboardingComplete = onboardingComplete; }
+    public void setOnboardingGoal(String onboardingGoal) { this.onboardingGoal = onboardingGoal; }
+    public void setExperienceLevel(String experienceLevel) { this.experienceLevel = experienceLevel; }
+    public void setTrainingDays(String trainingDays) { this.trainingDays = trainingDays; }
+    public void setTargetEventId(String targetEventId) { this.targetEventId = targetEventId; }
+    public void setTargetEventProvider(String targetEventProvider) { this.targetEventProvider = targetEventProvider; }
+    public void setTargetEventName(String targetEventName) { this.targetEventName = targetEventName; }
+    public void setTargetEventDate(java.time.LocalDate targetEventDate) { this.targetEventDate = targetEventDate; }
+    public void setTargetEventSport(String targetEventSport) { this.targetEventSport = targetEventSport; }
+    public void setTargetEventUrl(String targetEventUrl) { this.targetEventUrl = targetEventUrl; }
+    public void setTargetEventCity(String targetEventCity) { this.targetEventCity = targetEventCity; }
+    public void setTargetEventState(String targetEventState) { this.targetEventState = targetEventState; }
     public void setArchetype(String archetype) { this.archetype = archetype; }
     public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
