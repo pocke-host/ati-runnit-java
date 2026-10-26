@@ -129,8 +129,6 @@ public class GarminService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         if (user.getGarminAccessToken() == null) return 0;
         getValidAccessToken(user);
-        user.setGarminLastSync(Instant.now());
-        userRepository.save(user);
         return 0;
     }
 
