@@ -183,8 +183,14 @@ public class GoogleHealthFitbitService {
         List<Map<String, Object>> all = new ArrayList<>(); String page = null;
         for (int i = 0; i < 20; i++) {
             UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(HEALTH_URL + "/users/me/dataTypes/" + dataType + "/dataPoints")
-                    .queryParam("pageSize", 25).queryParam("filter", filter);
-            if (page != null) builder.queryParam("pageToken", page);
+                    // Google Health follows the REST field names from its API
+                    // definition: page_size/page_token (not the Java-style
+                    // pageSize/pageToken aliases). The camel-case names were
+                    // silently ignored by the provider, which meant Fitbit
+                    // history could stop after the first page or fail with an
+                    // invalid-argument response.
+                    .queryParam("page_size", 25).queryParam("filter", filter);
+            if (page != null) builder.queryParam("page_token", page);
             Map<String, Object> response = get(builder.build().toUriString(), user);
             Object rows = response.get("dataPoints");
             if (rows instanceof List<?> list) for (Object row : list) if (row instanceof Map<?, ?>) all.add((Map<String, Object>) row);
