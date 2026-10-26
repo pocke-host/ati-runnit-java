@@ -73,6 +73,13 @@ public class WellnessController {
         m.put("remSleepMinutes", w.getRemSleepMinutes());
         m.put("awakeMinutes", w.getAwakeMinutes());
         m.put("strain", w.getStrain());
+        m.put("steps", w.getSteps());
+        m.put("intensityMinutes", w.getIntensityMinutes());
+        m.put("activeKilocalories", w.getActiveKilocalories());
+        m.put("averageStress", w.getAverageStress());
+        m.put("bodyBattery", w.getBodyBattery());
+        m.put("respirationBreathsPerMinute", w.getRespirationBreathsPerMinute());
+        m.put("pulseOxPercent", w.getPulseOxPercent());
         return m;
     }
 }

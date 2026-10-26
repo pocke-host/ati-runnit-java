@@ -162,7 +162,21 @@ public class GarminWebhookService {
         row.setExternalCycleId(firstString(record, "summaryId", "dailySummaryId", "calendarDate"));
         row.setRestingHeartRate(firstInt(record, "restingHeartRateInBeatsPerMinute", "restingHeartRate"));
         row.setHrvMilli(firstDouble(record, "hrvWeeklyAverage", "hrvValue", "heartRateVariability"));
-        row.setStrain(firstDouble(record, "stressLevel", "bodyBatteryImpact", "trainingLoad"));
+        // Garmin stress is stored separately; do not present its 0–100 scale as
+        // WHOOP-style strain on the dashboard.
+        row.setStrain(firstDouble(record, "bodyBatteryImpact", "trainingLoad"));
+        row.setSteps(firstInt(record, "steps", "totalSteps"));
+        Integer intensity = firstInt(record, "intensityMinutes", "intensityMinutesTotal");
+        if (intensity == null) {
+            intensity = sum(firstInt(record, "moderateIntensityMinutes"),
+                    firstInt(record, "vigorousIntensityMinutes"));
+        }
+        row.setIntensityMinutes(intensity);
+        row.setActiveKilocalories(firstInt(record, "activeKilocalories", "activeKCalories"));
+        row.setAverageStress(firstDouble(record, "averageStressLevel", "stressLevel"));
+        row.setBodyBattery(firstInt(record, "bodyBatteryMostRecentValue", "bodyBatteryValue", "bodyBattery"));
+        row.setRespirationBreathsPerMinute(firstDouble(record, "averageRespirationValue", "averageRespiration"));
+        row.setPulseOxPercent(firstDouble(record, "averageSpo2", "averageSpO2", "pulseOx"));
         wellnessDailyRepository.save(row);
     }
 
@@ -258,6 +272,11 @@ public class GarminWebhookService {
 
     private Integer secondsToMinutes(Double seconds) {
         return seconds == null ? null : (int) Math.round(seconds / 60d);
+    }
+
+    private Integer sum(Integer first, Integer second) {
+        if (first == null && second == null) return null;
+        return (first == null ? 0 : first) + (second == null ? 0 : second);
     }
 
     private String titleCase(String value) {

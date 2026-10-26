@@ -65,6 +65,27 @@ public class WellnessDaily {
     @Column(name = "strain")
     private Double strain;
 
+    @Column(name = "steps")
+    private Integer steps;
+
+    @Column(name = "intensity_minutes")
+    private Integer intensityMinutes;
+
+    @Column(name = "active_kilocalories")
+    private Integer activeKilocalories;
+
+    @Column(name = "average_stress")
+    private Double averageStress;
+
+    @Column(name = "body_battery")
+    private Integer bodyBattery;
+
+    @Column(name = "respiration_breaths_per_minute")
+    private Double respirationBreathsPerMinute;
+
+    @Column(name = "pulse_ox_percent")
+    private Double pulseOxPercent;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -87,6 +108,13 @@ public class WellnessDaily {
     public Integer getRemSleepMinutes() { return remSleepMinutes; }
     public Integer getAwakeMinutes() { return awakeMinutes; }
     public Double getStrain() { return strain; }
+    public Integer getSteps() { return steps; }
+    public Integer getIntensityMinutes() { return intensityMinutes; }
+    public Integer getActiveKilocalories() { return activeKilocalories; }
+    public Double getAverageStress() { return averageStress; }
+    public Integer getBodyBattery() { return bodyBattery; }
+    public Double getRespirationBreathsPerMinute() { return respirationBreathsPerMinute; }
+    public Double getPulseOxPercent() { return pulseOxPercent; }
     public Instant getCreatedAt() { return createdAt; }
 
     public void setId(Long id) { this.id = id; }
@@ -105,4 +133,11 @@ public class WellnessDaily {
     public void setRemSleepMinutes(Integer remSleepMinutes) { this.remSleepMinutes = remSleepMinutes; }
     public void setAwakeMinutes(Integer awakeMinutes) { this.awakeMinutes = awakeMinutes; }
     public void setStrain(Double strain) { this.strain = strain; }
+    public void setSteps(Integer steps) { this.steps = steps; }
+    public void setIntensityMinutes(Integer intensityMinutes) { this.intensityMinutes = intensityMinutes; }
+    public void setActiveKilocalories(Integer activeKilocalories) { this.activeKilocalories = activeKilocalories; }
+    public void setAverageStress(Double averageStress) { this.averageStress = averageStress; }
+    public void setBodyBattery(Integer bodyBattery) { this.bodyBattery = bodyBattery; }
+    public void setRespirationBreathsPerMinute(Double respirationBreathsPerMinute) { this.respirationBreathsPerMinute = respirationBreathsPerMinute; }
+    public void setPulseOxPercent(Double pulseOxPercent) { this.pulseOxPercent = pulseOxPercent; }
 }
