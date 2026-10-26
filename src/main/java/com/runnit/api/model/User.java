@@ -125,6 +125,24 @@ public class User {
     @Column(name = "garmin_access_token", columnDefinition = "TEXT")
     private String garminAccessToken;
 
+    @Column(name = "garmin_refresh_token", columnDefinition = "TEXT")
+    private String garminRefreshToken;
+
+    @Column(name = "garmin_token_expires_at")
+    private Long garminTokenExpiresAt;
+
+    @Column(name = "garmin_oauth_state", length = 255)
+    private String garminOauthState;
+
+    @Column(name = "garmin_oauth_code_verifier", length = 128)
+    private String garminOauthCodeVerifier;
+
+    @Column(name = "garmin_user_id", length = 255)
+    private String garminUserId;
+
+    @Column(name = "garmin_permissions", columnDefinition = "TEXT")
+    private String garminPermissions;
+
     @Column(name = "garmin_access_token_secret", columnDefinition = "TEXT")
     private String garminAccessTokenSecret;
 
@@ -361,6 +379,18 @@ public class User {
     public void setStripeConnectAccountId(String stripeConnectAccountId) { this.stripeConnectAccountId = stripeConnectAccountId; }
     public String getGarminAccessToken() { return garminAccessToken; }
     public void setGarminAccessToken(String garminAccessToken) { this.garminAccessToken = garminAccessToken; }
+    public String getGarminRefreshToken() { return garminRefreshToken; }
+    public void setGarminRefreshToken(String garminRefreshToken) { this.garminRefreshToken = garminRefreshToken; }
+    public Long getGarminTokenExpiresAt() { return garminTokenExpiresAt; }
+    public void setGarminTokenExpiresAt(Long garminTokenExpiresAt) { this.garminTokenExpiresAt = garminTokenExpiresAt; }
+    public String getGarminOauthState() { return garminOauthState; }
+    public void setGarminOauthState(String garminOauthState) { this.garminOauthState = garminOauthState; }
+    public String getGarminOauthCodeVerifier() { return garminOauthCodeVerifier; }
+    public void setGarminOauthCodeVerifier(String garminOauthCodeVerifier) { this.garminOauthCodeVerifier = garminOauthCodeVerifier; }
+    public String getGarminUserId() { return garminUserId; }
+    public void setGarminUserId(String garminUserId) { this.garminUserId = garminUserId; }
+    public String getGarminPermissions() { return garminPermissions; }
+    public void setGarminPermissions(String garminPermissions) { this.garminPermissions = garminPermissions; }
     public String getGarminAccessTokenSecret() { return garminAccessTokenSecret; }
     public void setGarminAccessTokenSecret(String garminAccessTokenSecret) { this.garminAccessTokenSecret = garminAccessTokenSecret; }
     public String getGarminRequestToken() { return garminRequestToken; }

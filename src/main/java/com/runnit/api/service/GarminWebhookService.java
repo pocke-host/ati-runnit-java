@@ -2,23 +2,31 @@ package com.runnit.api.service;
 
 import com.runnit.api.model.Activity;
 import com.runnit.api.model.User;
+import com.runnit.api.model.WellnessDaily;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.UserRepository;
+import com.runnit.api.repository.WellnessDailyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 /**
- * Processes incoming Garmin Health API webhook events.
- * Garmin pushes activity summaries here immediately after a device syncs,
- * keyed by userAccessToken so we can map back to a Runnit user.
+ * Ingests Garmin push payloads. Garmin can deliver activities, daily health,
+ * sleep, and other enabled datasets in one callback. Records are resolved by
+ * Garmin user id when available, with the access-token fallback retained for
+ * older payloads and existing connections.
  */
 @Slf4j
 @Service
@@ -27,52 +35,108 @@ public class GarminWebhookService {
 
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
+    private final WellnessDailyRepository wellnessDailyRepository;
     private final AdaptivePlanService adaptivePlanService;
     private final AutoMomentService autoMomentService;
 
     @Transactional
-    public int processActivities(List<Map<String, Object>> activities) {
+    public int processPayload(Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) return 0;
         int saved = 0;
-        for (Map<String, Object> act : activities) {
+        Set<Long> touchedUsers = new HashSet<>();
+
+        for (Map<String, Object> activity : records(payload, "activities")) {
+            Optional<User> user = resolveUser(activity);
+            if (user.isEmpty()) continue;
             try {
-                String token = (String) act.get("userAccessToken");
-                if (token == null) continue;
-
-                var userOpt = userRepository.findByGarminAccessToken(token);
-                if (userOpt.isEmpty()) {
-                    log.warn("Garmin webhook: no user found for access token");
-                    continue;
-                }
-
-                if (saveActivity(userOpt.get(), act)) saved++;
+                if (saveActivity(user.get(), activity)) saved++;
+                touchedUsers.add(user.get().getId());
             } catch (Exception e) {
-                log.warn("Garmin webhook: failed to process activity — {}", e.getMessage());
+                log.warn("Garmin activity webhook record failed: {}", e.getMessage());
             }
         }
-        log.info("Garmin webhook: saved {}/{} activities", saved, activities.size());
+
+        for (Map<String, Object> daily : records(payload, "dailies")) {
+            Optional<User> user = resolveUser(daily);
+            if (user.isEmpty()) continue;
+            try {
+                saveDaily(user.get(), daily);
+                touchedUsers.add(user.get().getId());
+            } catch (Exception e) {
+                log.warn("Garmin daily webhook record failed: {}", e.getMessage());
+            }
+        }
+
+        for (Map<String, Object> sleep : records(payload, "sleeps")) {
+            Optional<User> user = resolveUser(sleep);
+            if (user.isEmpty()) continue;
+            try {
+                saveSleep(user.get(), sleep);
+                touchedUsers.add(user.get().getId());
+            } catch (Exception e) {
+                log.warn("Garmin sleep webhook record failed: {}", e.getMessage());
+            }
+        }
+
+        // Women’s Health and other enabled datasets may not have a matching
+        // Runnit table yet, but they still prove the connection is alive.
+        for (String key : List.of("womenHealth", "women_health", "mct")) {
+            for (Map<String, Object> record : records(payload, key)) {
+                resolveUser(record).map(User::getId).ifPresent(touchedUsers::add);
+            }
+        }
+
+        if (!touchedUsers.isEmpty()) {
+            Instant now = Instant.now();
+            for (Long userId : touchedUsers) {
+                userRepository.findById(userId).ifPresent(user -> {
+                    user.setGarminLastSync(now);
+                    userRepository.save(user);
+                });
+            }
+        }
+        log.info("Garmin webhook processed activity records: {}", saved);
         return saved;
     }
 
-    private boolean saveActivity(User user, Map<String, Object> act) {
-        String externalId = "garmin_" + act.get("activityId");
+    /** Backward-compatible entry point for callers/tests that submit activities only. */
+    @Transactional
+    public int processActivities(List<Map<String, Object>> activities) {
+        return processPayload(Map.of("activities", activities));
+    }
+
+    private Optional<User> resolveUser(Map<String, Object> record) {
+        String garminUserId = firstString(record, "userId", "user_id", "garminUserId");
+        if (garminUserId != null) {
+            Optional<User> byId = userRepository.findByGarminUserId(garminUserId);
+            if (byId.isPresent()) return byId;
+        }
+        String accessToken = firstString(record, "userAccessToken", "user_access_token", "accessToken");
+        if (accessToken != null) return userRepository.findByGarminAccessToken(accessToken);
+        log.warn("Garmin webhook record did not contain a recognized user identifier");
+        return Optional.empty();
+    }
+
+    private boolean saveActivity(User user, Map<String, Object> record) {
+        String activityId = firstString(record, "activityId", "activity_id");
+        if (activityId == null) return false;
+        String externalId = "garmin_" + activityId;
         if (activityRepository.existsByUserIdAndExternalId(user.getId(), externalId)) return false;
 
-        String rawType = getString(act, "activityType");
+        String rawType = firstString(record, "activityType", "activity_type", "sportType");
         Activity activity = new Activity();
         activity.setUser(user);
         activity.setExternalId(externalId);
         activity.setSource(Activity.Source.GARMIN);
         activity.setSportType(mapSportType(rawType));
-        activity.setDurationSeconds(getInt(act, "durationInSeconds"));
-        activity.setDistanceMeters(getMeters(act, "distanceInMeters"));
-        activity.setElevationGain(getMeters(act, "elevationGainInMeters"));
-        activity.setCalories(getInt(act, "calories"));
-        activity.setAverageHeartRate(getInt(act, "averageHeartRateInBeatsPerMinute"));
-        activity.setMaxHeartRate(getInt(act, "maxHeartRateInBeatsPerMinute"));
-        activity.setAveragePace(getDouble(act, "averageSpeedInMetersPerSecond"));
-        activity.setPerformedAt(parseGarminStart(act));
-        // sport_type is a fixed DB enum — preserve the raw label so nothing's silently lost when
-        // it falls to OTHER, matching the same convention WhoopService uses for its ~100 sport names.
+        activity.setDurationSeconds(firstInt(record, "durationInSeconds", "duration"));
+        activity.setDistanceMeters(firstMeters(record, "distanceInMeters", "distance"));
+        activity.setElevationGain(firstMeters(record, "elevationGainInMeters", "elevationGain"));
+        activity.setCalories(firstInt(record, "calories", "activeKilocalories"));
+        activity.setAverageHeartRate(firstInt(record, "averageHeartRateInBeatsPerMinute", "averageHR"));
+        activity.setMaxHeartRate(firstInt(record, "maxHeartRateInBeatsPerMinute", "maxHR"));
+        activity.setAveragePace(firstDouble(record, "averageSpeedInMetersPerSecond", "averageSpeed"));
+        activity.setPerformedAt(parseStart(record));
         activity.setNotes(rawType != null ? "GARMIN: " + titleCase(rawType) : null);
         activityRepository.save(activity);
         try {
@@ -88,61 +152,134 @@ public class GarminWebhookService {
         return true;
     }
 
-    /**
-     * startTimeInSeconds/startTimeOffsetInSeconds are confirmed against Garmin's Health API
-     * "Activity Summary" webhook spec — correct for this payload. Some activity types
-     * (e.g. manually-logged wellness entries with no captured start time) omit the field though,
-     * so this still needs a real fallback instead of leaving performedAt null — a null previously
-     * surfaced as "Invalid Date" in the UI instead of "just now".
-     */
-    private LocalDateTime parseGarminStart(Map<String, Object> act) {
-        Object startRaw = act.get("startTimeInSeconds");
-        if (startRaw instanceof Number n) {
-            long offsetSeconds = 0;
-            Object offsetRaw = act.get("startTimeOffsetInSeconds");
-            if (offsetRaw instanceof Number o) offsetSeconds = o.longValue();
-            return LocalDateTime.ofEpochSecond(n.longValue(), 0, ZoneOffset.ofTotalSeconds((int) offsetSeconds));
+    private void saveDaily(User user, Map<String, Object> record) {
+        LocalDate date = parseDate(record);
+        WellnessDaily row = wellnessDailyRepository.findByUserIdAndDate(user.getId(), date)
+                .orElseGet(WellnessDaily::new);
+        row.setUserId(user.getId());
+        row.setDate(date);
+        row.setSource("GARMIN");
+        row.setExternalCycleId(firstString(record, "summaryId", "dailySummaryId", "calendarDate"));
+        row.setRestingHeartRate(firstInt(record, "restingHeartRateInBeatsPerMinute", "restingHeartRate"));
+        row.setHrvMilli(firstDouble(record, "hrvWeeklyAverage", "hrvValue", "heartRateVariability"));
+        row.setStrain(firstDouble(record, "stressLevel", "bodyBatteryImpact", "trainingLoad"));
+        wellnessDailyRepository.save(row);
+    }
+
+    private void saveSleep(User user, Map<String, Object> record) {
+        LocalDate date = parseDate(record);
+        WellnessDaily row = wellnessDailyRepository.findByUserIdAndDate(user.getId(), date)
+                .orElseGet(WellnessDaily::new);
+        row.setUserId(user.getId());
+        row.setDate(date);
+        row.setSource("GARMIN");
+        row.setExternalCycleId(firstString(record, "sleepSummaryId", "summaryId", "calendarDate"));
+        Integer total = secondsToMinutes(firstDouble(record, "sleepingDurationInSeconds", "durationInSeconds"));
+        Integer light = secondsToMinutes(firstDouble(record, "lightSleepDurationInSeconds"));
+        Integer deep = secondsToMinutes(firstDouble(record, "deepSleepDurationInSeconds"));
+        Integer rem = secondsToMinutes(firstDouble(record, "remSleepDurationInSeconds"));
+        Integer awake = secondsToMinutes(firstDouble(record, "awakeDurationInSeconds"));
+        if (total != null) row.setTotalSleepMinutes(total);
+        if (light != null) row.setLightSleepMinutes(light);
+        if (deep != null) row.setDeepSleepMinutes(deep);
+        if (rem != null) row.setRemSleepMinutes(rem);
+        if (awake != null) row.setAwakeMinutes(awake);
+        row.setSleepEfficiencyPct(firstDouble(record, "sleepEfficiencyPercentage", "sleepEfficiency"));
+        wellnessDailyRepository.save(row);
+    }
+
+    private LocalDateTime parseStart(Map<String, Object> record) {
+        Number seconds = firstNumber(record, "startTimeInSeconds", "start_time_in_seconds");
+        if (seconds != null) {
+            Number offset = firstNumber(record, "startTimeOffsetInSeconds", "start_time_offset_in_seconds");
+            int offsetSeconds = offset == null ? 0 : offset.intValue();
+            return LocalDateTime.ofEpochSecond(seconds.longValue(), 0, ZoneOffset.ofTotalSeconds(offsetSeconds));
+        }
+        String start = firstString(record, "startTimeGMT", "startTimeLocal");
+        if (start != null) {
+            try { return LocalDateTime.parse(start.replace('T', ' ').replace("Z", "")); }
+            catch (Exception ignored) { }
         }
         return LocalDateTime.now();
     }
 
-    private String titleCase(String s) {
-        if (s == null || s.isEmpty()) return s;
-        String[] words = s.replace('_', ' ').split(" ");
-        StringBuilder sb = new StringBuilder();
-        for (String w : words) {
-            if (w.isEmpty()) continue;
-            if (sb.length() > 0) sb.append(' ');
-            sb.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1).toLowerCase());
+    private LocalDate parseDate(Map<String, Object> record) {
+        String date = firstString(record, "calendarDate", "date");
+        if (date != null) {
+            try { return LocalDate.parse(date.substring(0, Math.min(10, date.length()))); }
+            catch (Exception ignored) { }
         }
-        return sb.toString();
+        return parseStart(record).toLocalDate();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> records(Map<String, Object> payload, String key) {
+        Object value = payload.get(key);
+        if (!(value instanceof Collection<?> collection)) return List.of();
+        return collection.stream().filter(Map.class::isInstance)
+                .map(item -> (Map<String, Object>) item).toList();
+    }
+
+    private String firstString(Map<String, Object> map, String... keys) {
+        for (String key : keys) {
+            Object value = map.get(key);
+            if (value instanceof Map<?, ?> nested) {
+                Object nestedValue = nested.get("typeKey");
+                if (nestedValue != null) return nestedValue.toString();
+            }
+            if (value != null && !value.toString().isBlank()) return value.toString();
+        }
+        return null;
+    }
+
+    private Number firstNumber(Map<String, Object> map, String... keys) {
+        for (String key : keys) {
+            Object value = map.get(key);
+            if (value instanceof Number number) return number;
+            if (value != null) try { return Double.parseDouble(value.toString()); } catch (NumberFormatException ignored) { }
+        }
+        return null;
+    }
+
+    private Integer firstInt(Map<String, Object> map, String... keys) {
+        Number value = firstNumber(map, keys);
+        return value == null ? null : value.intValue();
+    }
+
+    private Integer firstMeters(Map<String, Object> map, String... keys) {
+        Number value = firstNumber(map, keys);
+        return value == null ? null : (int) Math.round(value.doubleValue());
+    }
+
+    private Double firstDouble(Map<String, Object> map, String... keys) {
+        Number value = firstNumber(map, keys);
+        return value == null ? null : value.doubleValue();
+    }
+
+    private Integer secondsToMinutes(Double seconds) {
+        return seconds == null ? null : (int) Math.round(seconds / 60d);
+    }
+
+    private String titleCase(String value) {
+        String[] words = value.replace('_', ' ').split(" ");
+        StringBuilder result = new StringBuilder();
+        for (String word : words) {
+            if (word.isBlank()) continue;
+            if (result.length() > 0) result.append(' ');
+            result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1).toLowerCase());
+        }
+        return result.toString();
     }
 
     private Activity.SportType mapSportType(String type) {
         if (type == null) return Activity.SportType.OTHER;
-        String t = type.toLowerCase();
-        if (t.contains("run") || t.contains("trail"))  return Activity.SportType.RUN;
-        if (t.contains("cycl") || t.contains("bike") || t.contains("ride")) return Activity.SportType.BIKE;
-        if (t.contains("swim"))                        return Activity.SportType.SWIM;
-        if (t.contains("hike"))                        return Activity.SportType.HIKE;
-        if (t.contains("walk"))                        return Activity.SportType.WALK;
-        if (t.contains("strength"))                    return Activity.SportType.STRENGTH;
+        String value = type.toLowerCase();
+        if (value.contains("run") || value.contains("trail")) return Activity.SportType.RUN;
+        if (value.contains("cycl") || value.contains("bike") || value.contains("ride")) return Activity.SportType.BIKE;
+        if (value.contains("swim")) return Activity.SportType.SWIM;
+        if (value.contains("hike")) return Activity.SportType.HIKE;
+        if (value.contains("walk")) return Activity.SportType.WALK;
+        if (value.contains("strength")) return Activity.SportType.STRENGTH;
         return Activity.SportType.OTHER;
-    }
-
-    private String getString(Map<String, Object> m, String k) {
-        Object v = m.get(k); return v != null ? v.toString() : null;
-    }
-
-    private Integer getInt(Map<String, Object> m, String k) {
-        Object v = m.get(k); return v instanceof Number n ? n.intValue() : null;
-    }
-
-    private Integer getMeters(Map<String, Object> m, String k) {
-        Object v = m.get(k); return v instanceof Number n ? (int) Math.round(n.doubleValue()) : null;
-    }
-
-    private Double getDouble(Map<String, Object> m, String k) {
-        Object v = m.get(k); return v instanceof Number n ? n.doubleValue() : null;
     }
 }

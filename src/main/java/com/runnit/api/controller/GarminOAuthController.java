@@ -8,10 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 
-/**
- * Handles the OAuth 1.0a callback redirect from Garmin Connect.
- * Garmin redirects here with oauth_token and oauth_verifier after user authorizes.
- */
+/** Handles Garmin Connect's OAuth 2.0 Authorization Code + PKCE callback. */
 @Slf4j
 @RestController
 @RequestMapping("/api/garmin/oauth")
@@ -23,18 +20,18 @@ public class GarminOAuthController {
     /** GET /api/garmin/oauth/callback — Garmin redirects here after authorization */
     @GetMapping("/callback")
     public ResponseEntity<Void> callback(
-            @RequestParam(required = false) String oauth_token,
-            @RequestParam(required = false) String oauth_verifier,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
             @RequestParam(required = false) String error) {
 
         String redirectUrl;
-        if (error != null || oauth_token == null || oauth_verifier == null) {
+        if (error != null || code == null || state == null) {
             redirectUrl = garminService.getFrontendUrl() + "/devices?error=garmin_denied";
         } else {
             try {
-                redirectUrl = garminService.handleCallback(oauth_token, oauth_verifier);
+                redirectUrl = garminService.handleCallback(code, state);
             } catch (Exception e) {
-            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+                log.error("Garmin OAuth callback failed: {}", e.getMessage(), e);
                 redirectUrl = garminService.getFrontendUrl() + "/devices?error=garmin_failed";
             }
         }

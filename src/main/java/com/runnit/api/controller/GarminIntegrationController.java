@@ -48,10 +48,28 @@ public class GarminIntegrationController {
         try {
             Long userId = (Long) auth.getPrincipal();
             int count = garminService.syncActivities(userId);
-            return ResponseEntity.ok(Map.of("imported", count, "message", count + " activities synced"));
+            return ResponseEntity.ok(Map.of(
+                    "imported", count,
+                    "deliveryMode", "push",
+                    "message", count > 0
+                            ? count + " activities synced"
+                            : "Garmin sends new activity data after your device syncs with Garmin Connect."
+            ));
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** POST /api/integrations/garmin/training/workout — publish a planned workout to Garmin Connect */
+    @PostMapping("/training/workout")
+    public ResponseEntity<?> publishWorkout(Authentication auth, @RequestBody Map<String, Object> workout) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            return ResponseEntity.ok(garminService.publishWorkout(userId, workout));
+        } catch (Exception e) {
+            log.error("Garmin workout publish failed: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", "Garmin workout could not be published"));
         }
     }
 

@@ -51,6 +51,7 @@ public class SecurityConfig {
                     "/api/stats",
                     "/api/newsletter/**",
                     "/api/garmin/oauth/callback",
+                    "/api/garmin/webhook",
                     "/api/garmin/oauth/webhook",
                     "/api/integrations/coros/callback",
                     "/api/coros-coach/callback",

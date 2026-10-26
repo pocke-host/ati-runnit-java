@@ -21,6 +21,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByStripeCustomerId(String stripeCustomerId);
     Optional<User> findByGarminRequestToken(String requestToken);
     Optional<User> findByGarminAccessToken(String accessToken);
+    Optional<User> findByGarminOauthState(String state);
+    Optional<User> findByGarminUserId(String garminUserId);
     Optional<User> findByCorosOauthState(String state);
     Optional<User> findByCorosMcpOauthState(String state);
     Optional<User> findBySpotifyOauthState(String state);
