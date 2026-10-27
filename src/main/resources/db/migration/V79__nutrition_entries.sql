@@ -1,0 +1,22 @@
+CREATE TABLE nutrition_entries (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    logged_at DATETIME NOT NULL,
+    meal_type VARCHAR(30) NOT NULL,
+    food_name VARCHAR(255) NOT NULL,
+    serving_quantity DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+    serving_unit VARCHAR(50),
+    calories_kcal INT,
+    protein_grams DECIMAL(8,2),
+    carbs_grams DECIMAL(8,2),
+    fat_grams DECIMAL(8,2),
+    fiber_grams DECIMAL(8,2),
+    source VARCHAR(30) NOT NULL DEFAULT 'MANUAL',
+    external_food_id VARCHAR(100),
+    barcode VARCHAR(64),
+    notes VARCHAR(500),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_nutrition_entries_user_logged_at (user_id, logged_at)
+);
