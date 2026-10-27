@@ -10,6 +10,7 @@ import java.util.Optional;
 
 @Repository
 public interface WellnessDailyRepository extends JpaRepository<WellnessDaily, Long> {
-    Optional<WellnessDaily> findByUserIdAndDate(Long userId, LocalDate date);
+    Optional<WellnessDaily> findByUserIdAndDateAndSource(Long userId, LocalDate date, String source);
+    List<WellnessDaily> findByUserIdAndDate(Long userId, LocalDate date);
     List<WellnessDaily> findByUserIdAndDateBetweenOrderByDateDesc(Long userId, LocalDate start, LocalDate end);
 }

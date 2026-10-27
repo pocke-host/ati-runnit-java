@@ -8,9 +8,9 @@ import java.time.LocalDate;
 
 /**
  * Daily recovery/sleep/strain snapshot — the data that's actually unique to a
- * device like WHOOP versus a normal GPS watch. One row per user per day.
- * Source-agnostic by design (not "WhoopDaily") so a future Oura/Garmin body
- * battery integration can write into the same table.
+ * device like WHOOP versus a normal GPS watch. One row per user, day, and
+ * source. Source-agnostic by design so multiple providers can be retained and
+ * compared without one provider overwriting another.
  */
 @Entity
 @Table(name = "wellness_daily")

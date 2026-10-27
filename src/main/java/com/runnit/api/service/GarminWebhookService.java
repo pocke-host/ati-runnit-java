@@ -154,7 +154,7 @@ public class GarminWebhookService {
 
     private void saveDaily(User user, Map<String, Object> record) {
         LocalDate date = parseDate(record);
-        WellnessDaily row = wellnessDailyRepository.findByUserIdAndDate(user.getId(), date)
+        WellnessDaily row = wellnessDailyRepository.findByUserIdAndDateAndSource(user.getId(), date, "GARMIN")
                 .orElseGet(WellnessDaily::new);
         row.setUserId(user.getId());
         row.setDate(date);
@@ -182,7 +182,7 @@ public class GarminWebhookService {
 
     private void saveSleep(User user, Map<String, Object> record) {
         LocalDate date = parseDate(record);
-        WellnessDaily row = wellnessDailyRepository.findByUserIdAndDate(user.getId(), date)
+        WellnessDaily row = wellnessDailyRepository.findByUserIdAndDateAndSource(user.getId(), date, "GARMIN")
                 .orElseGet(WellnessDaily::new);
         row.setUserId(user.getId());
         row.setDate(date);

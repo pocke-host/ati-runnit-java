@@ -146,7 +146,7 @@ public class GoogleHealthFitbitService {
             Instant begin = instant(interval.get("startTime")), finish = instant(interval.get("endTime"));
             if (begin == null || finish == null || !finish.isAfter(begin)) continue;
             LocalDate date = finish.atZone(ZoneOffset.UTC).toLocalDate();
-            WellnessDaily row = wellness.findByUserIdAndDate(user.getId(), date).orElseGet(WellnessDaily::new);
+            WellnessDaily row = wellness.findByUserIdAndDateAndSource(user.getId(), date, "FITBIT").orElseGet(WellnessDaily::new);
             row.setUserId(user.getId()); row.setDate(date); row.setSource("FITBIT");
             row.setExternalCycleId("fitbit_sleep_" + date);
             row.setTotalSleepMinutes((int) Duration.between(begin, finish).toMinutes());

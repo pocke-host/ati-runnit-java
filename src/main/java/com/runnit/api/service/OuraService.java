@@ -128,7 +128,7 @@ public class OuraService {
         for (Map<String, Object> item : readiness) {
             String day = String.valueOf(item.get("day"));
             if ("null".equals(day)) continue;
-            WellnessDaily row = wellnessDailyRepository.findByUserIdAndDate(user.getId(), LocalDate.parse(day)).orElseGet(WellnessDaily::new);
+            WellnessDaily row = wellnessDailyRepository.findByUserIdAndDateAndSource(user.getId(), LocalDate.parse(day), "OURA").orElseGet(WellnessDaily::new);
             row.setUserId(user.getId()); row.setDate(LocalDate.parse(day)); row.setSource("OURA"); row.setExternalCycleId(String.valueOf(item.get("id")));
             row.setRecoveryScore(getInt(item, "score"));
             Map<String, Object> contributors = map(item.get("contributors"));

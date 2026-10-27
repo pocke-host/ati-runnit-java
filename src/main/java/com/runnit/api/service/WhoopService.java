@@ -400,7 +400,7 @@ public class WhoopService {
         if (startRaw == null) return false;
         LocalDate date = OffsetDateTime.parse((String) startRaw).toLocalDate();
 
-        WellnessDaily row = wellnessDailyRepository.findByUserIdAndDate(user.getId(), date)
+        WellnessDaily row = wellnessDailyRepository.findByUserIdAndDateAndSource(user.getId(), date, "WHOOP")
                 .orElseGet(WellnessDaily::new);
         row.setUserId(user.getId());
         row.setDate(date);

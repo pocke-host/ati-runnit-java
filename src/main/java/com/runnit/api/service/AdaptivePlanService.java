@@ -178,8 +178,11 @@ public class AdaptivePlanService {
         String riskLabel = (String) load.get("riskLabel");
         boolean hasEnoughData = Boolean.TRUE.equals(load.get("hasEnoughData"));
 
-        Integer recoveryScore = wellnessDailyRepository.findByUserIdAndDate(userId, LocalDate.now())
-                .map(WellnessDaily::getRecoveryScore).orElse(null);
+        Integer recoveryScore = wellnessDailyRepository.findByUserIdAndDate(userId, LocalDate.now()).stream()
+                .map(WellnessDaily::getRecoveryScore)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
 
         List<PlanWorkout> upcoming = planWorkoutRepository
                 .findByPlanIdAndCompletedFalseOrderByWeekNumberAscDayAsc(plan.getId());
