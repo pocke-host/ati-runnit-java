@@ -347,6 +347,7 @@ public class ActivityController {
                 return ResponseEntity.notFound().build();
             }
             FeedActivityDTO dto = FeedActivityDTO.from(activity);
+            dto.setSourceComparisons(activityService.getSourceComparisons(activity));
 
             List<Long> ids = List.of(activity.getId());
 

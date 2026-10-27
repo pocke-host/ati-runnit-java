@@ -42,16 +42,19 @@ class GarminWebhookServiceTest {
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("userId", "garmin-user-42");
-        payload.put("activities", java.util.List.of(new LinkedHashMap<>(Map.of(
-                "activityId", 987654L,
-                "activityType", "running",
-                "startTimeInSeconds", 1_735_689_600L,
-                "durationInSeconds", 3_600,
-                "distanceInMeters", 10_000,
-                "averageHeartRateInBeatsPerMinute", 151,
-                "maxHeartRateInBeatsPerMinute", 176,
-                "averageRunCadenceInStepsPerMinute", 174.0
-        ))));
+        Map<String, Object> activityRecord = new LinkedHashMap<>();
+        activityRecord.put("activityId", 987654L);
+        activityRecord.put("activityType", "running");
+        activityRecord.put("startTimeInSeconds", 1_735_689_600L);
+        activityRecord.put("durationInSeconds", 3_600);
+        activityRecord.put("distanceInMeters", 10_000);
+        activityRecord.put("averageHeartRateInBeatsPerMinute", 151);
+        activityRecord.put("maxHeartRateInBeatsPerMinute", 176);
+        activityRecord.put("averageRunCadenceInStepsPerMinute", 174.0);
+        activityRecord.put("geoPolyline", "encoded-route");
+        activityRecord.put("startLatitudeInDegree", 37.7749);
+        activityRecord.put("startLongitudeInDegree", -122.4194);
+        payload.put("activities", java.util.List.of(activityRecord));
 
         assertEquals(1, service.processPayload(payload));
 
@@ -63,6 +66,9 @@ class GarminWebhookServiceTest {
         assertEquals(Activity.SportType.RUN, saved.getSportType());
         assertEquals(10_000, saved.getDistanceMeters());
         assertEquals(174.0, saved.getAverageCadence());
+        assertEquals("encoded-route", saved.getRoutePolyline());
+        assertEquals(37.7749, saved.getStartLat());
+        assertEquals(-122.4194, saved.getStartLng());
         assertNotNull(saved.getPerformedAt());
         verify(userRepository).save(user);
     }

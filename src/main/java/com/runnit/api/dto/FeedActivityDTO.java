@@ -55,6 +55,10 @@ public class FeedActivityDTO {
     // Every reaction type the current authenticated user has left on this activity —
     // LIKE and KUDOS are independent, so this can hold both at once.
     private Set<String> userReactions = new HashSet<>();
+    // When an activity was imported by more than one connected provider, the
+    // detail endpoint includes the matched source readings so the athlete can
+    // compare them without creating duplicate-looking cards in the feed.
+    private List<SourceSnapshot> sourceComparisons;
     // Only populated for sportType == STRENGTH detail fetches (ActivityController.getActivity) —
     // null/omitted everywhere else, including the feed list, to avoid an N+1 on every list item.
     private List<StrengthExerciseDTO> strengthExercises;
@@ -91,6 +95,22 @@ public class FeedActivityDTO {
         return dto;
     }
 
+    public static SourceSnapshot sourceSnapshot(Activity a) {
+        SourceSnapshot snapshot = new SourceSnapshot();
+        snapshot.source = a.getSource() != null ? a.getSource().name() : "MANUAL";
+        snapshot.sportType = a.getSportType() != null ? a.getSportType().name() : null;
+        snapshot.durationSeconds = a.getDurationSeconds();
+        snapshot.distanceMeters = a.getDistanceMeters();
+        snapshot.elevationGain = a.getElevationGain();
+        snapshot.calories = a.getCalories();
+        snapshot.averagePace = a.getAveragePace();
+        snapshot.averageCadence = a.getAverageCadence();
+        snapshot.averageHeartRate = a.getAverageHeartRate();
+        snapshot.maxHeartRate = a.getMaxHeartRate();
+        snapshot.performedAt = a.getPerformedAt() != null ? a.getPerformedAt() : a.getCreatedAt();
+        return snapshot;
+    }
+
     public Long getId() { return id; }
     public UserInfo getUser() { return user; }
     public String getSportType() { return sportType; }
@@ -115,10 +135,38 @@ public class FeedActivityDTO {
     public long getCommentCount() { return commentCount; }
     public Map<String, Long> getReactionCounts() { return reactionCounts; }
     public Set<String> getUserReactions() { return userReactions; }
+    public List<SourceSnapshot> getSourceComparisons() { return sourceComparisons; }
 
     public void setCommentCount(long commentCount) { this.commentCount = commentCount; }
     public void setReactionCounts(Map<String, Long> reactionCounts) { this.reactionCounts = reactionCounts; }
     public void setUserReactions(Set<String> userReactions) { this.userReactions = userReactions; }
+    public void setSourceComparisons(List<SourceSnapshot> sourceComparisons) { this.sourceComparisons = sourceComparisons; }
     public List<StrengthExerciseDTO> getStrengthExercises() { return strengthExercises; }
     public void setStrengthExercises(List<StrengthExerciseDTO> strengthExercises) { this.strengthExercises = strengthExercises; }
+
+    public static class SourceSnapshot {
+        private String source;
+        private String sportType;
+        private Integer durationSeconds;
+        private Integer distanceMeters;
+        private Integer elevationGain;
+        private Integer calories;
+        private Double averagePace;
+        private Double averageCadence;
+        private Integer averageHeartRate;
+        private Integer maxHeartRate;
+        private LocalDateTime performedAt;
+
+        public String getSource() { return source; }
+        public String getSportType() { return sportType; }
+        public Integer getDurationSeconds() { return durationSeconds; }
+        public Integer getDistanceMeters() { return distanceMeters; }
+        public Integer getElevationGain() { return elevationGain; }
+        public Integer getCalories() { return calories; }
+        public Double getAveragePace() { return averagePace; }
+        public Double getAverageCadence() { return averageCadence; }
+        public Integer getAverageHeartRate() { return averageHeartRate; }
+        public Integer getMaxHeartRate() { return maxHeartRate; }
+        public LocalDateTime getPerformedAt() { return performedAt; }
+    }
 }

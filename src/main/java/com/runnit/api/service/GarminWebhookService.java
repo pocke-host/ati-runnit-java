@@ -153,7 +153,21 @@ public class GarminWebhookService {
         setIfPresent(firstDouble(record,
                 "averageBikeCadenceInRoundsPerMinute",
                 "averageRunCadenceInStepsPerMinute",
+                "averageSwimCadenceInStrokesPerMinute",
                 "averageCadence"), activity::setAverageCadence);
+        setIfPresent(firstString(record,
+                "geoPolyline",
+                "routePolyline",
+                "summaryPolyline",
+                "polyline"), activity::setRoutePolyline);
+        setIfPresent(firstDouble(record,
+                "startLatitudeInDegree",
+                "startLatitude",
+                "start_latitude"), activity::setStartLat);
+        setIfPresent(firstDouble(record,
+                "startLongitudeInDegree",
+                "startLongitude",
+                "start_longitude"), activity::setStartLng);
         if (hasStartTime(record)) activity.setPerformedAt(parseStart(record));
         String activityName = firstString(record, "activityName", "activity_name", "name");
         if (rawType != null || activityName != null) activity.setNotes(rawType != null

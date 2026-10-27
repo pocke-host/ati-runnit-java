@@ -28,15 +28,30 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ActivityService {
+
+    private static final Set<Activity.Source> COMPARABLE_SOURCES = EnumSet.of(
+            Activity.Source.GARMIN,
+            Activity.Source.WHOOP,
+            Activity.Source.OURA,
+            Activity.Source.FITBIT,
+            Activity.Source.COROS,
+            Activity.Source.APPLE_HEALTH,
+            Activity.Source.STRAVA
+    );
 
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
@@ -206,6 +221,82 @@ public class ActivityService {
     public Activity getActivityById(Long id) {
         return activityRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Activity not found"));
+    }
+
+    /**
+     * Finds readings from other connected providers that represent the same
+     * workout as the detail-page activity. Providers create separate rows so
+     * their original values remain auditable; this only groups them for display.
+     */
+    @Transactional(readOnly = true)
+    public List<FeedActivityDTO.SourceSnapshot> getSourceComparisons(Activity activity) {
+        if (activity == null || activity.getUser() == null) return List.of();
+
+        LocalDateTime occurredAt = activity.getPerformedAt() != null
+                ? activity.getPerformedAt() : activity.getCreatedAt();
+        if (occurredAt == null) return List.of(FeedActivityDTO.sourceSnapshot(activity));
+
+        List<Activity> candidates = activityRepository.findByUserIdNearTime(
+                activity.getUser().getId(), occurredAt.minusHours(3), occurredAt.plusHours(3));
+        List<Activity> matches = candidates.stream()
+                .filter(candidate -> !candidate.getId().equals(activity.getId()))
+                .filter(candidate -> candidate.getSource() != null && COMPARABLE_SOURCES.contains(candidate.getSource()))
+                .filter(candidate -> candidate.getSource() != activity.getSource())
+                .filter(candidate -> sameSport(activity, candidate))
+                .filter(candidate -> representsSameWorkout(activity, candidate, occurredAt))
+                .sorted(Comparator.comparingLong(candidate -> timeDistanceSeconds(candidate, occurredAt)))
+                .toList();
+
+        List<FeedActivityDTO.SourceSnapshot> snapshots = new ArrayList<>();
+        snapshots.add(FeedActivityDTO.sourceSnapshot(activity));
+        Set<Activity.Source> addedSources = EnumSet.noneOf(Activity.Source.class);
+        if (activity.getSource() != null) addedSources.add(activity.getSource());
+        for (Activity match : matches) {
+            if (addedSources.add(match.getSource())) {
+                snapshots.add(FeedActivityDTO.sourceSnapshot(match));
+            }
+        }
+        return snapshots;
+    }
+
+    private boolean sameSport(Activity left, Activity right) {
+        return left.getSportType() == right.getSportType()
+                || left.getSportType() == Activity.SportType.OTHER
+                || right.getSportType() == Activity.SportType.OTHER;
+    }
+
+    private boolean representsSameWorkout(Activity activity, Activity candidate, LocalDateTime occurredAt) {
+        LocalDateTime candidateAt = candidate.getPerformedAt() != null
+                ? candidate.getPerformedAt() : candidate.getCreatedAt();
+        if (candidateAt == null || timeDistanceSeconds(candidate, occurredAt) > 3 * 60 * 60) return false;
+
+        int duration = activity.getDurationSeconds() == null ? 0 : activity.getDurationSeconds();
+        int candidateDuration = candidate.getDurationSeconds() == null ? 0 : candidate.getDurationSeconds();
+        if (duration > 0 && candidateDuration > 0) {
+            int tolerance = Math.max(180, Math.round(Math.min(duration, candidateDuration) * 0.20f));
+            if (Math.abs(duration - candidateDuration) > tolerance) return false;
+        }
+
+        int distance = activity.getDistanceMeters() == null ? 0 : activity.getDistanceMeters();
+        int candidateDistance = candidate.getDistanceMeters() == null ? 0 : candidate.getDistanceMeters();
+        if (distance > 0 && candidateDistance > 0) {
+            int tolerance = Math.max(750, Math.round(Math.min(distance, candidateDistance) * 0.15f));
+            if (Math.abs(distance - candidateDistance) > tolerance) return false;
+        }
+
+        // If both providers supplied useful workout metrics, the time window is
+        // intentionally forgiving. If neither did, avoid grouping two nearby
+        // walks unless they were logged close together.
+        if (duration == 0 && candidateDuration == 0 && distance == 0 && candidateDistance == 0) {
+            return timeDistanceSeconds(candidate, occurredAt) <= 30 * 60;
+        }
+        return true;
+    }
+
+    private long timeDistanceSeconds(Activity candidate, LocalDateTime occurredAt) {
+        LocalDateTime candidateAt = candidate.getPerformedAt() != null
+                ? candidate.getPerformedAt() : candidate.getCreatedAt();
+        return candidateAt == null ? Long.MAX_VALUE : Math.abs(Duration.between(occurredAt, candidateAt).getSeconds());
     }
 
     @Transactional(readOnly = true)
