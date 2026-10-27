@@ -123,21 +123,31 @@ public class GarminWebhookService {
         String externalId = "garmin_" + activityId;
         if (activityRepository.existsByUserIdAndExternalId(user.getId(), externalId)) return false;
 
-        String rawType = firstString(record, "activityType", "activity_type", "sportType");
+        String rawType = firstString(record, "activityType", "activity_type", "sportType", "sport");
         Activity activity = new Activity();
         activity.setUser(user);
         activity.setExternalId(externalId);
         activity.setSource(Activity.Source.GARMIN);
         activity.setSportType(mapSportType(rawType));
-        activity.setDurationSeconds(firstInt(record, "durationInSeconds", "duration"));
+        // Garmin includes duration for normal Activity API summaries. Keep a
+        // zero-length summary if a partial delivery omits it so the activity
+        // is still visible and can be enriched by a later delivery.
+        activity.setDurationSeconds(defaultInt(firstInt(record, "durationInSeconds", "duration"), 0));
         activity.setDistanceMeters(firstMeters(record, "distanceInMeters", "distance"));
         activity.setElevationGain(firstMeters(record, "elevationGainInMeters", "elevationGain"));
         activity.setCalories(firstInt(record, "calories", "activeKilocalories"));
         activity.setAverageHeartRate(firstInt(record, "averageHeartRateInBeatsPerMinute", "averageHR"));
         activity.setMaxHeartRate(firstInt(record, "maxHeartRateInBeatsPerMinute", "maxHR"));
         activity.setAveragePace(firstDouble(record, "averageSpeedInMetersPerSecond", "averageSpeed"));
+        activity.setAverageCadence(firstDouble(record,
+                "averageBikeCadenceInRoundsPerMinute",
+                "averageRunCadenceInStepsPerMinute",
+                "averageCadence"));
         activity.setPerformedAt(parseStart(record));
-        activity.setNotes(rawType != null ? "GARMIN: " + titleCase(rawType) : null);
+        String activityName = firstString(record, "activityName", "activity_name", "name");
+        activity.setNotes(rawType != null
+                ? "GARMIN: " + titleCase(rawType) + (activityName == null ? "" : " — " + activityName)
+                : activityName == null ? null : "GARMIN: " + activityName);
         activityRepository.save(activity);
         try {
             adaptivePlanService.onActivityRecorded(activity);
@@ -229,17 +239,53 @@ public class GarminWebhookService {
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> records(Map<String, Object> payload, String key) {
         Object value = payload.get(key);
-        if (!(value instanceof Collection<?> collection)) return List.of();
-        return collection.stream().filter(Map.class::isInstance)
-                .map(item -> (Map<String, Object>) item).toList();
+        List<Map<String, Object>> records;
+        if (value instanceof Collection<?> collection) {
+            records = collection.stream().filter(Map.class::isInstance)
+                    .map(item -> (Map<String, Object>) item)
+                    .map(record -> withPayloadIdentity(payload, record))
+                    .toList();
+        } else if (value instanceof Map<?, ?> single) {
+            records = List.of(withPayloadIdentity(payload, (Map<String, Object>) single));
+        } else {
+            records = List.of();
+        }
+        return records;
+    }
+
+    /**
+     * Garmin normally repeats the user identifier on every record. Some
+     * delivery shapes put it at the envelope level instead, so carry that
+     * context down before resolving the Runnit user. This keeps webhook
+     * delivery resilient without storing or logging the raw payload.
+     */
+    private Map<String, Object> withPayloadIdentity(Map<String, Object> payload, Map<String, Object> record) {
+        if (firstString(record, "userId", "user_id", "garminUserId", "userAccessToken", "user_access_token", "accessToken") != null) {
+            return record;
+        }
+        Map<String, Object> enriched = new java.util.LinkedHashMap<>(record);
+        copyIfPresent(payload, enriched, "userId", "user_id", "garminUserId");
+        copyIfPresent(payload, enriched, "userAccessToken", "user_access_token", "accessToken");
+        return enriched;
+    }
+
+    private void copyIfPresent(Map<String, Object> from, Map<String, Object> to, String... keys) {
+        for (String key : keys) {
+            if (from.containsKey(key) && from.get(key) != null) {
+                to.putIfAbsent(key, from.get(key));
+                return;
+            }
+        }
     }
 
     private String firstString(Map<String, Object> map, String... keys) {
         for (String key : keys) {
             Object value = map.get(key);
             if (value instanceof Map<?, ?> nested) {
-                Object nestedValue = nested.get("typeKey");
-                if (nestedValue != null) return nestedValue.toString();
+                for (String nestedKey : List.of("typeKey", "value", "id", "userId", "userAccessToken")) {
+                    Object nestedValue = nested.get(nestedKey);
+                    if (nestedValue != null && !nestedValue.toString().isBlank()) return nestedValue.toString();
+                }
             }
             if (value != null && !value.toString().isBlank()) return value.toString();
         }
@@ -258,6 +304,10 @@ public class GarminWebhookService {
     private Integer firstInt(Map<String, Object> map, String... keys) {
         Number value = firstNumber(map, keys);
         return value == null ? null : value.intValue();
+    }
+
+    private Integer defaultInt(Integer value, int fallback) {
+        return value == null ? fallback : value;
     }
 
     private Integer firstMeters(Map<String, Object> map, String... keys) {

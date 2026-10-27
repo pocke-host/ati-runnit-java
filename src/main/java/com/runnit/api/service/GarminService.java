@@ -181,6 +181,7 @@ public class GarminService {
             status.put("deliveryMode", "push");
             status.put("historicalImportSupported", false);
             status.put("userIdLinked", user.getGarminUserId() != null);
+            status.put("syncState", syncState(user));
             status.put("permissions", parsePermissions(user.getGarminPermissions()));
             return status;
         }).orElseGet(() -> {
@@ -191,6 +192,7 @@ public class GarminService {
             status.put("deliveryMode", "push");
             status.put("historicalImportSupported", false);
             status.put("userIdLinked", false);
+            status.put("syncState", "disconnected");
             status.put("permissions", java.util.List.of());
             return status;
         });
@@ -308,6 +310,14 @@ public class GarminService {
         if (clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()) {
             throw new IllegalStateException("Garmin OAuth is not configured");
         }
+    }
+
+    private String syncState(User user) {
+        if (user.getGarminAccessToken() == null && user.getGarminRefreshToken() == null) return "disconnected";
+        if (user.getGarminUserId() == null || user.getGarminUserId().isBlank()) return "identity_pending";
+        if (user.getGarminLastSync() == null) return "waiting_for_delivery";
+        return user.getGarminLastSync().isBefore(Instant.now().minusSeconds(72 * 60 * 60L))
+                ? "stale" : "healthy";
     }
 
     private String generateVerifier() {

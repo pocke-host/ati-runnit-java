@@ -32,9 +32,13 @@ public class GarminWebhookController {
             garminWebhookService.processPayload(payload);
         } catch (Exception e) {
             log.error("Garmin webhook processing failed: {}", e.getMessage(), e);
+            // Do not acknowledge an envelope that could not be processed. A
+            // non-2xx response lets Garmin retry the delivery instead of
+            // silently losing the user's activity.
+            return ResponseEntity.internalServerError().build();
         }
 
-        // Always return 200 — Garmin retries on non-2xx
+        // Acknowledge only after the payload has been accepted for processing.
         return ResponseEntity.ok().build();
     }
 
