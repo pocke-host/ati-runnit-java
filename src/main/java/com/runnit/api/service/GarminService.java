@@ -122,13 +122,24 @@ public class GarminService {
         return frontendUrl + "/devices?garmin=connected";
     }
 
-    /** Garmin Starter delivery is push-based; there is no historical pull endpoint in this tier. */
+    /**
+     * Check the Garmin connection and retry the post-consent identity lookup.
+     *
+     * Starter access is push-based, so this does not pull activities like WHOOP
+     * does. It validates the token and repairs a transient identity-link failure;
+     * new Garmin activities arrive through the configured webhook after the user
+     * syncs Garmin Connect.
+     */
     @Transactional
     public int syncActivities(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        if (user.getGarminAccessToken() == null) return 0;
+        if (user.getGarminAccessToken() == null && user.getGarminRefreshToken() == null) return 0;
         getValidAccessToken(user);
+        if (user.getGarminUserId() == null || user.getGarminUserId().isBlank()) {
+            resolveIdentityAndPermissions(user);
+            userRepository.save(user);
+        }
         return 0;
     }
 

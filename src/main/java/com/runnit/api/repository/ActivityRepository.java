@@ -25,6 +25,8 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     boolean existsByUserIdAndExternalId(Long userId, String externalId);
 
+    java.util.Optional<Activity> findByUserIdAndExternalId(Long userId, String externalId);
+
     long deleteByUserIdAndSource(Long userId, Activity.Source source);
 
     @org.springframework.data.jpa.repository.Query("SELECT a FROM Activity a WHERE a.user.id = :userId AND a.createdAt >= :since")

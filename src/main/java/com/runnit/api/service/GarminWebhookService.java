@@ -121,45 +121,67 @@ public class GarminWebhookService {
         String activityId = firstString(record, "activityId", "activity_id");
         if (activityId == null) return false;
         String externalId = "garmin_" + activityId;
-        if (activityRepository.existsByUserIdAndExternalId(user.getId(), externalId)) return false;
+        boolean existingActivity = activityRepository.existsByUserIdAndExternalId(user.getId(), externalId);
+        Activity activity = existingActivity
+                ? activityRepository.findByUserIdAndExternalId(user.getId(), externalId).orElse(null)
+                : null;
+        if (existingActivity && activity == null) return false;
 
         String rawType = firstString(record, "activityType", "activity_type", "sportType", "sport");
-        Activity activity = new Activity();
-        activity.setUser(user);
-        activity.setExternalId(externalId);
-        activity.setSource(Activity.Source.GARMIN);
-        activity.setSportType(mapSportType(rawType));
+        if (activity == null) {
+            activity = new Activity();
+            activity.setUser(user);
+            activity.setExternalId(externalId);
+            activity.setSource(Activity.Source.GARMIN);
+            activity.setSportType(mapSportType(rawType));
+        } else if (rawType != null) {
+            activity.setSportType(mapSportType(rawType));
+        }
         // Garmin includes duration for normal Activity API summaries. Keep a
         // zero-length summary if a partial delivery omits it so the activity
         // is still visible and can be enriched by a later delivery.
-        activity.setDurationSeconds(defaultInt(firstInt(record, "durationInSeconds", "duration"), 0));
-        activity.setDistanceMeters(firstMeters(record, "distanceInMeters", "distance"));
-        activity.setElevationGain(firstMeters(record, "elevationGainInMeters", "elevationGain"));
-        activity.setCalories(firstInt(record, "calories", "activeKilocalories"));
-        activity.setAverageHeartRate(firstInt(record, "averageHeartRateInBeatsPerMinute", "averageHR"));
-        activity.setMaxHeartRate(firstInt(record, "maxHeartRateInBeatsPerMinute", "maxHR"));
-        activity.setAveragePace(firstDouble(record, "averageSpeedInMetersPerSecond", "averageSpeed"));
-        activity.setAverageCadence(firstDouble(record,
+        Integer durationSeconds = firstInt(record, "durationInSeconds", "duration");
+        if (durationSeconds != null || activity.getDurationSeconds() == null) {
+            activity.setDurationSeconds(defaultInt(durationSeconds, 0));
+        }
+        setIfPresent(firstMeters(record, "distanceInMeters", "distance"), activity::setDistanceMeters);
+        setIfPresent(firstMeters(record, "elevationGainInMeters", "elevationGain"), activity::setElevationGain);
+        setIfPresent(firstInt(record, "calories", "activeKilocalories"), activity::setCalories);
+        setIfPresent(firstInt(record, "averageHeartRateInBeatsPerMinute", "averageHR"), activity::setAverageHeartRate);
+        setIfPresent(firstInt(record, "maxHeartRateInBeatsPerMinute", "maxHR"), activity::setMaxHeartRate);
+        setIfPresent(firstDouble(record, "averageSpeedInMetersPerSecond", "averageSpeed"), activity::setAveragePace);
+        setIfPresent(firstDouble(record,
                 "averageBikeCadenceInRoundsPerMinute",
                 "averageRunCadenceInStepsPerMinute",
-                "averageCadence"));
-        activity.setPerformedAt(parseStart(record));
+                "averageCadence"), activity::setAverageCadence);
+        if (hasStartTime(record)) activity.setPerformedAt(parseStart(record));
         String activityName = firstString(record, "activityName", "activity_name", "name");
-        activity.setNotes(rawType != null
+        if (rawType != null || activityName != null) activity.setNotes(rawType != null
                 ? "GARMIN: " + titleCase(rawType) + (activityName == null ? "" : " — " + activityName)
-                : activityName == null ? null : "GARMIN: " + activityName);
+                : "GARMIN: " + activityName);
         activityRepository.save(activity);
-        try {
-            adaptivePlanService.onActivityRecorded(activity);
-        } catch (Exception e) {
-            log.warn("Adaptive plan evaluation failed for Garmin activity {}: {}", externalId, e.getMessage());
+        if (!existingActivity) {
+            try {
+                adaptivePlanService.onActivityRecorded(activity);
+            } catch (Exception e) {
+                log.warn("Adaptive plan evaluation failed for Garmin activity {}: {}", externalId, e.getMessage());
+            }
+            try {
+                autoMomentService.onActivityRecorded(activity);
+            } catch (Exception e) {
+                log.warn("Auto-moment creation failed for Garmin activity {}: {}", externalId, e.getMessage());
+            }
         }
-        try {
-            autoMomentService.onActivityRecorded(activity);
-        } catch (Exception e) {
-            log.warn("Auto-moment creation failed for Garmin activity {}: {}", externalId, e.getMessage());
-        }
-        return true;
+        return !existingActivity;
+    }
+
+    private boolean hasStartTime(Map<String, Object> record) {
+        return firstNumber(record, "startTimeInSeconds", "start_time_in_seconds") != null
+                || firstString(record, "startTimeGMT", "startTimeLocal") != null;
+    }
+
+    private <T> void setIfPresent(T value, java.util.function.Consumer<T> setter) {
+        if (value != null) setter.accept(value);
     }
 
     private void saveDaily(User user, Map<String, Object> record) {

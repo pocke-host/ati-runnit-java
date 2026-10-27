@@ -53,7 +53,7 @@ public class GarminIntegrationController {
                     "deliveryMode", "push",
                     "message", count > 0
                             ? count + " activities synced"
-                            : "Garmin sends new activity data after your device syncs with Garmin Connect."
+                            : "Garmin is connected. Sync your device in Garmin Connect and new activity data will be delivered to RUNNIT."
             ));
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);

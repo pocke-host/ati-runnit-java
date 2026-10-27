@@ -85,4 +85,39 @@ class GarminWebhookServiceTest {
         assertEquals(1, service.processPayload(payload));
         verify(activityRepository).save(any(Activity.class));
     }
+
+    @Test
+    void enrichesAnActivityWhenGarminDeliversACompleteRecordAfterAPartialRecord() {
+        User user = new User();
+        user.setId(9L);
+        when(userRepository.findByGarminUserId("garmin-user-9")).thenReturn(Optional.of(user));
+        when(userRepository.findById(9L)).thenReturn(Optional.of(user));
+        when(activityRepository.existsByUserIdAndExternalId(9L, "garmin_123")).thenReturn(true);
+
+        Activity partial = new Activity();
+        partial.setUser(user);
+        partial.setExternalId("garmin_123");
+        partial.setSource(Activity.Source.GARMIN);
+        partial.setSportType(Activity.SportType.RUN);
+        partial.setDurationSeconds(0);
+        when(activityRepository.findByUserIdAndExternalId(9L, "garmin_123")).thenReturn(Optional.of(partial));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("userId", "garmin-user-9");
+        payload.put("activities", java.util.List.of(new LinkedHashMap<>(Map.of(
+                "activityId", 123L,
+                "activityType", "running",
+                "startTimeInSeconds", 1_735_689_600L,
+                "durationInSeconds", 1_800,
+                "distanceInMeters", 5_000,
+                "maxHeartRateInBeatsPerMinute", 178
+        ))));
+
+        assertEquals(0, service.processPayload(payload));
+        assertEquals(1_800, partial.getDurationSeconds());
+        assertEquals(5_000, partial.getDistanceMeters());
+        assertEquals(178, partial.getMaxHeartRate());
+        verify(activityRepository).save(partial);
+        verifyNoInteractions(adaptivePlanService, autoMomentService);
+    }
 }
