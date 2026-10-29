@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpStatusCodeException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -133,7 +134,21 @@ public class SpotifyController {
         if (!"week".equalsIgnoreCase(period) && !"month".equalsIgnoreCase(period)) {
             return ResponseEntity.badRequest().body(Map.of("error", "period must be week or month"));
         }
-        return ResponseEntity.ok(spotifyService.createPlaylistFromHistory((Long) auth.getPrincipal(), period, name));
+        try {
+            return ResponseEntity.ok(spotifyService.createPlaylistFromHistory((Long) auth.getPrincipal(), period, name));
+        } catch (IllegalStateException e) {
+            log.warn("Spotify playlist creation could not complete: {}", e.getMessage());
+            return ResponseEntity.unprocessableEntity().body(Map.of("error", e.getMessage()));
+        } catch (HttpStatusCodeException e) {
+            log.warn("Spotify playlist API returned {}", e.getStatusCode());
+            String message = switch (e.getStatusCode().value()) {
+                case 401 -> "Spotify authorization expired. Reconnect Spotify and try again.";
+                case 403 -> "Spotify playlist permission is missing. Reconnect Spotify and allow private playlist access.";
+                case 429 -> "Spotify is rate limiting this request. Try again shortly.";
+                default -> "Spotify could not create the playlist right now.";
+            };
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("error", message));
+        }
     }
 
     @PostMapping("/playlists/{playlistId}/tracks")

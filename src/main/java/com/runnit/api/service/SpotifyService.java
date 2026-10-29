@@ -14,6 +14,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import com.runnit.api.model.User;
+import com.runnit.api.model.Activity;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.ActivityRepository;
 import java.net.URLEncoder;
@@ -32,6 +33,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -41,6 +44,7 @@ public class SpotifyService {
     private static final String SEARCH_URL = "https://api.spotify.com/v1/search";
     private static final String AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
     private static final String RECENTLY_PLAYED_URL = "https://api.spotify.com/v1/me/player/recently-played";
+    private static final Pattern SPOTIFY_TRACK_ID = Pattern.compile("(?:open\\.spotify\\.com/track/|spotify:track:)([A-Za-z0-9]+)");
     private static final String USER_SCOPE = String.join(" ",
             "user-read-recently-played",
             "user-read-currently-playing",
@@ -198,44 +202,78 @@ public class SpotifyService {
 
     public JsonNode createPlaylist(Long userId, String name, String description, boolean isPublic) {
         if (name == null || name.isBlank()) throw new IllegalArgumentException("Playlist name is required");
-        JsonNode profile = userGet(userId, "/v1/me");
-        String spotifyUserId = profile.path("id").asText(null);
-        if (spotifyUserId == null || spotifyUserId.isBlank()) throw new IllegalStateException("Spotify profile unavailable");
         Map<String, Object> payload = Map.of(
                 "name", name.trim(),
                 "public", isPublic,
                 "collaborative", false,
                 "description", description == null ? "Created from RUNNIT" : description.trim());
-        return userPost(userId, "/v1/users/" + encPath(spotifyUserId) + "/playlists", payload);
+        return userPost(userId, "/v1/me/playlists", payload);
     }
 
-    /** Creates a private playlist from the user's recent Spotify workout soundtrack. */
+    /** Creates a private playlist from Spotify tracks attached to RUNNIT workouts. */
     public JsonNode createPlaylistFromHistory(Long userId, String period, String name) {
-        long days = "month".equalsIgnoreCase(period) ? 30 : 7;
-        long after = Instant.now().minusSeconds(days * 24 * 60 * 60).toEpochMilli();
-        List<Map<String, Object>> recent = recentlyPlayed(userId, after, null);
-        List<String> uris = recent.stream()
-                .map(row -> row.get("id"))
-                .filter(String.class::isInstance)
-                .map(String.class::cast)
-                .filter(id -> !id.isBlank())
+        String normalized = "month".equalsIgnoreCase(period) ? "month" : "week";
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate startDate = "month".equals(normalized) ? today.withDayOfMonth(1) : today.minusDays(6);
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = today.plusDays(1).atStartOfDay();
+        List<Activity> activities = activityRepository.findListeningActivitiesBetween(userId, start, end);
+        List<String> uris = activities.stream()
+                .filter(this::hasSpotifyListeningSource)
+                .map(activity -> spotifyTrackUri(userId, activity))
+                .filter(uri -> uri != null && !uri.isBlank())
                 .distinct()
-                .map(id -> "spotify:track:" + id)
                 .limit(100)
                 .toList();
-        if (uris.isEmpty()) throw new IllegalStateException("No recent Spotify tracks found");
+        if (uris.isEmpty()) throw new IllegalStateException("No Spotify tracks are attached to workouts in this period");
         JsonNode playlist = createPlaylist(userId,
                 name == null || name.isBlank() ? "RUNNIT soundtrack" : name,
-                "A RUNNIT workout soundtrack from your recent listening history.", false);
+                "A RUNNIT workout soundtrack from your " + normalized + " training.", false);
         addTracks(userId, playlist.path("id").asText(), uris);
         return playlist;
+    }
+
+    private boolean hasSpotifyListeningSource(Activity activity) {
+        String provider = activity.getListeningProvider();
+        String url = activity.getListeningUrl();
+        return "SPOTIFY".equalsIgnoreCase(provider)
+                || (url != null && url.toLowerCase().contains("spotify"));
+    }
+
+    private String spotifyTrackUri(Long userId, Activity activity) {
+        String url = activity.getListeningUrl();
+        if (url != null) {
+            Matcher matcher = SPOTIFY_TRACK_ID.matcher(url);
+            if (matcher.find()) return "spotify:track:" + matcher.group(1);
+        }
+        if (activity.getListeningTrack() == null || activity.getListeningTrack().isBlank()) return null;
+        try {
+            String query = activity.getListeningTrack()
+                    + (activity.getListeningArtist() == null || activity.getListeningArtist().isBlank()
+                    ? "" : " artist:" + activity.getListeningArtist());
+            JsonNode result = userSearch(userId, query);
+            String id = result.path("tracks").path("items").path(0).path("id").asText(null);
+            return id == null || id.isBlank() ? null : "spotify:track:" + id;
+        } catch (Exception e) {
+            log.debug("Could not resolve workout track in Spotify: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private JsonNode userSearch(Long userId, String query) {
+        User user = userRepository.findById(userId).orElseThrow();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(userAccessToken(user));
+        String url = SEARCH_URL + "?q=" + enc(query) + "&type=track&limit=1";
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        return parseJson(response.getBody());
     }
 
     public JsonNode addTracks(Long userId, String playlistId, List<String> uris) {
         if (playlistId == null || playlistId.isBlank() || uris == null || uris.isEmpty()) {
             throw new IllegalArgumentException("Playlist and at least one track are required");
         }
-        return userPost(userId, "/v1/playlists/" + encPath(playlistId) + "/tracks", Map.of("uris", uris));
+        return userPost(userId, "/v1/playlists/" + encPath(playlistId) + "/items", Map.of("uris", uris));
     }
 
     public void playback(Long userId, String action, Map<String, Object> body) {
