@@ -219,13 +219,29 @@ public class SpotifyService {
         LocalDateTime end = today.plusDays(1).atStartOfDay();
         List<Activity> activities = activityRepository.findListeningActivitiesBetween(userId, start, end);
         List<String> uris = activities.stream()
-                .filter(this::hasSpotifyListeningSource)
+                .filter(this::canResolveToSpotify)
                 .map(activity -> spotifyTrackUri(userId, activity))
                 .filter(uri -> uri != null && !uri.isBlank())
                 .distinct()
                 .limit(100)
                 .toList();
-        if (uris.isEmpty()) throw new IllegalStateException("No Spotify tracks are attached to workouts in this period");
+        // Older activities may have listening text but no Spotify URL/provider saved.
+        // If those rows cannot be resolved, use Spotify's own recent history as a
+        // fallback so the button remains useful for users who connected Spotify
+        // before automatic activity enrichment was available.
+        if (uris.isEmpty()) {
+            long after = start.toInstant(ZoneOffset.UTC).toEpochMilli();
+            uris = recentlyPlayed(userId, after, null).stream()
+                    .map(row -> row.get("id"))
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .filter(id -> !id.isBlank())
+                    .distinct()
+                    .map(id -> "spotify:track:" + id)
+                    .limit(100)
+                    .toList();
+        }
+        if (uris.isEmpty()) throw new IllegalStateException("No Spotify listening history found for this period");
         JsonNode playlist = createPlaylist(userId,
                 name == null || name.isBlank() ? "RUNNIT soundtrack" : name,
                 "A RUNNIT workout soundtrack from your " + normalized + " training.", false);
@@ -233,10 +249,10 @@ public class SpotifyService {
         return playlist;
     }
 
-    private boolean hasSpotifyListeningSource(Activity activity) {
+    private boolean canResolveToSpotify(Activity activity) {
         String provider = activity.getListeningProvider();
         String url = activity.getListeningUrl();
-        return "SPOTIFY".equalsIgnoreCase(provider)
+        return provider == null || provider.isBlank() || "SPOTIFY".equalsIgnoreCase(provider)
                 || (url != null && url.toLowerCase().contains("spotify"));
     }
 
