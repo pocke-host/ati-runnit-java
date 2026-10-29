@@ -35,6 +35,7 @@ public class GarminWebhookService {
 
     private final UserRepository userRepository;
     private final ActivityRepository activityRepository;
+    private final ActivityGroupingService activityGroupingService;
     private final WellnessDailyRepository wellnessDailyRepository;
     private final AdaptivePlanService adaptivePlanService;
     private final AutoMomentService autoMomentService;
@@ -174,6 +175,7 @@ public class GarminWebhookService {
                 ? "GARMIN: " + titleCase(rawType) + (activityName == null ? "" : " — " + activityName)
                 : "GARMIN: " + activityName);
         activityRepository.save(activity);
+        activityGroupingService.groupIfMatching(activity);
         if (!existingActivity) {
             try {
                 adaptivePlanService.onActivityRecorded(activity);

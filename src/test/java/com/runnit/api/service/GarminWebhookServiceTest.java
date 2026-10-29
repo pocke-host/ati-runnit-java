@@ -26,6 +26,7 @@ class GarminWebhookServiceTest {
 
     @Mock UserRepository userRepository;
     @Mock ActivityRepository activityRepository;
+    @Mock ActivityGroupingService activityGroupingService;
     @Mock WellnessDailyRepository wellnessDailyRepository;
     @Mock AdaptivePlanService adaptivePlanService;
     @Mock AutoMomentService autoMomentService;

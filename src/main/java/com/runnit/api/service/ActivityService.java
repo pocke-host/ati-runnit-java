@@ -43,6 +43,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ActivityService {
 
+    private static final long SOURCE_MATCH_WINDOW_SECONDS = 30 * 60L;
+
     private static final Set<Activity.Source> COMPARABLE_SOURCES = EnumSet.of(
             Activity.Source.GARMIN,
             Activity.Source.WHOOP,
@@ -237,7 +239,9 @@ public class ActivityService {
         if (occurredAt == null) return List.of(FeedActivityDTO.sourceSnapshot(activity));
 
         List<Activity> candidates = activityRepository.findByUserIdNearTime(
-                activity.getUser().getId(), occurredAt.minusHours(3), occurredAt.plusHours(3));
+                activity.getUser().getId(),
+                occurredAt.minusSeconds(SOURCE_MATCH_WINDOW_SECONDS),
+                occurredAt.plusSeconds(SOURCE_MATCH_WINDOW_SECONDS));
         List<Activity> matches = candidates.stream()
                 .filter(candidate -> !candidate.getId().equals(activity.getId()))
                 .filter(candidate -> candidate.getSource() != null && COMPARABLE_SOURCES.contains(candidate.getSource()))
@@ -268,7 +272,7 @@ public class ActivityService {
     private boolean representsSameWorkout(Activity activity, Activity candidate, LocalDateTime occurredAt) {
         LocalDateTime candidateAt = candidate.getPerformedAt() != null
                 ? candidate.getPerformedAt() : candidate.getCreatedAt();
-        if (candidateAt == null || timeDistanceSeconds(candidate, occurredAt) > 3 * 60 * 60) return false;
+        if (candidateAt == null || timeDistanceSeconds(candidate, occurredAt) > SOURCE_MATCH_WINDOW_SECONDS) return false;
 
         int duration = activity.getDurationSeconds() == null ? 0 : activity.getDurationSeconds();
         int candidateDuration = candidate.getDurationSeconds() == null ? 0 : candidate.getDurationSeconds();

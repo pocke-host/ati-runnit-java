@@ -387,6 +387,10 @@ public class ActivityController {
             if (!activity.getUser().getId().equals(userId)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Not authorized"));
             }
+            // A canonical activity owns the provider rows that were grouped
+            // beneath it. Remove those hidden source rows together so a later
+            // sync cannot leave an orphaned, invisible workout behind.
+            activityRepository.deleteByCanonicalActivityId(id);
             activityRepository.delete(activity);
             return ResponseEntity.ok(Map.of("message", "Activity deleted"));
         } catch (RuntimeException e) {

@@ -60,6 +60,16 @@ public class Activity {
     @Column(name = "external_id", length = 100)
     private String externalId;
 
+    // When two providers describe the same workout, the non-canonical row points
+    // at the row that should represent the workout in feeds and summaries. The
+    // source row is retained so its original metrics remain available for the
+    // comparison shown on the activity detail page.
+    @Column(name = "canonical_activity_id")
+    private Long canonicalActivityId;
+
+    @Column(name = "source_match_confidence")
+    private Double sourceMatchConfidence;
+
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
@@ -115,6 +125,8 @@ public class Activity {
     public Double getStartLng() { return startLng; }
     public Source getSource() { return source; }
     public String getExternalId() { return externalId; }
+    public Long getCanonicalActivityId() { return canonicalActivityId; }
+    public Double getSourceMatchConfidence() { return sourceMatchConfidence; }
     public String getNotes() { return notes; }
     public String getListeningTrack() { return listeningTrack; }
     public String getListeningArtist() { return listeningArtist; }
@@ -142,6 +154,8 @@ public class Activity {
     public void setStartLng(Double startLng) { this.startLng = startLng; }
     public void setSource(Source source) { this.source = source; }
     public void setExternalId(String externalId) { this.externalId = externalId; }
+    public void setCanonicalActivityId(Long canonicalActivityId) { this.canonicalActivityId = canonicalActivityId; }
+    public void setSourceMatchConfidence(Double sourceMatchConfidence) { this.sourceMatchConfidence = sourceMatchConfidence; }
     public void setNotes(String notes) { this.notes = notes; }
     public void setListeningTrack(String listeningTrack) { this.listeningTrack = listeningTrack; }
     public void setListeningArtist(String listeningArtist) { this.listeningArtist = listeningArtist; }

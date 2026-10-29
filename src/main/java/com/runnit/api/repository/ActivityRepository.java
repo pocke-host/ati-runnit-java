@@ -8,19 +8,41 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ActivityRepository extends JpaRepository<Activity, Long> {
-    Page<Activity> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
-    long countByUserId(Long userId);
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT a FROM Activity a WHERE a.user.id = :userId " +
+                "AND a.canonicalActivityId IS NULL ORDER BY a.createdAt DESC",
+        countQuery = "SELECT COUNT(a) FROM Activity a WHERE a.user.id = :userId " +
+                "AND a.canonicalActivityId IS NULL"
+    )
+    Page<Activity> findByUserIdOrderByCreatedAtDesc(
+        @org.springframework.data.repository.query.Param("userId") Long userId,
+        Pageable pageable
+    );
 
-    @org.springframework.data.jpa.repository.Query("SELECT a FROM Activity a WHERE a.user.id = :userId ORDER BY a.createdAt ASC")
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COUNT(a) FROM Activity a WHERE a.user.id = :userId " +
+        "AND a.canonicalActivityId IS NULL"
+    )
+    long countByUserId(@org.springframework.data.repository.query.Param("userId") Long userId);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT a FROM Activity a WHERE a.user.id = :userId " +
+        "AND a.canonicalActivityId IS NULL ORDER BY a.createdAt ASC"
+    )
     java.util.List<Activity> findAllByUserId(@org.springframework.data.repository.query.Param("userId") Long userId);
 
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(a) FROM Activity a WHERE a.user.id = :userId AND a.sportType = :sport")
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COUNT(a) FROM Activity a WHERE a.user.id = :userId " +
+        "AND a.sportType = :sport AND a.canonicalActivityId IS NULL"
+    )
     long countByUserIdAndSportType(
         @org.springframework.data.repository.query.Param("userId") Long userId,
         @org.springframework.data.repository.query.Param("sport") Activity.SportType sport
     );
 
-    @org.springframework.data.jpa.repository.Query("SELECT SUM(a.distanceMeters) FROM Activity a")
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT SUM(a.distanceMeters) FROM Activity a WHERE a.canonicalActivityId IS NULL"
+    )
     Long sumDistanceMeters();
 
     boolean existsByUserIdAndExternalId(Long userId, String externalId);
@@ -29,7 +51,12 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     long deleteByUserIdAndSource(Long userId, Activity.Source source);
 
-    @org.springframework.data.jpa.repository.Query("SELECT a FROM Activity a WHERE a.user.id = :userId AND a.createdAt >= :since")
+    long deleteByCanonicalActivityId(Long canonicalActivityId);
+
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT a FROM Activity a WHERE a.user.id = :userId " +
+        "AND a.canonicalActivityId IS NULL AND a.createdAt >= :since"
+    )
     java.util.List<Activity> findByUserIdSince(
         @org.springframework.data.repository.query.Param("userId") Long userId,
         @org.springframework.data.repository.query.Param("since") java.time.LocalDateTime since
@@ -37,6 +64,7 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     @org.springframework.data.jpa.repository.Query(
         "SELECT a FROM Activity a WHERE a.user.id = :userId " +
+        "AND a.canonicalActivityId IS NULL " +
         "AND COALESCE(a.performedAt, a.createdAt) >= :startAt " +
         "AND COALESCE(a.performedAt, a.createdAt) < :endAt " +
         "ORDER BY COALESCE(a.performedAt, a.createdAt) ASC"
@@ -61,6 +89,7 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     @org.springframework.data.jpa.repository.Query(
         "SELECT a FROM Activity a WHERE a.user.id = :userId " +
+        "AND a.canonicalActivityId IS NULL " +
         "AND COALESCE(a.performedAt, a.createdAt) >= :startAt " +
         "AND COALESCE(a.performedAt, a.createdAt) < :endAt " +
         "AND a.listeningTrack IS NOT NULL " +
@@ -77,8 +106,10 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     // createdAt but genuinely different performedAt. COALESCE falls back to createdAt only
     // for legacy rows synced before performedAt existed and never resynced since.
     @org.springframework.data.jpa.repository.Query(
-        value = "SELECT a FROM Activity a JOIN FETCH a.user WHERE a.user.id IN :userIds ORDER BY COALESCE(a.performedAt, a.createdAt) DESC",
-        countQuery = "SELECT count(a) FROM Activity a WHERE a.user.id IN :userIds"
+        value = "SELECT a FROM Activity a JOIN FETCH a.user WHERE a.user.id IN :userIds " +
+                "AND a.canonicalActivityId IS NULL ORDER BY COALESCE(a.performedAt, a.createdAt) DESC",
+        countQuery = "SELECT count(a) FROM Activity a WHERE a.user.id IN :userIds " +
+                "AND a.canonicalActivityId IS NULL"
     )
     Page<Activity> findFeedByUserIds(@org.springframework.data.repository.query.Param("userIds") java.util.List<Long> userIds, Pageable pageable);
 
@@ -88,6 +119,7 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
         JOIN users u ON u.id = a.user_id
         WHERE a.start_lat IS NOT NULL
           AND a.start_lng IS NOT NULL
+          AND a.canonical_activity_id IS NULL
           AND u.is_public = true
           AND (:sport IS NULL OR a.sport_type = :sport)
           AND (6371 * acos(
