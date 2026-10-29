@@ -101,6 +101,10 @@ public class User {
     @Column(name = "subscription_tier", length = 50)
     private String subscriptionTier;
 
+    /** Permanent launch entitlement for the first 100 accounts and the configured owner. */
+    @Column(name = "launch_pro_granted", nullable = false)
+    private Boolean launchProGranted = false;
+
     @Column(name = "monthly_rate") private java.math.BigDecimal monthlyRate;
     @Column(name = "sports_coached", columnDefinition = "TEXT") private String sportsCoached;
 
@@ -326,6 +330,7 @@ public class User {
     public String getStripeCustomerId() { return stripeCustomerId; }
     public String getSubscriptionStatus() { return subscriptionStatus; }
     public String getSubscriptionTier() { return subscriptionTier; }
+    public Boolean getLaunchProGranted() { return launchProGranted; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
@@ -359,6 +364,7 @@ public class User {
     public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
     public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
+    public void setLaunchProGranted(Boolean launchProGranted) { this.launchProGranted = launchProGranted; }
     public java.math.BigDecimal getMonthlyRate() { return monthlyRate; }
     public void setMonthlyRate(java.math.BigDecimal monthlyRate) { this.monthlyRate = monthlyRate; }
     public String getSportsCoached() { return sportsCoached; }

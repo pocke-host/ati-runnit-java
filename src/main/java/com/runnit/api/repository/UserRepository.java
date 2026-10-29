@@ -13,6 +13,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByAuthProviderAndProviderId(User.AuthProvider provider, String providerId);
     boolean existsByEmail(String email);
 
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT COUNT(u) FROM User u WHERE u.createdAt < :createdAt " +
+        "OR (u.createdAt = :createdAt AND u.id <= :userId)"
+    )
+    long countUsersThrough(@org.springframework.data.repository.query.Param("createdAt") java.time.Instant createdAt,
+                           @org.springframework.data.repository.query.Param("userId") Long userId);
+
     @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE LOWER(u.displayName) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%'))")
     java.util.List<User> searchByDisplayNameOrEmail(@org.springframework.data.repository.query.Param("query") String query, org.springframework.data.domain.Pageable pageable);
 

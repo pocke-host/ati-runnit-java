@@ -32,6 +32,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
+    private final LaunchProAccessService launchProAccessService;
 
     @Value("${app.password-reset.expiry-minutes:60}")
     private int resetExpiryMinutes;
@@ -54,6 +55,7 @@ public class AuthService {
                 .build();
         
         user = userRepository.save(user);
+        user = launchProAccessService.grantIfEligible(user);
         String token = jwtUtil.generateToken(user.getId(), user.getEmail());
         
         Map<String, Object> response = new HashMap<>();
@@ -73,6 +75,8 @@ public class AuthService {
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new UnauthorizedException("Invalid credentials");
         }
+
+        user = launchProAccessService.grantIfEligible(user);
         
         String token = jwtUtil.generateToken(user.getId(), user.getEmail());
         
@@ -113,6 +117,8 @@ public class AuthService {
                             .build());
                     return newUser;
                 });
+
+        user = launchProAccessService.grantIfEligible(user);
         
         String token = jwtUtil.generateToken(user.getId(), user.getEmail());
         
@@ -124,6 +130,7 @@ public class AuthService {
     
     public User getUserById(Long userId) {
         return userRepository.findById(userId)
+                .map(launchProAccessService::grantIfEligible)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 

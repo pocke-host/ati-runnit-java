@@ -10,6 +10,7 @@ import com.runnit.api.security.JwtAuthenticationFilter;
 import com.runnit.api.security.JwtUtil;
 import com.runnit.api.service.AthleteArchetypeService;
 import com.runnit.api.service.AuthService;
+import com.runnit.api.service.LaunchProAccessService;
 import com.runnit.api.service.RefreshTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +49,7 @@ class AuthControllerTest {
     @MockBean private GoogleTokenValidator googleTokenValidator;
     @MockBean private AppleTokenValidator appleTokenValidator;
     @MockBean private AthleteArchetypeService archetypeService;
+    @MockBean private LaunchProAccessService launchProAccessService;
 
     @Test
     void logout_withNoCredentials_returns200NotForbidden() throws Exception {

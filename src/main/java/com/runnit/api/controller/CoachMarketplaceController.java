@@ -16,6 +16,7 @@ import com.stripe.Stripe;
 import com.stripe.model.Account;
 import com.stripe.model.AccountLink;
 import com.stripe.model.checkout.Session;
+import com.stripe.model.Subscription;
 import com.stripe.param.AccountCreateParams;
 import com.stripe.param.AccountLinkCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
@@ -144,6 +145,29 @@ public class CoachMarketplaceController {
             Stripe.apiKey=stripeSecretKey; Refund.create(RefundCreateParams.builder().setPaymentIntent(b.getStripePaymentIntentId()).build()); b.setStatus("REFUNDED"); bookings.save(b); return ResponseEntity.ok(bookingMap(b));
         } catch(Exception e){ return ResponseEntity.internalServerError().body(Map.of("error","Refund could not be completed")); }
     }
+    @PostMapping("/api/athlete/bookings/{id}/cancel-subscription") @Transactional
+    public ResponseEntity<?> cancelSubscription(@PathVariable Long id, Authentication auth) {
+        try {
+            if (stripeSecretKey.isBlank()) return ResponseEntity.status(503).body(Map.of("error", "Coach payments are not configured yet"));
+            CoachBooking b = bookings.findById(id).orElse(null);
+            Long userId = (Long) auth.getPrincipal();
+            if (b == null || (!b.getAthleteId().equals(userId) && !b.getCoachId().equals(userId))) {
+                return ResponseEntity.status(404).body(Map.of("error", "Booking not found"));
+            }
+            if (b.getStripeSubscriptionId() == null || !Set.of("PAID", "COMPLETED").contains(b.getStatus())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "This booking does not have an active subscription"));
+            }
+            Stripe.apiKey = stripeSecretKey;
+            Subscription.retrieve(b.getStripeSubscriptionId()).cancel();
+            b.setStatus("CANCELLED");
+            CoachBooking saved = bookings.save(b);
+            notify(b.getAthleteId(), userId, "COACH_BOOKING_CANCELLED", "Your monthly coaching booking was cancelled.", id);
+            notify(b.getCoachId(), userId, "COACH_BOOKING_CANCELLED", "A monthly coaching booking was cancelled.", id);
+            return ResponseEntity.ok(bookingMap(saved));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "Subscription cancellation could not be completed"));
+        }
+    }
     @GetMapping("/api/coach/bookings") public List<Map<String,Object>> coachBookings(Authentication a){return bookings.findByCoachIdOrderByCreatedAtDesc((Long)a.getPrincipal()).stream().map(this::bookingMap).toList();}
     @GetMapping("/api/coach/earnings") public Map<String,Object> earnings(Authentication a){
         List<CoachBooking> rows=bookings.findByCoachIdOrderByCreatedAtDesc((Long)a.getPrincipal());
@@ -175,7 +199,7 @@ public class CoachMarketplaceController {
     }
 
     private Map<String,Object> serviceMap(CoachService s){Map<String,Object>m=new LinkedHashMap<>();m.put("id",s.getId());m.put("coachId",s.getCoachId());m.put("title",s.getTitle());m.put("description",s.getDescription());m.put("serviceType",s.getServiceType());m.put("billingType",s.getBillingType());m.put("priceCents",s.getPriceCents());m.put("durationMinutes",s.getDurationMinutes());m.put("active",s.getActive());return m;}
-    private Map<String,Object> bookingMap(CoachBooking b){Map<String,Object>m=new LinkedHashMap<>();m.put("id",b.getId());m.put("serviceId",b.getServiceId());m.put("coachId",b.getCoachId());m.put("athleteId",b.getAthleteId());m.put("scheduledStart",b.getScheduledStart());m.put("scheduledEnd",b.getScheduledEnd());m.put("status",b.getStatus());m.put("amountCents",b.getAmountCents());m.put("commissionCents",b.getCommissionCents());m.put("coachAmountCents",b.getCoachAmountCents());return m;}
+    private Map<String,Object> bookingMap(CoachBooking b){Map<String,Object>m=new LinkedHashMap<>();m.put("id",b.getId());m.put("serviceId",b.getServiceId());m.put("coachId",b.getCoachId());m.put("athleteId",b.getAthleteId());m.put("scheduledStart",b.getScheduledStart());m.put("scheduledEnd",b.getScheduledEnd());m.put("status",b.getStatus());m.put("amountCents",b.getAmountCents());m.put("commissionCents",b.getCommissionCents());m.put("coachAmountCents",b.getCoachAmountCents());m.put("stripePaymentIntentId",b.getStripePaymentIntentId());m.put("stripeSubscriptionId",b.getStripeSubscriptionId());return m;}
     private Map<String,Object> reviewMap(CoachReview r){Map<String,Object>m=new LinkedHashMap<>();m.put("id",r.getId());m.put("bookingId",r.getBookingId());m.put("coachId",r.getCoachId());m.put("athleteId",r.getAthleteId());m.put("rating",r.getRating());m.put("reviewText",r.getReviewText());m.put("createdAt",r.getCreatedAt());return m;}
     private Map<String,Object> reportMap(CoachReport r){Map<String,Object>m=new LinkedHashMap<>();m.put("id",r.getId());m.put("coachId",r.getCoachId());m.put("bookingId",r.getBookingId());m.put("reason",r.getReason());m.put("details",r.getDetails());m.put("status",r.getStatus());m.put("createdAt",r.getCreatedAt());return m;}
     private void notify(Long recipient,Long actor,String type,String message,Long ref){ users.findById(recipient).ifPresent(u->notifications.save(Notification.builder().user(u).actor(users.findById(actor).orElse(null)).type(type).message(message).referenceId(ref).referenceType("COACH_BOOKING").build())); }

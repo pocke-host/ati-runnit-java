@@ -13,6 +13,7 @@ import com.runnit.api.security.GoogleTokenValidator;
 import com.runnit.api.service.AthleteArchetypeService;
 import com.runnit.api.service.AthleteArchetypeService.Archetype;
 import com.runnit.api.service.AuthService;
+import com.runnit.api.service.LaunchProAccessService;
 import com.runnit.api.service.RefreshTokenService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,6 +45,7 @@ public class AuthController {
     private final AppleTokenValidator appleTokenValidator;
     private final UserRepository userRepository;
     private final AthleteArchetypeService archetypeService;
+    private final LaunchProAccessService launchProAccessService;
 
     @Value("${jwt.expiration}")
     private Long jwtExpiration;
@@ -357,8 +359,9 @@ public class AuthController {
     // -------------------------------------------------------------------------
 
     private UserResponse buildUserResponse(User user, Long userId) {
+        user = launchProAccessService.grantIfEligible(user);
         String status = user.getSubscriptionStatus();
-        String tier = ("active".equals(status) || "trialing".equals(status)) ? "pro" : "free";
+        String tier = launchProAccessService.hasProAccess(user) ? "pro" : "free";
         return UserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
@@ -391,6 +394,7 @@ public class AuthController {
                 .targetEventState(user.getTargetEventState())
                 .subscriptionStatus(status)
                 .subscriptionTier(tier)
+                .lifetimePro(Boolean.TRUE.equals(user.getLaunchProGranted()))
                 .build();
     }
 

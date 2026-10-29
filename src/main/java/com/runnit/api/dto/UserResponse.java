@@ -24,6 +24,7 @@ public class UserResponse {
     private String archetype;
     private String subscriptionStatus;
     private String subscriptionTier;
+    private Boolean lifetimePro;
     private Boolean isFollowing;
     private String onboardingGoal;
     private String experienceLevel;
@@ -59,6 +60,7 @@ public class UserResponse {
     public String getArchetype() { return archetype; }
     public String getSubscriptionStatus() { return subscriptionStatus; }
     public String getSubscriptionTier() { return subscriptionTier; }
+    public Boolean getLifetimePro() { return lifetimePro; }
     public Boolean getIsFollowing() { return isFollowing; }
     public String getOnboardingGoal() { return onboardingGoal; }
     public String getExperienceLevel() { return experienceLevel; }
@@ -92,6 +94,7 @@ public class UserResponse {
     public void setArchetype(String archetype) { this.archetype = archetype; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
     public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
+    public void setLifetimePro(Boolean lifetimePro) { this.lifetimePro = lifetimePro; }
     public void setIsFollowing(Boolean isFollowing) { this.isFollowing = isFollowing; }
     public void setOnboardingGoal(String value) { this.onboardingGoal = value; }
     public void setExperienceLevel(String value) { this.experienceLevel = value; }
@@ -128,6 +131,7 @@ public class UserResponse {
         private String archetype;
         private String subscriptionStatus;
         private String subscriptionTier;
+        private Boolean lifetimePro;
         private Boolean isFollowing;
         private String onboardingGoal;
         private String experienceLevel;
@@ -161,6 +165,7 @@ public class UserResponse {
         public Builder archetype(String archetype) { this.archetype = archetype; return this; }
         public Builder subscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; return this; }
         public Builder subscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; return this; }
+        public Builder lifetimePro(Boolean lifetimePro) { this.lifetimePro = lifetimePro; return this; }
         public Builder isFollowing(Boolean isFollowing) { this.isFollowing = isFollowing; return this; }
         public Builder onboardingGoal(String value) { this.onboardingGoal = value; return this; }
         public Builder experienceLevel(String value) { this.experienceLevel = value; return this; }
@@ -196,6 +201,7 @@ public class UserResponse {
             r.archetype = this.archetype;
             r.subscriptionStatus = this.subscriptionStatus;
             r.subscriptionTier = this.subscriptionTier;
+            r.lifetimePro = this.lifetimePro;
             r.isFollowing = this.isFollowing;
             r.onboardingGoal = this.onboardingGoal;
             r.experienceLevel = this.experienceLevel;

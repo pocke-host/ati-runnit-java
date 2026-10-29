@@ -10,6 +10,7 @@ import com.runnit.api.repository.FollowRepository;
 import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.RaceBookmarkRepository;
 import com.runnit.api.service.MomentService;
+import com.runnit.api.service.LaunchProAccessService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,6 +35,7 @@ public class UserController {
     private final ActivityRepository activityRepository;
     private final MomentService momentService;
     private final RaceBookmarkRepository raceBookmarkRepository;
+    private final LaunchProAccessService launchProAccessService;
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getUserProfile(@PathVariable Long id, Authentication auth) {
@@ -288,10 +290,9 @@ public class UserController {
     }
 
     private UserResponse toFullResponse(User user, boolean includePrivateFields) {
+        user = launchProAccessService.grantIfEligible(user);
         String subscriptionStatus = user.getSubscriptionStatus();
-        String subscriptionTier = user.getSubscriptionTier() != null
-                ? user.getSubscriptionTier()
-                : deriveSubscriptionTier(subscriptionStatus);
+        String subscriptionTier = launchProAccessService.hasProAccess(user) ? "pro" : "free";
 
         return UserResponse.builder()
                 .id(user.getId())
@@ -321,6 +322,7 @@ public class UserController {
                 .targetEventState(includePrivateFields ? user.getTargetEventState() : null)
                 .subscriptionStatus(includePrivateFields ? subscriptionStatus : null)
                 .subscriptionTier(includePrivateFields ? subscriptionTier : null)
+                .lifetimePro(includePrivateFields && Boolean.TRUE.equals(user.getLaunchProGranted()))
                 .followerCount(followRepository.countByFollowingUserId(user.getId()))
                 .followingCount(followRepository.countByFollowerUserId(user.getId()))
                 .activityCount(activityRepository.countByUserId(user.getId()))

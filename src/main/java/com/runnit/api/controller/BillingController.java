@@ -9,6 +9,7 @@ import com.runnit.api.repository.StripeWebhookEventRepository;
 import com.runnit.api.repository.NotificationRepository;
 import com.runnit.api.model.Notification;
 import com.runnit.api.service.RewardsService;
+import com.runnit.api.service.LaunchProAccessService;
 import com.stripe.Stripe;
 import com.stripe.model.Customer;
 import com.stripe.model.Event;
@@ -40,12 +41,16 @@ public class BillingController {
     private final StripeWebhookEventRepository stripeWebhookEventRepository;
     private final NotificationRepository notificationRepository;
     private final RewardsService rewardsService;
+    private final LaunchProAccessService launchProAccessService;
 
     @Value("${stripe.secret.key:}")
     private String stripeSecretKey;
 
     @Value("${stripe.webhook.secret:}")
     private String webhookSecret;
+
+    @Value("${stripe.price.premium.monthly:}")
+    private String premiumMonthlyPriceId;
 
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
@@ -64,7 +69,12 @@ public class BillingController {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
+            if (launchProAccessService.hasProAccess(user)) {
+                return ResponseEntity.status(409).body(Map.of("error", "RUNNIT Pro is already active on this account"));
+            }
+
             String priceId = (String) body.get("priceId");
+            if (priceId == null || priceId.isBlank()) priceId = premiumMonthlyPriceId;
             if (priceId == null || priceId.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "priceId is required"));
             }
@@ -263,10 +273,12 @@ public class BillingController {
             Long userId = (Long) auth.getPrincipal();
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found"));
+            user = launchProAccessService.grantIfEligible(user);
             log.info("RevenueCat sync requested: userId={} currentStatus={}", userId, user.getSubscriptionStatus());
             return ResponseEntity.ok(Map.of(
                     "subscriptionStatus", user.getSubscriptionStatus() != null ? user.getSubscriptionStatus() : "none",
-                    "subscriptionTier", user.getSubscriptionTier() != null ? user.getSubscriptionTier() : "free"
+                    "subscriptionTier", launchProAccessService.hasProAccess(user) ? "pro" : "free",
+                    "lifetimePro", Boolean.TRUE.equals(user.getLaunchProGranted())
             ));
         } catch (Exception e) {
             log.error("Unexpected error in syncRevenueCat", e);
