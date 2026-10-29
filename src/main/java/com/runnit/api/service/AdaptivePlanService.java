@@ -281,8 +281,8 @@ public class AdaptivePlanService {
         if (tsb < TSB_VERY_NEGATIVE && readinessScore != null && readinessScore < READINESS_LOW
                 && HARD_OR_LONG_TYPES.contains(workoutType)) {
             String reason = String.format(
-                    "Your training stress balance is %.1f and today's readiness signal is %d/100 (low). We downgraded your next %s to a recovery effort.",
-                    tsb, readinessScore, displayType(workoutType));
+                    "Your training stress balance is %.1f and today's recovery score is %d%% (readiness signal %d/100, low). We downgraded your next %s to a recovery effort.",
+                    tsb, readinessScore, readinessScore, displayType(workoutType));
             return Decision.downgradeAndSoften("RECOVERY", SOFTEN_PCT_HIGH, reason);
         }
 
