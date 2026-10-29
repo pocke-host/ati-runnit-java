@@ -51,7 +51,7 @@ public class AdaptivePlanService {
     private static final double ACWR_HIGH_RISK = 1.5;      // matches TrainingLoadService's own HIGH_RISK cutoff
     private static final double ACWR_MODERATE_RISK = 1.3;  // softer intervention band below hard risk
     private static final double TSB_VERY_NEGATIVE = -20.0; // deep fatigue / overreaching risk
-    private static final int RECOVERY_LOW = 33;            // WHOOP's own red-zone recovery cutoff (0-100)
+    private static final int READINESS_LOW = 33;           // normalized provider readiness cutoff (0-100)
 
     private static final double SOFTEN_PCT_MODERATE = 0.08;
     private static final double SOFTEN_PCT_HIGH = 0.15;
@@ -178,11 +178,8 @@ public class AdaptivePlanService {
         String riskLabel = (String) load.get("riskLabel");
         boolean hasEnoughData = Boolean.TRUE.equals(load.get("hasEnoughData"));
 
-        Integer recoveryScore = wellnessDailyRepository.findByUserIdAndDate(userId, LocalDate.now()).stream()
-                .map(WellnessDaily::getRecoveryScore)
-                .filter(java.util.Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+        Integer readinessScore = resolveReadinessScore(
+                wellnessDailyRepository.findByUserIdAndDate(userId, LocalDate.now()));
 
         List<PlanWorkout> upcoming = planWorkoutRepository
                 .findByPlanIdAndCompletedFalseOrderByWeekNumberAscDayAsc(plan.getId());
@@ -198,7 +195,7 @@ public class AdaptivePlanService {
                 continue; // idempotency guard — already adapted this workout for this exact activity
             }
 
-            Decision decision = decide(acwr, tsb, recoveryScore, riskLabel, hasEnoughData,
+            Decision decision = decide(acwr, tsb, readinessScore, riskLabel, hasEnoughData,
                     workout.getWorkoutType(), recentlyProgressing);
             if (decision == null) continue;
 
@@ -212,11 +209,64 @@ public class AdaptivePlanService {
     }
 
     /**
+     * Normalize the most useful current-day signal from any connected wellness
+     * provider into the same 0-100 readiness scale used by the decision rules.
+     * Provider-specific raw values remain available to the UI; this is only the
+     * conservative input used to protect a hard session.
+     *
+     * Preference follows the same order as the wellness UI: WHOOP recovery,
+     * Oura readiness, Garmin Body Battery/stress, then sleep-based fallbacks.
+     */
+    private Integer resolveReadinessScore(List<WellnessDaily> rows) {
+        return rows.stream()
+                .sorted(Comparator.comparingInt(this::readinessProviderPriority))
+                .map(this::normalizedReadiness)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private int readinessProviderPriority(WellnessDaily row) {
+        if (row.getSource() == null) return 4;
+        return switch (row.getSource()) {
+            case "WHOOP" -> 0;
+            case "OURA" -> 1;
+            case "GARMIN" -> 2;
+            case "FITBIT" -> 3;
+            default -> 4;
+        };
+    }
+
+    private Integer normalizedReadiness(WellnessDaily row) {
+        if (row.getRecoveryScore() != null) {
+            return clampReadiness(row.getRecoveryScore());
+        }
+        if (row.getBodyBattery() != null) {
+            return clampReadiness(row.getBodyBattery());
+        }
+        if (row.getAverageStress() != null) {
+            return clampReadiness((int) Math.round(100d - row.getAverageStress()));
+        }
+        if (row.getSleepPerformancePct() != null) {
+            return clampReadiness(row.getSleepPerformancePct());
+        }
+        if (row.getSleepEfficiencyPct() != null) {
+            double efficiency = row.getSleepEfficiencyPct();
+            return clampReadiness((int) Math.round(efficiency <= 1d ? efficiency * 100d : efficiency));
+        }
+        return null;
+    }
+
+    private int clampReadiness(int value) {
+        return Math.max(0, Math.min(100, value));
+    }
+
+    /**
      * Pure decision logic — no I/O, package-private + static so it's directly
      * unit-testable without a Spring context. First-match-wins per workout
      * (no stacking), so the reason string always maps to exactly one cause.
      */
-    static Decision decide(double acwr, double tsb, Integer recoveryScore, String riskLabel,
+    static Decision decide(double acwr, double tsb, Integer readinessScore, String riskLabel,
                             boolean hasEnoughData, String workoutType, boolean recentlyProgressing) {
 
         // R1 — hard risk: protect the very next hard session
@@ -228,23 +278,19 @@ public class AdaptivePlanService {
         }
 
         // R2 — deep fatigue + poor recovery (two independent negative signals, one step lower than R1)
-        if (tsb < TSB_VERY_NEGATIVE && recoveryScore != null && recoveryScore < RECOVERY_LOW
+        if (tsb < TSB_VERY_NEGATIVE && readinessScore != null && readinessScore < READINESS_LOW
                 && HARD_OR_LONG_TYPES.contains(workoutType)) {
             String reason = String.format(
-                    "Your training stress balance is %.1f and today's recovery score is %d%% (low). We downgraded your next %s to a recovery effort.",
-                    tsb, recoveryScore, displayType(workoutType));
+                    "Your training stress balance is %.1f and today's readiness signal is %d/100 (low). We downgraded your next %s to a recovery effort.",
+                    tsb, readinessScore, displayType(workoutType));
             return Decision.downgradeAndSoften("RECOVERY", SOFTEN_PCT_HIGH, reason);
         }
 
-        // R2b — deep fatigue, no recovery data (non-WHOOP fallback): recoveryScore is only ever
-        // populated from WHOOP today, so R2 above silently never fires for other integrations.
-        // Apple Health users regardless of how fatigued their training load says they are. TSB
-        // alone is a real, device-agnostic signal — soften (not downgrade) on it alone, since we're
-        // missing the corroborating recovery signal R2 relies on. Skipped entirely if a recovery
-        // score IS available — R2 already handled that case above, first-match-wins.
-        if (tsb < TSB_VERY_NEGATIVE && recoveryScore == null && HARD_OR_LONG_TYPES.contains(workoutType)) {
+        // R2b — deep fatigue with no readiness signal. TSB alone is still a
+        // device-agnostic reason to soften rather than downgrade.
+        if (tsb < TSB_VERY_NEGATIVE && readinessScore == null && HARD_OR_LONG_TYPES.contains(workoutType)) {
             String reason = String.format(
-                    "Your training stress balance is %.1f (deep fatigue risk). We eased your next %s — connect WHOOP for recovery-aware adjustments too.",
+                    "Your training stress balance is %.1f (deep fatigue risk). We eased your next %s — connect a recovery source for more context.",
                     tsb, displayType(workoutType));
             return Decision.softenOnly(SOFTEN_PCT_MODERATE, reason);
         }
