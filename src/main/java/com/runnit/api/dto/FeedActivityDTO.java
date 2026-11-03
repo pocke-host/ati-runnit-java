@@ -38,6 +38,7 @@ public class FeedActivityDTO {
     private Double averagePace;
     private Double averageCadence;
     private Integer averageHeartRate;
+    private Integer maxHeartRate;
     private String routePolyline;
     private Double startLat;
     private Double startLng;
@@ -79,6 +80,7 @@ public class FeedActivityDTO {
         dto.averagePace = a.getAveragePace();
         dto.averageCadence = a.getAverageCadence();
         dto.averageHeartRate = a.getAverageHeartRate();
+        dto.maxHeartRate = a.getMaxHeartRate();
         dto.routePolyline = a.getRoutePolyline();
         dto.startLat = a.getStartLat();
         dto.startLng = a.getStartLng();
@@ -121,6 +123,7 @@ public class FeedActivityDTO {
     public Double getAveragePace() { return averagePace; }
     public Double getAverageCadence() { return averageCadence; }
     public Integer getAverageHeartRate() { return averageHeartRate; }
+    public Integer getMaxHeartRate() { return maxHeartRate; }
     public String getRoutePolyline() { return routePolyline; }
     public Double getStartLat() { return startLat; }
     public Double getStartLng() { return startLng; }

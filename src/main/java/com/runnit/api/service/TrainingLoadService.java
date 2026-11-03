@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -48,14 +49,20 @@ public class TrainingLoadService {
     private static final int MIN_ACTIVITIES_FOR_SIGNAL = 3;
 
     public Map<String, Object> computeMetrics(Long userId) {
-        LocalDate today = LocalDate.now();
+        return computeMetrics(userId, ZoneId.systemDefault());
+    }
+
+    public Map<String, Object> computeMetrics(Long userId, ZoneId zone) {
+        LocalDate today = LocalDate.now(zone);
         LocalDateTime since = today.minusDays(WINDOW_DAYS).atStartOfDay();
         List<Activity> activities = activityRepository.findByUserIdSince(userId, since);
 
         double[] dailyLoad = new double[WINDOW_DAYS];
         for (Activity a : activities) {
-            if (a.getCreatedAt() == null || a.getDurationSeconds() == null) continue;
-            LocalDate day = a.getCreatedAt().toLocalDate();
+            if (a.getDurationSeconds() == null) continue;
+            LocalDateTime performedAt = a.getPerformedAt() != null ? a.getPerformedAt() : a.getCreatedAt();
+            if (performedAt == null) continue;
+            LocalDate day = performedAt.toLocalDate();
             int daysAgo = (int) ChronoUnit.DAYS.between(day, today);
             if (daysAgo < 0 || daysAgo >= WINDOW_DAYS) continue;
             double minutes = a.getDurationSeconds() / 60.0;
