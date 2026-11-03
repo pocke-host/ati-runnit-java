@@ -39,10 +39,15 @@ import java.time.DayOfWeek;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Set;
 
 @Slf4j
 @RestController
@@ -336,6 +341,153 @@ public class ActivityController {
             log.error("Weekly activity summary failed", e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /**
+     * Compare the last completed calendar month with the month before it.
+     *
+     * The endpoint intentionally uses the same canonical-activity filter and
+     * provider/external-id deduplication as the weekly summary. This keeps the
+     * monthly recap aligned with dashboard totals when two connected devices
+     * report the same workout.
+     */
+    @GetMapping("/summary/monthly")
+    public ResponseEntity<?> getMonthlySummary(
+            @RequestParam(required = false) String month,
+            @RequestParam(defaultValue = "UTC") String timezone,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            ZoneId zone;
+            try {
+                zone = ZoneId.of(timezone);
+            } catch (DateTimeException e) {
+                zone = ZoneId.of("UTC");
+            }
+
+            YearMonth currentMonth = month == null || month.isBlank()
+                    ? YearMonth.now(zone).minusMonths(1)
+                    : YearMonth.parse(month);
+            YearMonth previousMonth = currentMonth.minusMonths(1);
+
+            LocalDate currentStart = currentMonth.atDay(1);
+            LocalDate currentEnd = currentMonth.plusMonths(1).atDay(1);
+            LocalDate previousStart = previousMonth.atDay(1);
+            LocalDate previousEnd = currentStart;
+
+            Map<String, Object> current = summarizeActivityPeriod(userId, currentStart, currentEnd);
+            Map<String, Object> previous = summarizeActivityPeriod(userId, previousStart, previousEnd);
+
+            int totalSeconds = numberValue(current, "totalDurationSeconds");
+            int previousSeconds = numberValue(previous, "totalDurationSeconds");
+            int totalDistance = numberValue(current, "totalDistanceMeters");
+            int previousDistance = numberValue(previous, "totalDistanceMeters");
+            int activityCount = numberValue(current, "activityCount");
+            int previousActivityCount = numberValue(previous, "activityCount");
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("monthStart", currentStart.toString());
+            response.put("monthEnd", currentEnd.minusDays(1).toString());
+            response.put("previousMonthStart", previousStart.toString());
+            response.put("previousMonthEnd", previousEnd.minusDays(1).toString());
+            response.put("monthLabel", monthLabel(currentMonth));
+            response.put("previousMonthLabel", monthLabel(previousMonth));
+            response.put("totalDurationSeconds", totalSeconds);
+            response.put("totalDistanceMeters", totalDistance);
+            response.put("activityCount", activityCount);
+            response.put("activeDays", numberValue(current, "activeDays"));
+            response.put("previousTotalDurationSeconds", previousSeconds);
+            response.put("previousTotalDistanceMeters", previousDistance);
+            response.put("previousActivityCount", previousActivityCount);
+            response.put("previousActiveDays", numberValue(previous, "activeDays"));
+            response.put("changePercent", percentChange(totalSeconds, previousSeconds));
+            response.put("distanceChangePercent", percentChange(totalDistance, previousDistance));
+            response.put("activityChangePercent", percentChange(activityCount, previousActivityCount));
+            response.put("activeDaysChangePercent", percentChange(
+                    numberValue(current, "activeDays"), numberValue(previous, "activeDays")));
+            response.put("bySport", current.get("bySport"));
+            response.put("previousBySport", previous.get("bySport"));
+            response.put("bySource", current.get("bySource"));
+            return ResponseEntity.ok(response);
+        } catch (DateTimeParseException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "month must be YYYY-MM"));
+        } catch (Exception e) {
+            log.error("Monthly activity summary failed", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> summarizeActivityPeriod(Long userId, LocalDate start, LocalDate end) {
+        List<Activity> activities = activityRepository.findByUserIdBetween(
+                userId, start.atStartOfDay(), end.atStartOfDay());
+
+        Map<String, Activity> unique = new LinkedHashMap<>();
+        for (Activity activity : activities) {
+            String source = activity.getSource() == null ? "MANUAL" : activity.getSource().name();
+            String key = activity.getExternalId() == null || activity.getExternalId().isBlank()
+                    ? "activity:" + activity.getId()
+                    : source + ":" + activity.getExternalId();
+            unique.putIfAbsent(key, activity);
+        }
+
+        Map<String, Map<String, Object>> sports = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> sources = new LinkedHashMap<>();
+        Set<LocalDate> activeDays = new HashSet<>();
+        int totalSeconds = 0;
+        int totalDistanceMeters = 0;
+
+        for (Activity activity : unique.values()) {
+            int seconds = activity.getDurationSeconds() == null ? 0 : Math.max(0, activity.getDurationSeconds());
+            int distance = activity.getDistanceMeters() == null ? 0 : Math.max(0, activity.getDistanceMeters());
+            String sport = activity.getSportType() == null ? "OTHER" : activity.getSportType().name();
+            String source = activity.getSource() == null ? "MANUAL" : activity.getSource().name();
+            LocalDate performedDate = (activity.getPerformedAt() != null ? activity.getPerformedAt() : activity.getCreatedAt()).toLocalDate();
+
+            totalSeconds += seconds;
+            totalDistanceMeters += distance;
+            activeDays.add(performedDate);
+            addBreakdown(sports, sport, seconds, distance);
+            addBreakdown(sources, source, seconds, 0);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalDurationSeconds", totalSeconds);
+        result.put("totalDistanceMeters", totalDistanceMeters);
+        result.put("activityCount", unique.size());
+        result.put("activeDays", activeDays.size());
+        result.put("bySport", sports.values());
+        result.put("bySource", sources.values());
+        return result;
+    }
+
+    private void addBreakdown(Map<String, Map<String, Object>> breakdown, String key, int seconds, int distance) {
+        Map<String, Object> row = breakdown.computeIfAbsent(key, ignored -> {
+            Map<String, Object> value = new LinkedHashMap<>();
+            value.put("sport", key);
+            value.put("source", key);
+            value.put("durationSeconds", 0);
+            value.put("distanceMeters", 0);
+            value.put("activityCount", 0);
+            return value;
+        });
+        row.put("durationSeconds", numberValue(row, "durationSeconds") + seconds);
+        row.put("distanceMeters", numberValue(row, "distanceMeters") + distance);
+        row.put("activityCount", numberValue(row, "activityCount") + 1);
+    }
+
+    private int numberValue(Map<String, Object> values, String key) {
+        Object value = values.get(key);
+        return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    private int percentChange(int current, int previous) {
+        return previous == 0
+                ? (current > 0 ? 100 : 0)
+                : (int) Math.round(((current - previous) * 100.0) / previous);
+    }
+
+    private String monthLabel(YearMonth month) {
+        return month.getMonth().getDisplayName(TextStyle.FULL, Locale.US) + " " + month.getYear();
     }
 
     @GetMapping("/{id}")
