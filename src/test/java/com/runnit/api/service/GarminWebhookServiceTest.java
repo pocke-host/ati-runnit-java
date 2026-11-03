@@ -7,12 +7,20 @@ import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.WellnessDailyRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.net.URI;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,6 +38,8 @@ class GarminWebhookServiceTest {
     @Mock WellnessDailyRepository wellnessDailyRepository;
     @Mock AdaptivePlanService adaptivePlanService;
     @Mock AutoMomentService autoMomentService;
+    @Spy GarminRouteParser routeParser = new GarminRouteParser();
+    @Mock RestTemplate restTemplate;
 
     @InjectMocks GarminWebhookService service;
 
@@ -126,5 +136,68 @@ class GarminWebhookServiceTest {
         assertEquals(178, partial.getMaxHeartRate());
         verify(activityRepository).save(partial);
         verifyNoInteractions(adaptivePlanService, autoMomentService);
+    }
+
+    @Test
+    void convertsActivityDetailsSamplesIntoTheRouteFormatUsedByTheMap() {
+        User user = new User();
+        user.setId(11L);
+        when(userRepository.findByGarminUserId("garmin-user-11")).thenReturn(Optional.of(user));
+        when(userRepository.findById(11L)).thenReturn(Optional.of(user));
+        when(activityRepository.existsByUserIdAndExternalId(11L, "garmin_detail-1")).thenReturn(false);
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("activityId", "detail-1");
+        summary.put("activityType", "running");
+        summary.put("durationInSeconds", 1_800);
+        summary.put("distanceInMeters", 5_000);
+        summary.put("startTimeInSeconds", 1_735_689_600L);
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("userId", "garmin-user-11");
+        detail.put("summary", summary);
+        detail.put("samples", List.of(
+                Map.of("latitudeInDegree", 37.7749, "longitudeInDegree", -122.4194, "elevationInMeters", 10.0),
+                Map.of("latitudeInDegree", 37.7750, "longitudeInDegree", -122.4193, "elevationInMeters", 11.0)
+        ));
+
+        assertEquals(1, service.processPayload(Map.of("activityDetails", List.of(detail))));
+
+        ArgumentCaptor<Activity> captor = ArgumentCaptor.forClass(Activity.class);
+        verify(activityRepository).save(captor.capture());
+        Activity saved = captor.getValue();
+        assertNotNull(saved.getRoutePolyline());
+        assertEquals(37.7749, saved.getStartLat());
+        assertEquals(-122.4194, saved.getStartLng());
+        assertEquals(Activity.SportType.RUN, saved.getSportType());
+    }
+
+    @Test
+    void downloadsAndParsesGarminGpxActivityFile() {
+        User user = new User();
+        user.setId(12L);
+        when(userRepository.findByGarminUserId("garmin-user-12")).thenReturn(Optional.of(user));
+        when(userRepository.findById(12L)).thenReturn(Optional.of(user));
+        when(activityRepository.existsByUserIdAndExternalId(12L, "garmin_file-1")).thenReturn(false);
+
+        String gpx = "<?xml version=\"1.0\"?><gpx><trk><trkseg>"
+                + "<trkpt lat=\"37.7749\" lon=\"-122.4194\"><ele>10</ele></trkpt>"
+                + "<trkpt lat=\"37.7750\" lon=\"-122.4193\"><ele>11</ele></trkpt>"
+                + "</trkseg></trk></gpx>";
+        when(restTemplate.exchange(any(URI.class), eq(HttpMethod.GET), any(HttpEntity.class), eq(byte[].class)))
+                .thenReturn(new ResponseEntity<>(gpx.getBytes(java.nio.charset.StandardCharsets.UTF_8), HttpStatus.OK));
+
+        Map<String, Object> file = new LinkedHashMap<>();
+        file.put("userId", "garmin-user-12");
+        file.put("activityId", "file-1");
+        file.put("activityName", "Morning Run");
+        file.put("fileType", "GPX");
+        file.put("callbackURL", "https://apis.garmin.com/activity-file/file-1");
+
+        assertEquals(1, service.processPayload(Map.of("activityFiles", List.of(file))));
+        ArgumentCaptor<Activity> captor = ArgumentCaptor.forClass(Activity.class);
+        verify(activityRepository).save(captor.capture());
+        assertNotNull(captor.getValue().getRoutePolyline());
+        assertEquals(37.7749, captor.getValue().getStartLat());
+        assertEquals(Activity.SportType.RUN, captor.getValue().getSportType());
     }
 }

@@ -112,6 +112,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>com.garmin</groupId>
+			<artifactId>fit</artifactId>
+			<version>21.217.0</version>
+		</dependency>
 	</dependencies>
 	<build>
 		<plugins>

@@ -8,15 +8,21 @@ import com.runnit.api.repository.UserRepository;
 import com.runnit.api.repository.WellnessDailyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +45,10 @@ public class GarminWebhookService {
     private final WellnessDailyRepository wellnessDailyRepository;
     private final AdaptivePlanService adaptivePlanService;
     private final AutoMomentService autoMomentService;
+    private final GarminRouteParser routeParser;
+    private final RestTemplate restTemplate;
+
+    private static final int MAX_ACTIVITY_FILE_BYTES = 25 * 1024 * 1024;
 
     @Transactional
     public int processPayload(Map<String, Object> payload) {
@@ -46,14 +56,41 @@ public class GarminWebhookService {
         int saved = 0;
         Set<Long> touchedUsers = new HashSet<>();
 
-        for (Map<String, Object> activity : records(payload, "activities")) {
+        for (String activityKey : List.of("activities", "manuallyUpdatedActivities", "manually_updated_activities")) {
+            for (Map<String, Object> activity : records(payload, activityKey)) {
+                Optional<User> user = resolveUser(activity);
+                if (user.isEmpty()) continue;
+                try {
+                    if (saveActivity(user.get(), activity)) saved++;
+                    touchedUsers.add(user.get().getId());
+                } catch (Exception e) {
+                    log.warn("Garmin activity webhook record failed: {}", e.getMessage());
+                }
+            }
+        }
+
+        for (Map<String, Object> detail : records(payload, "activityDetails")) {
+            Map<String, Object> activity = flattenActivityDetail(detail);
             Optional<User> user = resolveUser(activity);
             if (user.isEmpty()) continue;
             try {
                 if (saveActivity(user.get(), activity)) saved++;
                 touchedUsers.add(user.get().getId());
             } catch (Exception e) {
-                log.warn("Garmin activity webhook record failed: {}", e.getMessage());
+                log.warn("Garmin activity details webhook record failed: {}", e.getMessage());
+            }
+        }
+
+        for (Map<String, Object> file : records(payload, "activityFiles")) {
+            Optional<User> user = resolveUser(file);
+            if (user.isEmpty()) continue;
+            try {
+                Map<String, Object> activity = activityFromFile(file);
+                if (activity == null) continue;
+                if (saveActivity(user.get(), activity)) saved++;
+                touchedUsers.add(user.get().getId());
+            } catch (Exception e) {
+                log.warn("Garmin activity file webhook record failed: {}", e.getMessage());
             }
         }
 
@@ -108,14 +145,93 @@ public class GarminWebhookService {
 
     private Optional<User> resolveUser(Map<String, Object> record) {
         String garminUserId = firstString(record, "userId", "user_id", "garminUserId");
+        if (garminUserId == null && record.get("summary") instanceof Map<?, ?> summary) {
+            garminUserId = firstString((Map<String, Object>) summary, "userId", "user_id", "garminUserId");
+        }
         if (garminUserId != null) {
             Optional<User> byId = userRepository.findByGarminUserId(garminUserId);
             if (byId.isPresent()) return byId;
         }
         String accessToken = firstString(record, "userAccessToken", "user_access_token", "accessToken");
+        if (accessToken == null && record.get("summary") instanceof Map<?, ?> summary) {
+            accessToken = firstString((Map<String, Object>) summary, "userAccessToken", "user_access_token", "accessToken");
+        }
         if (accessToken != null) return userRepository.findByGarminAccessToken(accessToken);
         log.warn("Garmin webhook record did not contain a recognized user identifier");
         return Optional.empty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> flattenActivityDetail(Map<String, Object> detail) {
+        Map<String, Object> flattened = new LinkedHashMap<>(detail);
+        if (detail.get("summary") instanceof Map<?, ?> summary) {
+            ((Map<String, Object>) summary).forEach((key, value) -> {
+                if (value != null) flattened.put(key, value);
+            });
+        }
+        if (firstString(flattened, "activityId", "activity_id") == null) {
+            String summaryId = firstString(flattened, "summaryId", "summary_id");
+            if (summaryId != null) flattened.put("activityId", summaryId);
+        }
+        GarminRouteParser.RouteData route = routeParser.parseSamples(detail.get("samples"));
+        if (route.hasRoute() && firstString(flattened, "routePolyline", "geoPolyline", "polyline") == null) {
+            flattened.put("routePolyline", route.polyline());
+            flattened.put("startLatitudeInDegree", route.startLat());
+            flattened.put("startLongitudeInDegree", route.startLng());
+        }
+        return flattened;
+    }
+
+    private Map<String, Object> activityFromFile(Map<String, Object> file) {
+        String callbackUrl = firstString(file, "callbackURL", "callbackUrl", "callback_url");
+        if (callbackUrl == null) {
+            log.warn("Garmin activity file ping did not include a callback URL");
+            return null;
+        }
+        try {
+            URI callback = URI.create(callbackUrl);
+            if (!isGarminHost(callback.getHost()) || !"https".equalsIgnoreCase(callback.getScheme())) {
+                log.warn("Rejected Garmin activity file callback with an unexpected host");
+                return null;
+            }
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    callback, HttpMethod.GET, HttpEntity.EMPTY, byte[].class);
+            byte[] body = response.getBody();
+            if (!response.getStatusCode().is2xxSuccessful() || body == null || body.length == 0) return null;
+            if (body.length > MAX_ACTIVITY_FILE_BYTES) {
+                log.warn("Rejected Garmin activity file larger than {} bytes", MAX_ACTIVITY_FILE_BYTES);
+                return null;
+            }
+            GarminRouteParser.RouteData route = routeParser.parseFile(body, firstString(file, "fileType", "file_type"));
+            if (!route.hasRoute()) return null;
+
+            Map<String, Object> activity = new LinkedHashMap<>(file);
+            if (firstString(activity, "activityId", "activity_id") == null) {
+                String summaryId = firstString(activity, "summaryId", "summary_id");
+                if (summaryId != null) activity.put("activityId", summaryId);
+            }
+            if (firstString(activity, "activityType", "activity_type", "sportType", "sport") == null) {
+                String activityName = firstString(activity, "activityName", "activity_name", "name");
+                if (activityName != null) activity.put("activityType", activityName);
+            }
+            activity.put("routePolyline", route.polyline());
+            activity.put("startLatitudeInDegree", route.startLat());
+            activity.put("startLongitudeInDegree", route.startLng());
+            return activity;
+        } catch (Exception e) {
+            // Callback URLs are one-time, short-lived Garmin URLs. A duplicate
+            // delivery can therefore legitimately return 410; do not expose
+            // the signed URL in logs or turn it into a failed webhook retry.
+            log.warn("Garmin activity file download/parse failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isGarminHost(String host) {
+        if (host == null) return false;
+        String normalized = host.toLowerCase();
+        return normalized.equals("garmin.com") || normalized.endsWith(".garmin.com")
+                || normalized.equals("garmin.cn") || normalized.endsWith(".garmin.cn");
     }
 
     private boolean saveActivity(User user, Map<String, Object> record) {
