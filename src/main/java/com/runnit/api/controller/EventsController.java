@@ -30,6 +30,7 @@ public class EventsController {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final com.runnit.api.service.RunSignupRequestGate runSignupGate;
+    private final com.runnit.api.service.ActiveRequestGate activeRequestGate;
 
     // ── RunSignup proxy ───────────────────────────────────────────────────
 
@@ -69,6 +70,53 @@ public class EventsController {
         }
     }
 
+    // ── ACTIVE Network proxy ──────────────────────────────────────────────
+
+    /**
+     * Returns a short-lived, normalized view of ACTIVE race listings. We keep
+     * the key on the server and intentionally do not cache or persist the
+     * provider payload. The route remains a no-op until ACTIVE_API_KEY exists.
+     */
+    @GetMapping("/active")
+    public ResponseEntity<?> getActiveEvents(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String zipcode,
+            @RequestParam(required = false) String state,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "50") int results_per_page) {
+        if (activeApiKey == null || activeApiKey.isBlank()) {
+            return ResponseEntity.status(503).body(Map.of("error", "ACTIVE Network is not configured"));
+        }
+
+        try {
+            int safePage = Math.max(1, page);
+            int safePageSize = Math.min(Math.max(1, results_per_page), 50);
+            UriComponentsBuilder builder = UriComponentsBuilder
+                    .fromHttpUrl("https://api.amp.active.com/v2/search")
+                    .queryParam("api_key", activeApiKey)
+                    .queryParam("category", "event")
+                    .queryParam("topic", "endurance")
+                    .queryParam("start_date", todayStr() + "..")
+                    .queryParam("exclude_children", "true")
+                    .queryParam("current_page", safePage)
+                    .queryParam("per_page", safePageSize)
+                    .queryParam("sort", "date_asc");
+            if (query != null && !query.isBlank()) builder.queryParam("query", query.trim());
+            if (zipcode != null && !zipcode.isBlank()) builder.queryParam("zip", zipcode.trim());
+            if (state != null && !state.isBlank()) builder.queryParam("state", state.trim());
+
+            String body = activeRequestGate.execute(() -> restTemplate
+                    .exchange(builder.toUriString(), HttpMethod.GET, HttpEntity.EMPTY, String.class)
+                    .getBody());
+            JsonNode root = objectMapper.readTree(body == null ? "{}" : body);
+            List<Map<String, Object>> events = normalizeActiveEvents(root.path("results"));
+            return ResponseEntity.ok(events);
+        } catch (Exception e) {
+            log.warn("ACTIVE event search failed: {}", e.getMessage());
+            return ResponseEntity.status(502).body(Map.of("error", "ACTIVE event data is temporarily unavailable"));
+        }
+    }
+
     // ── FindARace scrape proxy ────────────────────────────────────────────
 
     // Simple in-memory cache: hold scraped events for 1 hour
@@ -80,6 +128,119 @@ public class EventsController {
     @Value("${runsignup.api.secret:}") private String runSignupSecret;
     @Value("${runsignup.api.caller-token:}") private String runSignupCallerToken;
     @Value("${runsignup.api.caller-secret:}") private String runSignupCallerSecret;
+    @Value("${active.api.key:}") private String activeApiKey;
+
+    private List<Map<String, Object>> normalizeActiveEvents(JsonNode results) {
+        if (results == null || !results.isArray()) return List.of();
+        List<Map<String, Object>> events = new ArrayList<>();
+        for (JsonNode item : results) {
+            String name = text(item, "assetName");
+            if (name == null || name.isBlank()) continue;
+            String date = dateOnly(text(item, "activityStartDate"));
+            if (date.isBlank() || date.compareTo(todayStr()) < 0) continue;
+
+            String sport = activeSport(item, name);
+            String city = text(item.path("place"), "cityName");
+            String state = text(item.path("place"), "stateProvinceCode");
+            String url = firstNonBlank(
+                    text(item, "urlAdr"),
+                    text(item.path("assetLegacyData"), "seoUrl"),
+                    firstArrayText(item.path("assetSeoUrls"), "urlAdr"));
+            String registerUrl = firstNonBlank(text(item, "registrationUrlAdr"), url);
+            String image = firstNonBlank(
+                    text(item, "logoUrlAdr"),
+                    firstArrayText(item.path("assetImages"), "imageUrlAdr"));
+            String description = text(item.path("assetDescriptions").path(0), "description");
+
+            Map<String, Object> event = new LinkedHashMap<>();
+            event.put("id", "active_" + firstNonBlank(text(item, "assetGuid"), name + "_" + date));
+            event.put("provider", "ACTIVE");
+            event.put("name", name);
+            event.put("date", date);
+            event.put("sport", sport);
+            event.put("sportEmoji", sportEmoji(sport));
+            event.put("sportLabel", sportLabel(sport));
+            event.put("city", city == null ? "" : city);
+            event.put("state", state == null ? "" : state);
+            event.put("distances", extractDistances(name, sport));
+            event.put("summary", summary(description, name, city));
+            event.put("url", secureUrl(url));
+            event.put("registerUrl", secureUrl(registerUrl));
+            event.put("image", secureUrl(image));
+            events.add(event);
+        }
+        return events;
+    }
+
+    private String activeSport(JsonNode item, String name) {
+        StringBuilder source = new StringBuilder(name);
+        JsonNode topics = item.path("assetTopics");
+        if (topics.isArray()) for (JsonNode topic : topics) source.append(' ').append(text(topic.path("topic"), "topicName"));
+        String value = source.toString().toLowerCase(Locale.ROOT);
+        if (value.matches(".*(triathlon|ironman|aquabike|duathlon).*")) return "triathlon";
+        if (value.matches(".*(open water|swim|ocean swim|lake swim).*")) return "openwater";
+        if (value.matches(".*(gravel|mountain bike|cyclocross|gran fondo|century ride|cycling|bike race).*")) return "cycling";
+        if (value.matches(".*(trail|ultra|skyrace).*")) return "trail";
+        if (value.matches(".*(obstacle|spartan|tough mudder|mud run).*")) return "ocr";
+        return "running";
+    }
+
+    private String sportEmoji(String sport) {
+        return switch (sport) {
+            case "triathlon", "openwater" -> "🏊";
+            case "cycling" -> "🚴";
+            case "trail" -> "🏔️";
+            case "ocr" -> "🪖";
+            default -> "🏃";
+        };
+    }
+
+    private String sportLabel(String sport) {
+        return switch (sport) {
+            case "triathlon" -> "Triathlon";
+            case "openwater" -> "Open Water";
+            case "cycling" -> "Cycling";
+            case "trail" -> "Trail";
+            case "ocr" -> "OCR";
+            default -> "Running";
+        };
+    }
+
+    private String summary(String description, String name, String city) {
+        String clean = description == null ? "" : description.replaceAll("<[^>]+>", "").trim();
+        if (clean.length() > 140) clean = clean.substring(0, 140) + "…";
+        return clean.isBlank() ? name + " in " + (city == null || city.isBlank() ? "your area" : city) + "." : clean;
+    }
+
+    private String dateOnly(String value) {
+        return value == null ? "" : value.length() >= 10 ? value.substring(0, 10) : value;
+    }
+
+    private String firstArrayText(JsonNode values, String field) {
+        if (values == null || !values.isArray()) return "";
+        for (JsonNode value : values) {
+            String result = text(value, field);
+            if (result != null && !result.isBlank()) return result;
+        }
+        return "";
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) if (value != null && !value.isBlank()) return value;
+        return "";
+    }
+
+    private String secureUrl(String value) {
+        if (value == null || value.isBlank()) return "";
+        return value.startsWith("http://") ? "https://" + value.substring(7) : value;
+    }
+
+    private String text(JsonNode node, String field) {
+        if (node == null || node.isMissingNode() || node.isNull()) return "";
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) return "";
+        return value.isTextual() ? value.asText() : value.asText("");
+    }
 
     /** Pages to scrape on findarace.com, mapped to the sport label */
     private static final Map<String, String> FAR_PAGES = new LinkedHashMap<>();

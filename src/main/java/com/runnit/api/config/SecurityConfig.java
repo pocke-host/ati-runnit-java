@@ -48,6 +48,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/health",
                     "/api/events",
+                    "/api/events/active",
                     "/api/stats",
                     "/api/newsletter/**",
                     "/api/garmin/oauth/callback",
