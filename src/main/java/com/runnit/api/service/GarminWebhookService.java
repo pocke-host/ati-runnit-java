@@ -183,7 +183,13 @@ public class GarminWebhookService {
     }
 
     private Map<String, Object> activityFromFile(Map<String, Object> file) {
-        String callbackUrl = firstString(file, "callbackURL", "callbackUrl", "callback_url");
+        // Garmin has used both callbackURL and URL-style names across Activity
+        // API delivery shapes. Accept the provider's aliases, then keep the
+        // strict Garmin-host check below before downloading anything.
+        String callbackUrl = firstString(file,
+                "callbackURL", "callbackUrl", "callback_url",
+                "activityFileUrl", "activity_file_url", "fileUrl", "file_url",
+                "downloadUrl", "download_url", "url");
         if (callbackUrl == null) {
             log.warn("Garmin activity file ping did not include a callback URL");
             return null;

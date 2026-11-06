@@ -191,7 +191,9 @@ class GarminWebhookServiceTest {
         file.put("activityId", "file-1");
         file.put("activityName", "Morning Run");
         file.put("fileType", "GPX");
-        file.put("callbackURL", "https://apis.garmin.com/activity-file/file-1");
+        // Garmin delivery payloads may expose the signed file URL under
+        // callbackURL or fileUrl; both must produce the same route ingestion.
+        file.put("fileUrl", "https://apis.garmin.com/activity-file/file-1");
 
         assertEquals(1, service.processPayload(Map.of("activityFiles", List.of(file))));
         ArgumentCaptor<Activity> captor = ArgumentCaptor.forClass(Activity.class);
