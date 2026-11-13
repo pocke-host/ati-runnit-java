@@ -4,6 +4,7 @@ import com.runnit.api.model.WellnessDaily;
 import com.runnit.api.model.Activity;
 import com.runnit.api.repository.ActivityRepository;
 import com.runnit.api.repository.WellnessDailyRepository;
+import com.runnit.api.service.AthleteReadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -29,6 +32,7 @@ public class WellnessController {
 
     private final WellnessDailyRepository wellnessDailyRepository;
     private final ActivityRepository activityRepository;
+    private final AthleteReadService athleteReadService;
 
     /** GET /api/wellness/today — most recent day's recovery/sleep/strain snapshot */
     @GetMapping("/today")
@@ -45,6 +49,25 @@ public class WellnessController {
                 }
             }
             return ResponseEntity.ok(Map.of("available", false));
+        } catch (Exception e) {
+            log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * GET /api/wellness/read — evidence-backed plain-language coaching signals
+     * from the user's personal wellness, activity, and training-load history.
+     */
+    @GetMapping("/read")
+    public ResponseEntity<?> getAthleteRead(
+            @RequestParam(defaultValue = "UTC") String timezone,
+            Authentication auth) {
+        try {
+            Long userId = (Long) auth.getPrincipal();
+            ZoneId zone;
+            try { zone = ZoneId.of(timezone); } catch (DateTimeException ignored) { zone = ZoneId.of("UTC"); }
+            return ResponseEntity.ok(athleteReadService.compute(userId, zone));
         } catch (Exception e) {
             log.error("{} failed: {}", e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -143,13 +166,18 @@ public class WellnessController {
 
     private WellnessDaily preferredRow(List<WellnessDaily> rows) {
         return rows.stream()
-                .sorted(Comparator.comparingInt(row -> switch (row.getSource()) {
-                    case "WHOOP" -> 0;
-                    case "OURA" -> 1;
-                    case "GARMIN" -> 2;
-                    case "FITBIT" -> 3;
-                    default -> 4;
-                }))
+                // Prefer the freshest imported record when multiple devices
+                // report the same date. Provider priority only breaks ties.
+                .sorted(Comparator
+                        .comparing(WellnessDaily::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparingInt(row -> switch (row.getSource()) {
+                            case "WHOOP" -> 0;
+                            case "OURA" -> 1;
+                            case "GARMIN" -> 2;
+                            case "FITBIT" -> 3;
+                            case "APPLE_HEALTH" -> 4;
+                            default -> 5;
+                        }))
                 .findFirst()
                 .orElse(rows.get(0));
     }
