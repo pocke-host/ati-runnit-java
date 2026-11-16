@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.CannotCreateTransactionException;
 
 import java.util.List;
 import java.util.Map;
@@ -48,6 +50,13 @@ public class GlobalExceptionHandler {
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .collect(Collectors.toList());
         return ResponseEntity.badRequest().body(Map.of("error", "Validation failed", "details", details));
+    }
+
+    @ExceptionHandler({DataAccessException.class, CannotCreateTransactionException.class})
+    public ResponseEntity<Map<String, String>> handleDatabaseUnavailable(Exception ex) {
+        log.error("[database] request failed", ex);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("error", "RUNNIT is temporarily unable to reach its data service. Please try again shortly."));
     }
 
     @ExceptionHandler(Exception.class)

@@ -14,10 +14,13 @@ import org.springframework.http.HttpStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.runnit.api.monitoring.MonitoringService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/health")
 public class HealthController {
+    private static final Logger log = LoggerFactory.getLogger(HealthController.class);
     private final DataSource dataSource;
     private final MonitoringService monitoring;
     @Autowired
@@ -35,6 +38,7 @@ public class HealthController {
             ));
         } catch (Exception ex) {
             if (monitoring != null) monitoring.increment("database_connection_failures");
+            log.warn("[health] database connection unavailable: {}", ex.getClass().getSimpleName());
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("status", "DOWN", "service", "runnit-api", "database", "DOWN", "timestamp", Instant.now(), "requestId", request.getHeader("X-Request-Id") == null ? "" : request.getHeader("X-Request-Id")));
         }
     }
