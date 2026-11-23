@@ -34,7 +34,8 @@ aws:
   secret-access-key: ${AWS_SECRET_ACCESS_KEY}
 
 server:
-  port: 8080
+  # Render provides PORT at runtime; keep 8080 for local development.
+  port: ${PORT:8080}
 
 logging:
   level:
